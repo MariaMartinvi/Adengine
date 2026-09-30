@@ -9,6 +9,7 @@ Diseñado para varios negocios y varios canales. Hoy tiene el adaptador de Googl
 1. **Importa este repositorio** en Vercel (Add New → Project). Framework: Next.js. No despliegues todavía si te pide variables; añádelas primero.
 2. **Base de datos**: en el proyecto de Vercel → Storage → Create → Postgres (o Neon). Al conectarla, Vercel crea `DATABASE_URL` sola. Si usas Neon, copia la cadena `postgresql://…` como `DATABASE_URL`.
 3. **Variables de entorno** (Settings → Environment Variables), según `.env.example`:
+   - `ADMIN_USER` y `ADMIN_PASSWORD`: usuario y contraseña con los que entras en la app. Sin `ADMIN_PASSWORD` nadie puede entrar. Solo quedan abiertas las rutas que usan máquinas: el snippet (`/adengine.js`, `/api/track`), el webhook de Stripe y el cron.
    - `APP_URL`: la URL del proyecto, p. ej. `https://adengine.vercel.app` (sin barra final).
    - `ENCRYPTION_KEY`: ejecuta `openssl rand -hex 32` y pega el resultado.
    - `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`: del cliente OAuth «AdEngine» en Google Cloud.
