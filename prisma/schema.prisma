@@ -1,0 +1,145 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+
+// Conexión OAuth con Google Ads (una por cuenta de Google que autorice)
+model GoogleConnection {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  refreshTokenEnc String
+  createdAt       DateTime @default(now())
+}
+
+// La ficha: única entrada del motor. Todo lo demás se deriva de aquí.
+model Business {
+  id                 String      @id @default(cuid())
+  name               String
+  url                String
+  sells              String
+  audience           String
+  country            String      @default("ES")
+  language           String      @default("es")
+  currency           String      @default("EUR")
+  price              Float
+  marginPct          Float       @default(70)
+  saleEvent          String      @default("Primer pago")
+  cacCap             Float
+  maxCpc             Float       @default(0.7)
+  dailyBudget        Float       @default(10)
+  totalCap           Float       @default(300)
+  googleCustomerId   String?
+  conversionActionId String?
+  notes              String?
+  createdAt          DateTime    @default(now())
+  campaigns          Campaign[]
+  actions            ActionLog[]
+  sales              Sale[]
+}
+
+model Campaign {
+  id               String        @id @default(cuid())
+  businessId       String
+  business         Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  channel          String        @default("google")
+  name             String
+  status           String        @default("DRAFT")
+  dailyBudget      Float
+  totalCap         Float
+  googleCampaignId String?
+  googleBudgetId   String?
+  googleAdGroupId  String?
+  keywords         Keyword[]
+  ads              Ad[]
+  metrics          DailyMetric[]
+  proposals        Proposal[]
+  createdAt        DateTime      @default(now())
+}
+
+model Keyword {
+  id                String        @id @default(cuid())
+  campaignId        String
+  campaign          Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  text              String
+  matchType         String        @default("PHRASE")
+  maxCpc            Float
+  estCpcLow         Float?
+  estCpcHigh        Float?
+  volume            Int?
+  intent            String?
+  included          Boolean       @default(true)
+  status            String        @default("ENABLED")
+  googleCriterionId String?
+  metrics           DailyMetric[]
+}
+
+model Ad {
+  id           String   @id @default(cuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  headlines    Json
+  descriptions Json
+  finalUrl     String
+  googleAdId   String?
+}
+
+model DailyMetric {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  keywordId   String?
+  keyword     Keyword? @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  cost        Float    @default(0)
+  conversions Float    @default(0)
+  convValue   Float    @default(0)
+  @@unique([campaignId, keywordId, date])
+}
+
+// Cambios que la herramienta propone y que tú apruebas o descartas
+model Proposal {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kind       String
+  target     String
+  payload    Json
+  reason     String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+}
+
+// Todo lo que pasa, con motivo. auto = lo hizo la herramienta sola.
+model ActionLog {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  kind       String
+  detail     String
+  auto       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Visitor {
+  id        String   @id @default(cuid())
+  email     String?
+  gclid     String?
+  fbclid    String?
+  ttclid    String?
+  landing   String?
+  createdAt DateTime @default(now())
+  @@index([email])
+}
+
+model Sale {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  email      String
+  amount     Float
+  currency   String
+  gclid      String?
+  channel    String?
+  uploaded   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
