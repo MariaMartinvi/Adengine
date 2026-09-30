@@ -2,7 +2,7 @@
    Uso: <script src="https://TU-ADENGINE/adengine.js" data-endpoint="https://TU-ADENGINE/api/track"></script>
    Y al conocer el email (registro / checkout): window.adengine.identify("correo@ejemplo.com") */
 (function () {
-  var s = document.currentScript, ep = (s && s.getAttribute("data-endpoint")) || "/api/track";
+  var s = document.currentScript, ep = (s && s.getAttribute("data-endpoint")) || (s && s.src ? new URL("/api/track", s.src).href : "/api/track");
   var q = new URLSearchParams(location.search), keys = ["gclid", "fbclid", "ttclid"], found = false;
   keys.forEach(function (k) { var v = q.get(k); if (v) { try { localStorage.setItem("ae_" + k, v); } catch (e) {} found = true; } });
   function ids() { var o = {}; keys.forEach(function (k) { try { var v = localStorage.getItem("ae_" + k); if (v) o[k] = v; } catch (e) {} }); return o; }
