@@ -9,7 +9,7 @@
   function send(email) {
     var body = ids(); if (!Object.keys(body).length) return;
     if (email) body.email = email; body.landing = location.href;
-    try { navigator.sendBeacon ? navigator.sendBeacon(ep, new Blob([JSON.stringify(body)], { type: "application/json" })) : fetch(ep, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true }); } catch (e) {}
+    try { navigator.sendBeacon ? navigator.sendBeacon(ep, new Blob([JSON.stringify(body)], { type: "text/plain" })) : fetch(ep, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true }); } catch (e) {}
   }
   if (found) send();
   window.adengine = { identify: send, ids: ids };
