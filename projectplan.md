@@ -42,7 +42,7 @@ Sin cambios de código. Todo es configuración:
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
 - [x] Google Ads conectado; cuenta RankCoworker (9148745988) asignada; campaña creada y activada (01/10/2026)
-- Cambiar la contraseña de Neon (se pegó en el chat)
+- ~~Cambiar la contraseña de Neon~~ — descartado por María (01/10/2026)
 - [x] Next.js 14.2.15 → 14.2.35 (01/10/2026). Verificado en local: build OK, login 401/200, snippet y track 200, cabecera de bypass del middleware → 401 (también 401 en producción antes del cambio). Quedan avisos que solo se arreglan en Next 15.5+/16 (salto de versión mayor, tarea aparte); casi todos afectan a funciones que no usamos (next/image, Server Actions, rewrites)
 - Consent Mode en el banner de Rankcoworker (RGPD)
 - Cron: `0 6 * * *` es 08:00 solo en horario de verano
