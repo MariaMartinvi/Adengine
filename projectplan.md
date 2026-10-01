@@ -87,6 +87,13 @@ Sin cambios de código. Todo es configuración:
 - [x] Propuesta con varias imágenes (una URL por línea): un anuncio por imagen + vídeo opcional
 - [x] "Añadir portada" en una campaña de Meta ya creada: nuevo anuncio en el mismo conjunto, mismos textos y presupuesto (`createAd` reutilizado). Verificado en vivo con una campaña de prueba en pausa (se añadió la segunda imagen sin errores) y borrado después
 
+## 5. Amazon Ads (libros) · en espera de acceso a la API
+**Por qué:** es el único canal que mide la venta real del libro (ACOS). Objetivo de María: volumen sin perder dinero (coste por libro ≤ regalías).
+- [ ] 5.0 María: cuenta de Amazon Ads desde KDP (Marketing → Amazon Ads → Amazon.es)
+- [ ] 5.1 María: perfil de seguridad "AdEngine" en Login with Amazon (developer.amazon.com)
+- [ ] 5.2 María: solicitud de acceso a la Amazon Ads API como anunciante directo (incierto si se concede a cuentas de KDP)
+- [ ] 5.3 Si se aprueba: planificar el adaptador `src/lib/amazon/` (Sponsored Products: propuesta, creación en pausa, sincronización de ventas/ACOS, frenos). Mientras tanto: campaña automática manual en Amazon (3-5 €/día, puja ~0,30 €)
+
 ## Pendiente (después)
 - Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
