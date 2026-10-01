@@ -83,6 +83,10 @@ Sin cambios de código. Todo es configuración:
 - [x] 4.2 Reglas: campaña detenida al llegar al tope; anuncio pausado con gasto ≥ 2× CAC sin conversiones (`metaAdsToPause`, función pura). 6 casos de prueba OK
 - [x] 4.3 Tabla por anuncio (impresiones, clics, gasto, clics a compra, coste por clic a compra). Verificada en local con datos sembrados (sumas correctas, anuncio pausado atenuado); datos borrados
 
+### Varias portadas (01/10/2026)
+- [x] Propuesta con varias imágenes (una URL por línea): un anuncio por imagen + vídeo opcional
+- [x] "Añadir portada" en una campaña de Meta ya creada: nuevo anuncio en el mismo conjunto, mismos textos y presupuesto (`createAd` reutilizado). Verificado en vivo con una campaña de prueba en pausa (se añadió la segunda imagen sin errores) y borrado después
+
 ## Pendiente (después)
 - Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)

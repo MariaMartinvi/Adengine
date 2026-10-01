@@ -73,19 +73,23 @@ export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
     targeting: { geo_locations: { countries: [s.country] }, age_min: s.ageMin, age_max: s.ageMax, targeting_automation: { advantage_audience: 0 } },
   }, "POST")).id;
   const adIds: string[] = [];
-  for (const [i, ad] of s.ads.entries()) {
-    const cta = { type: "LEARN_MORE", value: { link: s.link } };
-    const story = ad.mediaType === "video"
-      ? { page_id: s.pageId, video_data: { video_id: ad.mediaRef, image_hash: s.thumbHash, message: ad.message, title: ad.headline, link_description: ad.description, call_to_action: cta } }
-      : { page_id: s.pageId, link_data: { link: s.link, message: ad.message, name: ad.headline, description: ad.description, image_hash: ad.mediaRef, call_to_action: cta } };
-    const creativeId = (await call(`/${a}/adcreatives`, { name: `${s.name} · ${ad.mediaType} ${i + 1}`, object_story_spec: story }, "POST")).id;
-    adIds.push((await call(`/${a}/ads`, { name: `${s.name} · ${ad.mediaType} ${i + 1}`, adset_id: adSetId, creative: { creative_id: creativeId }, status: "ACTIVE" }, "POST")).id);
-  }
+  for (const [i, ad] of s.ads.entries()) adIds.push(await createAd(adAccountId, adSetId, `${s.name} · ${ad.mediaType} ${i + 1}`, s, ad));
   return { campaignId, adSetId, adIds };
   } catch (e) {
     await call(`/${campaignId}`, {}, "DELETE").catch(() => {});
     throw e;
   }
+}
+
+// Un anuncio (creatividad + anuncio) dentro de un conjunto existente. Sirve al crear y para añadir portadas a una campaña viva.
+export async function createAd(adAccountId: string, adSetId: string, name: string, s: { pageId: string; link: string; thumbHash: string }, ad: MetaAdSpec) {
+  const a = act(adAccountId);
+  const cta = { type: "LEARN_MORE", value: { link: s.link } };
+  const story = ad.mediaType === "video"
+    ? { page_id: s.pageId, video_data: { video_id: ad.mediaRef, image_hash: s.thumbHash, message: ad.message, title: ad.headline, link_description: ad.description, call_to_action: cta } }
+    : { page_id: s.pageId, link_data: { link: s.link, message: ad.message, name: ad.headline, description: ad.description, image_hash: ad.mediaRef, call_to_action: cta } };
+  const creativeId = (await call(`/${a}/adcreatives`, { name, object_story_spec: story }, "POST")).id;
+  return (await call(`/${a}/ads`, { name, adset_id: adSetId, creative: { creative_id: creativeId }, status: "ACTIVE" }, "POST")).id as string;
 }
 
 export async function setCampaignStatus(campaignId: string, status: "ACTIVE" | "PAUSED") {

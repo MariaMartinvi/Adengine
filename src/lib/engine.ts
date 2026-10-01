@@ -87,22 +87,39 @@ export async function approveCampaign(campaignId: string) {
 
 // ---------- Meta (Facebook + Instagram) ----------
 // Propuesta: textos de la IA + imagen (y vídeo opcional) subidos a la biblioteca de la cuenta. No crea ni gasta nada.
-export async function proposeMetaCampaign(businessId: string, media: { imageUrl: string; videoUrl?: string }) {
+export async function proposeMetaCampaign(businessId: string, media: { imageUrls: string[]; videoUrl?: string }) {
   const b = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   const missing = [["cuenta de Meta", b.metaAdAccountId], ["píxel", b.metaPixelId], ["página de Facebook", b.metaPageId], ["anunciante", b.metaAdvertiser]].filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) throw new Error(`Completa en la ficha: ${missing.join(", ")}.`);
-  if (!media.imageUrl) throw new Error("Falta la imagen (también sirve de miniatura del vídeo).");
+  if (!media.imageUrls.length) throw new Error("Falta al menos una imagen (la primera también sirve de miniatura del vídeo).");
   const copy = await writeMetaAds(b);
-  const imageHash = await meta.uploadImage(b.metaAdAccountId!, media.imageUrl);
+  const hashes: string[] = [];
+  for (const url of media.imageUrls) hashes.push(await meta.uploadImage(b.metaAdAccountId!, url));
   const videoId = media.videoUrl ? await meta.uploadVideo(b.metaAdAccountId!, media.videoUrl, `${b.name} · vídeo`) : null;
   const ad = (mediaType: string, mediaUrl: string, mediaRef: string) => ({ mediaType, mediaUrl, mediaRef, finalUrl: b.url, headlines: [copy.headline], descriptions: [copy.message, copy.description] });
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT" } });
   const c = await db.campaign.create({ data: {
     businessId, channel: "meta", name: `${b.name} · Meta ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
-    ads: { create: [ad("image", media.imageUrl, imageHash), ...(videoId ? [ad("video", media.videoUrl!, videoId)] : [])] },
+    ads: { create: [...media.imageUrls.map((u, i) => ad("image", u, hashes[i])), ...(videoId ? [ad("video", media.videoUrl!, videoId)] : [])] },
   } });
-  await log(businessId, "PROPUESTA", `Meta: ${videoId ? "imagen + vídeo" : "imagen"}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
+  await log(businessId, "PROPUESTA", `Meta: ${media.imageUrls.length} imagen${media.imageUrls.length > 1 ? "es" : ""}${videoId ? " + vídeo" : ""}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
   return c.id;
+}
+
+// Añade una portada a una campaña de Meta ya creada: mismo conjunto (mismo presupuesto) y mismos textos.
+export async function addMetaImageAd(campaignId: string, imageUrl: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: { orderBy: { id: "asc" } } } });
+  const b = c.business;
+  if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se pueden añadir portadas a una campaña de Meta ya creada.");
+  if (!imageUrl) throw new Error("Falta la URL de la imagen.");
+  const base = c.ads.find((a) => a.mediaType === "image") || c.ads[0];
+  const [headline] = base.headlines as string[];
+  const [message, description] = base.descriptions as string[];
+  const hash = await meta.uploadImage(b.metaAdAccountId!, imageUrl);
+  const n = c.ads.length + 1;
+  const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · image ${n}`, { pageId: b.metaPageId!, link: b.url, thumbHash: hash }, { mediaType: "image", mediaRef: hash, message, headline, description });
+  await db.ad.create({ data: { campaignId: c.id, mediaType: "image", mediaUrl: imageUrl, mediaRef: hash, metaAdId, finalUrl: b.url, headlines: [headline], descriptions: [message, description] } });
+  await log(b.id, "ANUNCIO_AÑADIDO", `Nueva portada en Meta (anuncio ${n}): ${imageUrl}`);
 }
 
 // Aprobación: crea en Meta campaña EN PAUSA + conjunto con presupuesto total (freno nativo) + un anuncio por creatividad.

@@ -23,7 +23,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [cap, setCap] = useState(draft?.totalCap ?? b.totalCap);
   const isMetaDraft = draft?.channel === "meta";
   const [copy, setCopy] = useState({ message: draft?.ads[0]?.descriptions[0] || "", headline: draft?.ads[0]?.headlines[0] || "", description: draft?.ads[0]?.descriptions[1] || "" });
-  const [media, setMedia] = useState({ imageUrl: "", videoUrl: "" });
+  const [media, setMedia] = useState({ imageUrls: "", videoUrl: "" });
+  const [newCover, setNewCover] = useState("");
 
   async function api(path: string, body?: unknown, method = "POST") {
     setErr("");
@@ -35,6 +36,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   async function saveFicha() { setBusy("ficha"); await api(`/api/negocios/${b.id}`, b, "PATCH"); setBusy(""); r.refresh(); }
   async function propose() { setBusy("proponer"); await api(`/api/negocios/${b.id}/proponer`); setBusy(""); r.refresh(); }
   async function proposeMeta() { setBusy("meta"); await api(`/api/negocios/${b.id}/proponer`, { channel: "meta", ...media }); setBusy(""); r.refresh(); }
+  async function addCover() { setBusy("portada"); const j = await api(`/api/campanas/${live!.id}/anuncios`, { imageUrl: newCover }); setBusy(""); if (j) { setNewCover(""); r.refresh(); } }
   async function approve() {
     setBusy("aprobar");
     const j = await api(`/api/negocios/${b.id}/aprobar`, { campaignId: draft!.id, dailyBudget: budget, totalCap: cap, ...copy, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType })) });
@@ -101,9 +103,9 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
       </div>
       {!live && b.metaAdAccountId && (
         <div className="row" style={{ marginTop: 10 }}>
-          <label className="field">Imagen (URL)<input value={media.imageUrl} onChange={(e) => setMedia({ ...media, imageUrl: e.target.value.trim() })} placeholder="https://…/portada.jpg" style={{ width: 300 }} /></label>
+          <label className="field">Imágenes (URLs, una por línea)<textarea rows={3} value={media.imageUrls} onChange={(e) => setMedia({ ...media, imageUrls: e.target.value })} placeholder={"https://…/portada.jpg\nhttps://…/portada-2.jpg"} style={{ width: 300 }} /></label>
           <label className="field">Vídeo (URL, opcional)<input value={media.videoUrl} onChange={(e) => setMedia({ ...media, videoUrl: e.target.value.trim() })} placeholder="https://…/trailer.mp4" style={{ width: 300 }} /></label>
-          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrl}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : isMetaDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
+          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim()}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : isMetaDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
         </div>
       )}
       {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
@@ -205,6 +207,13 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             </div>
           )}
           {live.channel === "meta" && (
+            <div className="row" style={{ marginBottom: 12 }}>
+              <label className="field">Añadir portada (URL de imagen)<input value={newCover} onChange={(e) => setNewCover(e.target.value.trim())} placeholder="https://…/portada-2.jpg" style={{ width: 340 }} /></label>
+              <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={addCover} disabled={!!busy || !newCover}>{busy === "portada" ? "Subiendo a Meta…" : "Añadir portada"}</button>
+              <span className="small" style={{ alignSelf: "end" }}>Mismos textos y mismo presupuesto; Meta reparte entre todas.</span>
+            </div>
+          )}
+          {live.channel === "meta" && (
             <div className="tablewrap">
               <table>
                 <thead><tr><th>Anuncio</th><th>Estado</th><th className="num">Impr.</th><th className="num">Clics</th><th className="num">Gasto</th><th className="num">Clics a compra</th><th className="num">Coste/clic a compra</th></tr></thead>
@@ -215,7 +224,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                     const cpa = conv ? cost / conv : null;
                     return (
                       <tr key={a.id} style={{ opacity: a.status === "PAUSED" ? .5 : 1 }}>
-                        <td>{a.mediaType === "video" ? "Vídeo" : "Imagen"}</td>
+                        <td>{a.mediaType === "video" ? "Vídeo" : <a href={a.mediaUrl} target="_blank" rel="noreferrer">Imagen {live.ads.filter((x) => x.mediaType === "image").indexOf(a) + 1}</a>}</td>
                         <td><span className={`status ${a.status}`}>{a.status === "ENABLED" ? "activo" : "pausado"}</span></td>
                         <td className="num">{sum(m, "impressions")}</td>
                         <td className="num">{sum(m, "clicks")}</td>
