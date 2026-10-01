@@ -107,7 +107,7 @@ Sin cambios de código. Todo es configuración:
 
 ### Fase 0 · Preparación (María, sin código)
 - [x] 0.1 Business Center "Comartinvi_bc_o7vloy" (7691699034276380693); cuenta de ChatSalsa: **Chatsalsa_qwt3d7** (7691700167782842420), en revisión por TikTok (01/10/2026). Hay otras cuentas creadas por error (Chatsalsa, Comartinvi, Comartinvi_adv): se ignoran
-- [ ] 0.2 Cuenta de desarrollador en business-api.tiktok.com → app "AdEngine" con permisos de cuentas, anuncios, informes y píxel; URL de retorno `https://adengine-omega.vercel.app/api/tiktok/callback` → enviar a revisión
+- [x] 0.2 María es desarrolladora en business-api.tiktok.com; app "AdEngine" enviada a revisión (01/10/2026) con permisos de cuentas, anuncios, informes, píxel, creatividades y Measurement; retorno `https://adengine-omega.vercel.app/api/tiktok/callback`. **Pendiente de aprobación**: el App ID y el Secret aparecerán al aprobarla
 - [ ] 0.3 Píxel de TikTok del primer negocio
 - [x] 0.4 Primer negocio en TikTok: **ChatSalsa** (ya tiene GTM GTM-P4PTW3CH; el píxel se pone por GTM) — decidido 01/10/2026
 
