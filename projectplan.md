@@ -91,7 +91,7 @@ Sin cambios de código. Todo es configuración:
 **Por qué:** es el único canal que mide la venta real del libro (ACOS). Objetivo de María: volumen sin perder dinero (coste por libro ≤ regalías).
 - [ ] 5.0 María: cuenta de Amazon Ads desde KDP (Marketing → Amazon Ads → Amazon.es)
 - [ ] 5.1 María: perfil de seguridad "AdEngine" en Login with Amazon (developer.amazon.com)
-- [ ] 5.2 María: solicitud de acceso a la Amazon Ads API como anunciante directo (incierto si se concede a cuentas de KDP)
+- [x] 5.2 María: solicitud de acceso a la Amazon Ads API enviada (01/10/2026). Esperando respuesta de Amazon (puede tardar semanas; incierto si se concede a cuentas de KDP)
 - [ ] 5.3 **No construir nada todavía** (decisión de María, 01/10/2026): solo se pide el acceso para no esperar semanas después. El adaptador se decide más adelante, con los resultados de Meta
 
 ## Pendiente (después)
