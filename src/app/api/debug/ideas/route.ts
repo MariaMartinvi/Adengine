@@ -13,7 +13,8 @@ export async function GET(req: Request) {
   // ?customer=XXXXXXXXXX prueba la consulta desde otra cuenta del MCC; ?list=1 lista las cuentas del MCC
   if (q.get("list")) return NextResponse.json(await listAccessibleCustomers());
   const customer = (q.get("customer") || b.googleCustomerId || "").replace(/-/g, "");
-  const seeds = (b.notes?.match(/Semillas: (.*)$/m)?.[1] || "").split(",").map((s) => s.trim()).filter(Boolean);
+  // ?seeds=a,b,c sustituye las semillas de la ficha
+  const seeds = (q.get("seeds") || b.notes?.match(/Semillas: (.*)$/m)?.[1] || "").split(",").map((s) => s.trim()).filter(Boolean);
   const body = {
     language: `languageConstants/${LANG[b.language] || LANG.es}`,
     geoTargetConstants: [`geoTargetConstants/${GEO[b.country] || GEO.ES}`],
