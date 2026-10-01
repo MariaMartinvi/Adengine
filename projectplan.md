@@ -34,8 +34,8 @@ Sin cambios de código. Todo es configuración:
 - [x] 3.1 Webhook creado por API (we_1ULg7fFJyDU54kF6EjE9o2ti, live, 01/10/2026):
   - URL: `https://adengine-omega.vercel.app/api/webhooks/stripe?negocio=cmunxjfi2000010sgyys2f42a`
   - Eventos: solo `checkout.session.completed` (los otros duplicarían la venta)
-- [ ] 3.2 Copiar el *Signing secret* (`whsec_…`) → Vercel `STRIPE_WEBHOOK_SECRET` → Redeploy
-- [ ] 3.3 Verificar: en Stripe, "Send test event" (`checkout.session.completed`) → Stripe muestra respuesta 200 y en AdEngine aparece una línea `VENTA` en el historial del negocio (canal `organic`, porque el email de prueba no tiene gclid)
+- [x] 3.2 Copiar el *Signing secret* (`whsec_…`) → Vercel `STRIPE_WEBHOOK_SECRET` → Redeploy
+- [x] 3.3 Verificado (01/10/2026): evento `checkout.session.completed` firmado con el secret → 200 `{"ok":true}`; se registró la venta (6 EUR, canal `organic`, sin subir porque el email no tenía gclid) y la línea `VENTA` del historial. Filas de prueba borradas después
 
 ## Pendiente (después)
 - Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta
