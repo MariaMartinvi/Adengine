@@ -60,9 +60,11 @@ Sin cambios de código. Todo es configuración:
 - [x] 0.5 Código: github.com/evavillaro/equipotierra-web (Astro, Render despliega `main`). María es colaboradora
 
 ### Fase 1 · Medición en equipotierra.com
-- [x] 1.1 Píxel en todas las páginas, **sin banner de cookies** (decisión de María, 01/10/2026; el código del banner se escribió y se descartó). Privacidad actualizada. Rama `pixel-meta` (a72e888), pendiente de fusionar a `main`
+- [x] 1.1 Píxel en todas las páginas, **sin banner de cookies** (decisión de María, 01/10/2026; el código del banner se escribió y se descartó). Privacidad actualizada. Fusionado a `main` (PR #1) y publicado en Render
 - [x] 1.2 `InitiateCheckout` en los enlaces `/dp/` de Amazon (Kindle/Papel; la reseña y la página de autora no cuentan). Verificado con la versión compilada servida bajo el dominio real: llegan `PageView` e `InitiateCheckout` al píxel. Ojo: Meta ignora navegadores automáticos y `localhost`
-- [ ] 1.3 Tras publicar: comprobar en "Probar eventos" del Administrador de eventos con una visita real
+- [x] 1.3 Verificado en la web real (01/10/2026): una visita envía `PageView` y el botón Kindle envía `InitiateCheckout` y abre Amazon
+
+**Creatividades elegidas:** portada (`/img/portada.jpg`, 900×1391) y tráiler (`/video/trailer.mp4`, 32 s). Un conjunto de anuncios con dos anuncios (imagen y vídeo) y los mismos textos; AdEngine los coge de equipotierra.com y los sube a Meta
 
 ### Fase 2 · AdEngine: datos y acceso a Meta
 - [x] 2.1 Campos nuevos en `Business` (`metaAdAccountId`, `metaPixelId`), `Campaign` (`metaCampaignId`, `metaAdSetId`) y `Ad` (`metaAdId`). SQL revisado antes: solo `ADD COLUMN`. Aplicado; datos existentes intactos (1 negocio, 1 campaña activa, 12 palabras)
