@@ -52,7 +52,7 @@ Sin cambios de código. Todo es configuración:
 **Suposiciones (confirmar):** España, español; público adultos 25-55 (padres/docentes); 5 €/día, 100 € tope; conversión = clic en el botón de Amazon.
 
 ### Fase 0 · Preparación (María, sin código)
-- [ ] 0.1 Cuenta publicitaria "Equipo Tierra" dentro del Business Manager, con método de pago
+- [x] 0.1 Porfolio renombrado a "Comartinvi"; cuenta publicitaria "Equipo Tierra" creada (EUR, Europe/Madrid) con método de pago
 - [ ] 0.2 Píxel (dataset) "Equipo Tierra" en Administrador de eventos
 - [ ] 0.3 App de Meta para desarrolladores (tipo Business) con Marketing API
 - [ ] 0.4 Usuario del sistema con acceso a la cuenta y al píxel → token con `ads_management` y `business_management` → Vercel `META_ACCESS_TOKEN`
