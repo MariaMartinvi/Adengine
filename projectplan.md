@@ -53,7 +53,7 @@ Sin cambios de código. Todo es configuración:
 
 ### Fase 0 · Preparación (María, sin código)
 - [x] 0.1 Porfolio renombrado a "Comartinvi"; cuenta publicitaria "Equipo Tierra" creada (EUR, Europe/Madrid) con método de pago
-- [ ] 0.2 Píxel (dataset) "Equipo Tierra" en Administrador de eventos
+- [x] 0.2 Píxel "Equipo Tierra" creado: 1431144915623956, conectado a la cuenta publicitaria
 - [ ] 0.3 App de Meta para desarrolladores (tipo Business) con Marketing API
 - [ ] 0.4 Usuario del sistema con acceso a la cuenta y al píxel → token con `ads_management` y `business_management` → Vercel `META_ACCESS_TOKEN`
 - [ ] 0.5 Decir dónde está el código de equipotierra.com (o acceso para editarla) → verificar: sé cómo añadir el píxel
