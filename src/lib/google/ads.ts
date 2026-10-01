@@ -30,7 +30,7 @@ async function call(path: string, body: unknown, cid?: string) {
 }
 
 export async function search(cid: string, query: string): Promise<any[]> {
-  const j = await call(`/customers/${cid}/googleAds:search`, { query, pageSize: 10000 });
+  const j = await call(`/customers/${cid}/googleAds:search`, { query });
   return j.results || [];
 }
 
