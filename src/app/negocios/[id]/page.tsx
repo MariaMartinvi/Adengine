@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { listAccessibleCustomers } from "@/lib/google/ads";
+import { listAdAccounts, listPixels } from "@/lib/meta/ads";
 import BusinessPanel from "@/components/BusinessPanel";
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ export default async function Page({ params }: { params: { id: string } }) {
   if (!b) notFound();
   let accounts: { id: string; name: string }[] = [];
   try { accounts = await listAccessibleCustomers(); } catch { /* sin conexión aún */ }
+  let metaAccounts: { id: string; name: string }[] = [], metaPixels: { id: string; name: string }[] = [];
+  try { metaAccounts = await listAdAccounts(); if (b.metaAdAccountId) metaPixels = await listPixels(b.metaAdAccountId); } catch { /* sin token de Meta aún */ }
   // key: al cambiar la campaña (nueva propuesta) se remonta el panel y descarta el estado antiguo
-  return <BusinessPanel key={b.campaigns[0]?.id ?? b.id} data={JSON.parse(JSON.stringify(b))} accounts={accounts} />;
+  return <BusinessPanel key={b.campaigns[0]?.id ?? b.id} data={JSON.parse(JSON.stringify(b))} accounts={accounts} metaAccounts={metaAccounts} metaPixels={metaPixels} />;
 }

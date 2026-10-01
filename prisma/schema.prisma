@@ -34,6 +34,8 @@ model Business {
   totalCap           Float       @default(300)
   googleCustomerId   String?
   conversionActionId String?
+  metaAdAccountId    String?
+  metaPixelId        String?
   notes              String?
   createdAt          DateTime    @default(now())
   campaigns          Campaign[]
@@ -53,6 +55,8 @@ model Campaign {
   googleCampaignId String?
   googleBudgetId   String?
   googleAdGroupId  String?
+  metaCampaignId   String?
+  metaAdSetId      String?
   keywords         Keyword[]
   ads              Ad[]
   metrics          DailyMetric[]
@@ -85,6 +89,7 @@ model Ad {
   descriptions Json
   finalUrl     String
   googleAdId   String?
+  metaAdId     String?
 }
 
 model DailyMetric {

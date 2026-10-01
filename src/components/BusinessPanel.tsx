@@ -6,12 +6,13 @@ type Metric = { date: string; cost: number; clicks: number; conversions: number;
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { headlines: string[]; descriptions: string[] }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; notes?: string; campaigns: Campaign[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; notes?: string; campaigns: Campaign[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
 
-export default function BusinessPanel({ data, accounts }: { data: Business; accounts: { id: string; name: string }[] }) {
+type Option = { id: string; name: string };
+export default function BusinessPanel({ data, accounts, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; metaAccounts?: Option[]; metaPixels?: Option[] }) {
   const r = useRouter();
   const [b, setB] = useState(data);
   const [busy, setBusy] = useState(""); const [err, setErr] = useState("");
@@ -69,6 +70,22 @@ export default function BusinessPanel({ data, accounts }: { data: Business; acco
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.id}</option>)}
             </select>
           ) : <input value={b.googleCustomerId || ""} onChange={(e) => set("googleCustomerId", e.target.value)} placeholder="9148745988" />}
+        </label>
+        <label className="field">Cuenta de Meta
+          {metaAccounts.length ? (
+            <select value={b.metaAdAccountId || ""} onChange={(e) => setB({ ...b, metaAdAccountId: e.target.value, metaPixelId: "" })}>
+              <option value="">Sin Meta</option>
+              {metaAccounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.id}</option>)}
+            </select>
+          ) : <input value={b.metaAdAccountId || ""} onChange={(e) => set("metaAdAccountId", e.target.value)} placeholder="2190420808485726" />}
+        </label>
+        <label className="field">Píxel de Meta
+          {metaPixels.length && b.metaAdAccountId === data.metaAdAccountId ? (
+            <select value={b.metaPixelId || ""} onChange={(e) => set("metaPixelId", e.target.value)}>
+              <option value="">Elegir…</option>
+              {metaPixels.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
+            </select>
+          ) : <input value={b.metaPixelId || ""} onChange={(e) => set("metaPixelId", e.target.value)} placeholder={b.metaAdAccountId ? "Guarda la ficha para elegirlo" : "1431144915623956"} />}
         </label>
       </div>
       <div className="row" style={{ marginTop: 14 }}>

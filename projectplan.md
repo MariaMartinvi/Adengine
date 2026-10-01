@@ -64,9 +64,9 @@ Sin cambios de código. Todo es configuración:
 - [ ] 1.2 Evento `InitiateCheckout` al pulsar cualquier enlace a Amazon (ebook y papel) → verificar: aparece en "Probar eventos" del Administrador de eventos
 
 ### Fase 2 · AdEngine: datos y acceso a Meta
-- [ ] 2.1 Campos nuevos en `Business` (`metaAdAccountId`, `metaPixelId`) y en `Campaign`/`Ad` para ids de Meta; `prisma db push` aditivo → verificar: build OK, datos existentes intactos
-- [ ] 2.2 `src/lib/meta/ads.ts`: cliente mínimo de la Marketing API (leer cuenta) → verificar: con el token lee nombre y moneda de la cuenta
-- [ ] 2.3 Selector de canal y campos de Meta en la ficha → verificar: se guardan y se recargan
+- [x] 2.1 Campos nuevos en `Business` (`metaAdAccountId`, `metaPixelId`), `Campaign` (`metaCampaignId`, `metaAdSetId`) y `Ad` (`metaAdId`). SQL revisado antes: solo `ADD COLUMN`. Aplicado; datos existentes intactos (1 negocio, 1 campaña activa, 12 palabras)
+- [x] 2.2 `src/lib/meta/ads.ts` (v26.0): `listAdAccounts`, `listPixels`. Verificado en vivo: lee Equipo Tierra (EUR) y su píxel; sin token → "Falta META_ACCESS_TOKEN"; token malo → error de Meta legible
+- [x] 2.3 Desplegables "Cuenta de Meta" y "Píxel de Meta" en la ficha (input de respaldo sin token). Verificado con navegador en local sobre un negocio de prueba (borrado después): elegir cuenta → guardar → aparece el píxel → elegir → guardar → al recargar persisten ambos; 0 errores de consola
 
 ### Fase 3 · Propuesta y creación en pausa
 - [ ] 3.1 IA: textos de Meta (texto principal, titular, descripción) a partir de la ficha → verificar: test con una ficha de ejemplo, límites de caracteres respetados
