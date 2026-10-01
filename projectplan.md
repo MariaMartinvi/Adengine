@@ -94,6 +94,38 @@ Sin cambios de código. Todo es configuración:
 - [x] 5.2 María: solicitud de acceso a la Amazon Ads API enviada (01/10/2026). Esperando respuesta de Amazon (puede tardar semanas; incierto si se concede a cuentas de KDP)
 - [ ] 5.3 **No construir nada todavía** (decisión de María, 01/10/2026): solo se pide el acceso para no esperar semanas después. El adaptador se decide más adelante, con los resultados de Meta
 
+## 6. TikTok Ads · canal universal de AdEngine
+
+**Objetivo:** mismo ciclo que Google y Meta (ficha → propuesta → apruebas → se crea en pausa → activas → sincronización diaria con frenos), para cualquier negocio. TikTok es solo vídeo.
+
+**Diseño (igual que Meta):**
+- **Acceso:** app de desarrollador de TikTok for Business (Marketing API). TikTok tiene que aprobarla; mientras, se puede programar contra su *sandbox*. Conexión por OAuth una vez (token de larga duración, cifrado en la base de datos como el de Google).
+- **Por negocio:** `tiktokAdvertiserId` (cuenta publicitaria) y `tiktokPixelId`. Una cuenta publicitaria por producto dentro del Business Center "Comartinvi".
+- **Freno nativo:** presupuesto total del grupo de anuncios con fecha de fin (como en Meta). Más el de AdEngine: pausa el anuncio que gaste 2× CAC sin conversiones.
+- **Público:** adultos (TikTok no permite anuncios a menores en la UE).
+- **Medición:** píxel de TikTok en la web de cada negocio (por GTM donde ya hay GTM; por código en equipotierra.com) con el mismo evento de conversión que use ese negocio.
+
+### Fase 0 · Preparación (María, sin código)
+- [ ] 0.1 TikTok Business Center "Comartinvi" + cuenta publicitaria del primer negocio, con método de pago
+- [ ] 0.2 Cuenta de desarrollador en business-api.tiktok.com → app "AdEngine" con permisos de cuentas, anuncios, informes y píxel; URL de retorno `https://adengine-omega.vercel.app/api/tiktok/callback` → enviar a revisión
+- [ ] 0.3 Píxel de TikTok del primer negocio
+- [ ] 0.4 Decidir el primer negocio en TikTok
+
+### Fase 1 · Conexión
+- [ ] 1.1 `src/lib/tiktok/ads.ts` (cliente mínimo) + OAuth (`/api/tiktok/auth`, `/api/tiktok/callback`), token cifrado → verificar: lista las cuentas publicitarias
+- [ ] 1.2 Campos de TikTok en la ficha (cuenta y píxel en desplegables) → verificar: se guardan y se recargan
+
+### Fase 2 · Propuesta y creación en pausa
+- [ ] 2.1 IA: texto de anuncio para TikTok (corto) → verificar: límites respetados
+- [ ] 2.2 Subir vídeo(s) por URL → verificar: TikTok devuelve el id del vídeo
+- [ ] 2.3 Crear campaña + grupo (presupuesto total, fecha de fin, adultos, optimización al evento del píxel) + anuncios EN PAUSA; si falla a medias, se borra → verificar: aparece en pausa con esos ajustes; prueba de fallo no deja restos
+- [ ] 2.4 Activar/pausar desde AdEngine
+
+### Fase 3 · Sincronización y frenos
+- [ ] 3.1 Métricas por anuncio y día en el cron → verificar: coinciden con TikTok Ads Manager
+- [ ] 3.2 Reglas (tope total, 2× CAC sin conversiones) con pruebas
+- [ ] 3.3 Tabla por anuncio en el panel
+
 ## Pendiente (después)
 - Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
