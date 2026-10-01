@@ -5,6 +5,7 @@ import { GEO, LANG, listAccessibleCustomers } from "@/lib/google/ads";
 // TEMPORAL: muestra la respuesta en bruto de generateKeywordIdeas para diagnosticar métricas a 0. Borrar tras el diagnóstico.
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
+  try {
   const q = new URL(req.url).searchParams;
   const id = q.get("negocio");
   if (!id) return NextResponse.json({ error: "Falta ?negocio=" }, { status: 400 });
@@ -37,4 +38,5 @@ export async function GET(req: Request) {
     seeds, total: results.length, conMetricas: results.filter((x: any) => x.keywordIdeaMetrics?.avgMonthlySearches).length,
     primeros: results.slice(0, 5), error: j.error,
   });
+  } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 500 }); }
 }
