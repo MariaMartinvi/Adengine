@@ -57,11 +57,12 @@ Sin cambios de código. Todo es configuración:
 - [x] 0.3 App de Meta "AdEngine" creada en el porfolio Comartinvi con el caso de uso "API de marketing"
 - [x] 0.4 Usuario del sistema "AdEngine" con acceso total a la cuenta, al píxel y a la app; token sin caducidad con `ads_management`, `ads_read`, `business_management`. Verificado (01/10/2026): lee la cuenta `act_2190420808485726` (Equipo Tierra, EUR, Europe/Madrid, activa) y el píxel `1431144915623956`. **La Ads API exige v26.0** (las versiones antiguas dan error 2635)
 - [ ] 0.4b María pone el token en Vercel como `META_ACCESS_TOKEN`
-- [ ] 0.5 Decir dónde está el código de equipotierra.com (o acceso para editarla) → verificar: sé cómo añadir el píxel
+- [x] 0.5 Código: github.com/evavillaro/equipotierra-web (Astro, Render despliega `main`). María es colaboradora
 
 ### Fase 1 · Medición en equipotierra.com
-- [ ] 1.1 Píxel base en todas las páginas → verificar: "Meta Pixel Helper" detecta `PageView`
-- [ ] 1.2 Evento `InitiateCheckout` al pulsar cualquier enlace a Amazon (ebook y papel) → verificar: aparece en "Probar eventos" del Administrador de eventos
+- [x] 1.1 Píxel en todas las páginas, **sin banner de cookies** (decisión de María, 01/10/2026; el código del banner se escribió y se descartó). Privacidad actualizada. Rama `pixel-meta` (a72e888), pendiente de fusionar a `main`
+- [x] 1.2 `InitiateCheckout` en los enlaces `/dp/` de Amazon (Kindle/Papel; la reseña y la página de autora no cuentan). Verificado con la versión compilada servida bajo el dominio real: llegan `PageView` e `InitiateCheckout` al píxel. Ojo: Meta ignora navegadores automáticos y `localhost`
+- [ ] 1.3 Tras publicar: comprobar en "Probar eventos" del Administrador de eventos con una visita real
 
 ### Fase 2 · AdEngine: datos y acceso a Meta
 - [x] 2.1 Campos nuevos en `Business` (`metaAdAccountId`, `metaPixelId`), `Campaign` (`metaCampaignId`, `metaAdSetId`) y `Ad` (`metaAdId`). SQL revisado antes: solo `ADD COLUMN`. Aplicado; datos existentes intactos (1 negocio, 1 campaña activa, 12 palabras)
