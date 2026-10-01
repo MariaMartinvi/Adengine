@@ -109,7 +109,7 @@ Sin cambios de código. Todo es configuración:
 - [ ] 0.1 TikTok Business Center "Comartinvi" + cuenta publicitaria del primer negocio, con método de pago
 - [ ] 0.2 Cuenta de desarrollador en business-api.tiktok.com → app "AdEngine" con permisos de cuentas, anuncios, informes y píxel; URL de retorno `https://adengine-omega.vercel.app/api/tiktok/callback` → enviar a revisión
 - [ ] 0.3 Píxel de TikTok del primer negocio
-- [ ] 0.4 Decidir el primer negocio en TikTok
+- [x] 0.4 Primer negocio en TikTok: **ChatSalsa** (ya tiene GTM GTM-P4PTW3CH; el píxel se pone por GTM) — decidido 01/10/2026
 
 ### Fase 1 · Conexión
 - [ ] 1.1 `src/lib/tiktok/ads.ts` (cliente mínimo) + OAuth (`/api/tiktok/auth`, `/api/tiktok/callback`), token cifrado → verificar: lista las cuentas publicitarias
