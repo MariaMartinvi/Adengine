@@ -16,13 +16,18 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const r = useRouter();
   const [b, setB] = useState(data);
   const [busy, setBusy] = useState(""); const [err, setErr] = useState("");
-  const draft = data.campaigns.find((c) => c.status === "DRAFT");
-  const live = data.campaigns.find((c) => c.status !== "DRAFT");
-  const [kws, setKws] = useState<Keyword[]>(draft?.keywords || []);
-  const [budget, setBudget] = useState(draft?.dailyBudget ?? b.dailyBudget);
-  const [cap, setCap] = useState(draft?.totalCap ?? b.totalCap);
-  const isMetaDraft = draft?.channel === "meta";
-  const [copy, setCopy] = useState({ message: draft?.ads[0]?.descriptions[0] || "", headline: draft?.ads[0]?.headlines[0] || "", description: draft?.ads[0]?.descriptions[1] || "" });
+  // Una campaña por canal: propuesta (DRAFT) y campaña viva de Google y de Meta, independientes.
+  const isMeta = (c: Campaign) => c.channel === "meta";
+  const gDraft = data.campaigns.find((c) => c.status === "DRAFT" && !isMeta(c));
+  const mDraft = data.campaigns.find((c) => c.status === "DRAFT" && isMeta(c));
+  const gLive = data.campaigns.find((c) => c.status !== "DRAFT" && !isMeta(c));
+  const mLive = data.campaigns.find((c) => c.status !== "DRAFT" && isMeta(c));
+  const [kws, setKws] = useState<Keyword[]>(gDraft?.keywords || []);
+  const [budget, setBudget] = useState(gDraft?.dailyBudget ?? b.dailyBudget);
+  const [cap, setCap] = useState(gDraft?.totalCap ?? b.totalCap);
+  const [mBudget, setMBudget] = useState(mDraft?.dailyBudget ?? b.dailyBudget);
+  const [mCap, setMCap] = useState(mDraft?.totalCap ?? b.totalCap);
+  const [copy, setCopy] = useState({ message: mDraft?.ads[0]?.descriptions[0] || "", headline: mDraft?.ads[0]?.headlines[0] || "", description: mDraft?.ads[0]?.descriptions[1] || "" });
   const [media, setMedia] = useState({ imageUrls: "", videoUrl: "" });
   const [newCover, setNewCover] = useState("");
 
@@ -36,13 +41,16 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   async function saveFicha() { setBusy("ficha"); await api(`/api/negocios/${b.id}`, b, "PATCH"); setBusy(""); r.refresh(); }
   async function propose() { setBusy("proponer"); await api(`/api/negocios/${b.id}/proponer`); setBusy(""); r.refresh(); }
   async function proposeMeta() { setBusy("meta"); await api(`/api/negocios/${b.id}/proponer`, { channel: "meta", ...media }); setBusy(""); r.refresh(); }
-  async function addCover() { setBusy("portada"); const j = await api(`/api/campanas/${live!.id}/anuncios`, { imageUrl: newCover }); setBusy(""); if (j) { setNewCover(""); r.refresh(); } }
-  async function approve() {
+  async function addCover() { setBusy("portada"); const j = await api(`/api/campanas/${mLive!.id}/anuncios`, { imageUrl: newCover }); setBusy(""); if (j) { setNewCover(""); r.refresh(); } }
+  async function approve(d: Campaign) {
     setBusy("aprobar");
-    const j = await api(`/api/negocios/${b.id}/aprobar`, { campaignId: draft!.id, dailyBudget: budget, totalCap: cap, ...copy, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType })) });
+    const body = isMeta(d)
+      ? { campaignId: d.id, dailyBudget: mBudget, totalCap: mCap, ...copy, keywords: [] }
+      : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType })) };
+    const j = await api(`/api/negocios/${b.id}/aprobar`, body);
     setBusy(""); if (j) r.refresh();
   }
-  async function status(s: string) { setBusy(s); await api(`/api/campanas/${live!.id}/estado`, { status: s }); setBusy(""); r.refresh(); }
+  async function status(c: Campaign, s: string) { setBusy(s); await api(`/api/campanas/${c.id}/estado`, { status: s }); setBusy(""); r.refresh(); }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
   const inc = kws.filter((k) => k.included);
@@ -98,26 +106,26 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
       </div>
       <div className="row" style={{ marginTop: 14 }}>
         <button onClick={saveFicha} disabled={!!busy}>{busy === "ficha" ? "Guardando…" : "Guardar ficha"}</button>
-        {!live && b.googleCustomerId && <button className="btn-secondary" onClick={propose} disabled={!!busy}>{busy === "proponer" ? "Consultando CPC reales en Google…" : draft && !isMetaDraft ? "Volver a proponer (Google)" : "Proponer campaña en Google"}</button>}
+        {!gLive && b.googleCustomerId && <button className="btn-secondary" onClick={propose} disabled={!!busy}>{busy === "proponer" ? "Consultando CPC reales en Google…" : gDraft ? "Volver a proponer (Google)" : "Proponer campaña en Google"}</button>}
         {!b.googleCustomerId && !b.metaAdAccountId && <span className="small">Elige una cuenta de Google Ads o de Meta para poder proponer.</span>}
       </div>
-      {!live && b.metaAdAccountId && (
+      {!mLive && b.metaAdAccountId && (
         <div className="row" style={{ marginTop: 10 }}>
           <label className="field">Imágenes (URLs, una por línea)<textarea rows={3} value={media.imageUrls} onChange={(e) => setMedia({ ...media, imageUrls: e.target.value })} placeholder={"https://…/portada.jpg\nhttps://…/portada-2.jpg"} style={{ width: 300 }} /></label>
           <label className="field">Vídeo (URL, opcional)<input value={media.videoUrl} onChange={(e) => setMedia({ ...media, videoUrl: e.target.value.trim() })} placeholder="https://…/trailer.mp4" style={{ width: 300 }} /></label>
-          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim()}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : isMetaDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
+          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim()}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : mDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
         </div>
       )}
       {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
 
-      {draft && !live && isMetaDraft && (
+      {mDraft && !mLive && (
         <>
           <h2>Propuesta Meta · revisa y aprueba</h2>
           <p className="muted">Nada existe en Meta hasta que pulses «Crear en pausa». Público: {b.country}, 35–48 años. Optimiza hacia el clic de compra del píxel. El gasto total es un tope que Meta respeta sola.</p>
           <div className="row" style={{ margin: "10px 0 16px" }}>
-            <label className="field">Presupuesto diario (aprox.)<input type="number" step="1" value={budget} onChange={(e) => setBudget(+e.target.value)} style={{ width: 120 }} /></label>
-            <label className="field">Gasto total máximo<input type="number" step="10" value={cap} onChange={(e) => setCap(+e.target.value)} style={{ width: 120 }} /></label>
-            <div className="small" style={{ alignSelf: "end" }}>~{budget > 0 ? Math.ceil(cap / budget) : 0} días de campaña</div>
+            <label className="field">Presupuesto diario (aprox.)<input type="number" step="1" value={mBudget} onChange={(e) => setMBudget(+e.target.value)} style={{ width: 120 }} /></label>
+            <label className="field">Gasto total máximo<input type="number" step="10" value={mCap} onChange={(e) => setMCap(+e.target.value)} style={{ width: 120 }} /></label>
+            <div className="small" style={{ alignSelf: "end" }}>~{mBudget > 0 ? Math.ceil(mCap / mBudget) : 0} días de campaña</div>
           </div>
           <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
             <label className="field">Texto principal ({copy.message.length}/300)<textarea rows={5} value={copy.message} maxLength={300} onChange={(e) => setCopy({ ...copy, message: e.target.value })} /></label>
@@ -125,7 +133,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             <label className="field">Descripción ({copy.description.length}/30)<input value={copy.description} maxLength={30} onChange={(e) => setCopy({ ...copy, description: e.target.value })} /></label>
           </div>
           <div className="grid" style={{ marginTop: 14 }}>
-            {draft.ads.map((a, i) => (
+            {mDraft.ads.map((a, i) => (
               <div className="card" key={i}>
                 <div className="small">Anuncio {i + 1} · {a.mediaType === "video" ? "vídeo" : "imagen"}</div>
                 {a.mediaType === "video" ? <video src={a.mediaUrl} controls muted style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
@@ -133,13 +141,13 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             ))}
           </div>
           <div className="row" style={{ marginTop: 18 }}>
-            <button onClick={approve} disabled={!!busy || !copy.message || !copy.headline || !(cap >= budget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
-            <span className="small">Facebook + Instagram · un conjunto, {draft.ads.length} anuncio{draft.ads.length > 1 ? "s" : ""}</span>
+            <button onClick={() => approve(mDraft)} disabled={!!busy || !copy.message || !copy.headline || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
+            <span className="small">Facebook + Instagram · un conjunto, {mDraft.ads.length} anuncio{mDraft.ads.length > 1 ? "s" : ""}</span>
           </div>
         </>
       )}
 
-      {draft && !live && !isMetaDraft && (
+      {gDraft && !gLive && (
         <>
           <h2>Propuesta · revisa y aprueba</h2>
           <p className="muted">Nada existe en Google hasta que pulses «Crear en pausa». Edita el CPC máximo de cada palabra, quita las que no quieras y ajusta presupuesto y tope.</p>
@@ -168,7 +176,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           </div>
           <h2>Anuncios</h2>
           <div className="grid">
-            {draft.ads.map((a, i) => (
+            {gDraft.ads.map((a, i) => (
               <div className="card" key={i}>
                 <div className="small">Anuncio {i + 1} · Google combina estos textos</div>
                 <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{a.headlines.map((h, j) => <li key={j}>{h}</li>)}</ul>
@@ -177,18 +185,18 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             ))}
           </div>
           <div className="row" style={{ marginTop: 18 }}>
-            <button onClick={approve} disabled={!!busy || !inc.length || overCap > 0}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
+            <button onClick={() => approve(gDraft)} disabled={!!busy || !inc.length || overCap > 0}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
             <span className="small">Lunes a viernes, 8–20 h · solo Búsqueda · puja manual con techo</span>
           </div>
         </>
       )}
 
-      {live && (
-        <>
+      {[gLive, mLive].map((live) => live && (
+        <div key={live.id}>
           <h2>Campaña · {live.name} <span className={`status ${live.status}`}>{({ ENABLED: "activa", PAUSED: "en pausa", STOPPED: "detenida" } as any)[live.status]}</span></h2>
           <div className="row" style={{ marginBottom: 14 }}>
-            {live.status !== "ENABLED" && <button className="btn-ok" onClick={() => status("ENABLED")} disabled={!!busy}>Activar</button>}
-            {live.status === "ENABLED" && <button className="btn-secondary" onClick={() => status("PAUSED")} disabled={!!busy}>Pausar</button>}
+            {live.status !== "ENABLED" && <button className="btn-ok" onClick={() => status(live, "ENABLED")} disabled={!!busy}>Activar</button>}
+            {live.status === "ENABLED" && <button className="btn-secondary" onClick={() => status(live, "PAUSED")} disabled={!!busy}>Pausar</button>}
             <span className="small">{money(live.dailyBudget, b.currency)}/día · tope {money(live.totalCap, b.currency)} · gastado {money(sum(live.metrics, "cost"), b.currency)} · {sum(live.metrics, "conversions")} ventas</span>
           </div>
           {live.proposals.length > 0 && (
@@ -263,8 +271,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
               </tbody>
             </table>
           </div>}
-        </>
-      )}
+        </div>
+      ))}
 
       {b.sales.length > 0 && (
         <>

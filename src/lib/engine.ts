@@ -40,7 +40,7 @@ export async function proposeCampaign(businessId: string) {
   const adsCopy = await writeAds(b, picked.keywords.map((k) => k.text));
 
   // Borra borradores anteriores: la propuesta es siempre la última.
-  await db.campaign.deleteMany({ where: { businessId, status: "DRAFT" } });
+  await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "google" } });
   const c = await db.campaign.create({ data: {
     businessId, name: `${b.name} · Búsqueda ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
     keywords: { create: picked.keywords.map((k) => {
@@ -97,7 +97,7 @@ export async function proposeMetaCampaign(businessId: string, media: { imageUrls
   for (const url of media.imageUrls) hashes.push(await meta.uploadImage(b.metaAdAccountId!, url));
   const videoId = media.videoUrl ? await meta.uploadVideo(b.metaAdAccountId!, media.videoUrl, `${b.name} · vídeo`) : null;
   const ad = (mediaType: string, mediaUrl: string, mediaRef: string) => ({ mediaType, mediaUrl, mediaRef, finalUrl: b.url, headlines: [copy.headline], descriptions: [copy.message, copy.description] });
-  await db.campaign.deleteMany({ where: { businessId, status: "DRAFT" } });
+  await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "meta" } });
   const c = await db.campaign.create({ data: {
     businessId, channel: "meta", name: `${b.name} · Meta ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
     ads: { create: [...media.imageUrls.map((u, i) => ad("image", u, hashes[i])), ...(videoId ? [ad("video", media.videoUrl!, videoId)] : [])] },

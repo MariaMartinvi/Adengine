@@ -87,6 +87,11 @@ Sin cambios de código. Todo es configuración:
 - [x] Propuesta con varias imágenes (una URL por línea): un anuncio por imagen + vídeo opcional
 - [x] "Añadir portada" en una campaña de Meta ya creada: nuevo anuncio en el mismo conjunto, mismos textos y presupuesto (`createAd` reutilizado). Verificado en vivo con una campaña de prueba en pausa (se añadió la segunda imagen sin errores) y borrado después
 
+## 4b. Una campaña por canal en cada negocio
+**Problema:** cada negocio solo muestra una campaña viva; proponer en un canal borra la propuesta pendiente del otro.
+- [x] 4b.1 Al proponer, se borran solo los borradores del mismo canal (`channel: "google"` / `"meta"`)
+- [x] 4b.2 Panel por canal (propuesta y campaña viva de Google y de Meta, cada una con su estado). Verificado en local: negocio con Google activa + propuesta Meta muestra las dos; "Pausar" actúa sobre la de Google y "Crear en pausa en Meta" sobre la de Meta; datos de prueba borrados
+
 ## 5. Amazon Ads (libros) · en espera de acceso a la API
 **Por qué:** es el único canal que mide la venta real del libro (ACOS). Objetivo de María: volumen sin perder dinero (coste por libro ≤ regalías).
 - [ ] 5.0 María: cuenta de Amazon Ads desde KDP (Marketing → Amazon Ads → Amazon.es)
