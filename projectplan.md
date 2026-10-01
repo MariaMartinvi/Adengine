@@ -55,7 +55,8 @@ Sin cambios de código. Todo es configuración:
 - [x] 0.1 Porfolio renombrado a "Comartinvi"; cuenta publicitaria "Equipo Tierra" creada (EUR, Europe/Madrid) con método de pago
 - [x] 0.2 Píxel "Equipo Tierra" creado: 1431144915623956, conectado a la cuenta publicitaria
 - [x] 0.3 App de Meta "AdEngine" creada en el porfolio Comartinvi con el caso de uso "API de marketing"
-- [ ] 0.4 Usuario del sistema con acceso a la cuenta y al píxel → token con `ads_management` y `business_management` → Vercel `META_ACCESS_TOKEN`
+- [x] 0.4 Usuario del sistema "AdEngine" con acceso total a la cuenta, al píxel y a la app; token sin caducidad con `ads_management`, `ads_read`, `business_management`. Verificado (01/10/2026): lee la cuenta `act_2190420808485726` (Equipo Tierra, EUR, Europe/Madrid, activa) y el píxel `1431144915623956`. **La Ads API exige v26.0** (las versiones antiguas dan error 2635)
+- [ ] 0.4b María pone el token en Vercel como `META_ACCESS_TOKEN`
 - [ ] 0.5 Decir dónde está el código de equipotierra.com (o acceso para editarla) → verificar: sé cómo añadir el píxel
 
 ### Fase 1 · Medición en equipotierra.com
