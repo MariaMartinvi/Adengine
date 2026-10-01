@@ -91,7 +91,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             </select>
           ) : <input value={b.metaPixelId || ""} onChange={(e) => set("metaPixelId", e.target.value)} placeholder={b.metaAdAccountId ? "Guarda la ficha para elegirlo" : "1431144915623956"} />}
         </label>
-        {b.metaAdAccountId && <label className="field">Página de Facebook (id)<input value={b.metaPageId || ""} onChange={(e) => set("metaPageId", e.target.value.trim())} placeholder="1254151691124601" /></label>}
+        {b.metaAdAccountId && <label className="field">Página de Facebook (id de Meta Business, no el del enlace)<input value={b.metaPageId || ""} onChange={(e) => set("metaPageId", e.target.value.trim())} placeholder="1254151691124601" /></label>}
         {b.metaAdAccountId && <label className="field">Anunciante (aviso UE)<input value={b.metaAdvertiser || ""} onChange={(e) => set("metaAdvertiser", e.target.value)} placeholder="Quién se anuncia y paga" /></label>}
       </div>
       <div className="row" style={{ marginTop: 14 }}>

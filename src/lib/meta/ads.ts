@@ -4,13 +4,13 @@
 const BASE = () => `https://graph.facebook.com/${process.env.META_API_VERSION || "v26.0"}`;
 export const act = (id: string) => (id.startsWith("act_") ? id : `act_${id}`);
 
-async function call(path: string, params: Record<string, unknown> = {}, method: "GET" | "POST" = "GET") {
+async function call(path: string, params: Record<string, unknown> = {}, method: "GET" | "POST" | "DELETE" = "GET") {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token) throw new Error("Falta META_ACCESS_TOKEN.");
   const qs = new URLSearchParams({ access_token: token });
   for (const [k, v] of Object.entries(params)) qs.set(k, typeof v === "string" ? v : JSON.stringify(v));
-  const r = method === "GET"
-    ? await fetch(`${BASE()}${path}?${qs}`)
+  const r = method !== "POST"
+    ? await fetch(`${BASE()}${path}?${qs}`, { method })
     : await fetch(`${BASE()}${path}`, { method, body: qs });
   const j: any = await r.json().catch(() => ({}));
   if (!r.ok || j.error) throw new Error(`Meta (${r.status}): ${j.error?.error_user_msg || j.error?.message || "error desconocido"}`);
@@ -62,6 +62,8 @@ export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
     name: s.name, objective: "OUTCOME_SALES", status: "PAUSED", special_ad_categories: [],
     is_adset_budget_sharing_enabled: false,
   }, "POST")).id;
+  // Si algo falla a partir de aquí, se borra la campaña para no dejar nada a medias en Meta.
+  try {
   const days = Math.max(1, Math.ceil(s.totalCap / s.dailyBudget));
   const adSetId = (await call(`/${a}/adsets`, {
     name: `${s.name} · conjunto 1`, campaign_id: campaignId, status: "ACTIVE",
@@ -80,6 +82,10 @@ export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
     adIds.push((await call(`/${a}/ads`, { name: `${s.name} · ${ad.mediaType} ${i + 1}`, adset_id: adSetId, creative: { creative_id: creativeId }, status: "ACTIVE" }, "POST")).id);
   }
   return { campaignId, adSetId, adIds };
+  } catch (e) {
+    await call(`/${campaignId}`, {}, "DELETE").catch(() => {});
+    throw e;
+  }
 }
 
 export async function setCampaignStatus(campaignId: string, status: "ACTIVE" | "PAUSED") {
