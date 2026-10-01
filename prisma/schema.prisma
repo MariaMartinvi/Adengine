@@ -36,6 +36,8 @@ model Business {
   conversionActionId String?
   metaAdAccountId    String?
   metaPixelId        String?
+  metaPageId         String?
+  metaAdvertiser     String?
   notes              String?
   createdAt          DateTime    @default(now())
   campaigns          Campaign[]
@@ -90,6 +92,9 @@ model Ad {
   finalUrl     String
   googleAdId   String?
   metaAdId     String?
+  mediaType    String?
+  mediaUrl     String?
+  mediaRef     String?
 }
 
 model DailyMetric {

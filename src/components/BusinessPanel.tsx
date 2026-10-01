@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { headlines: string[]; descriptions: string[] }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; notes?: string; campaigns: Campaign[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string }[]; metrics: Metric[]; proposals: Proposal[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; notes?: string; campaigns: Campaign[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -21,6 +21,9 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [kws, setKws] = useState<Keyword[]>(draft?.keywords || []);
   const [budget, setBudget] = useState(draft?.dailyBudget ?? b.dailyBudget);
   const [cap, setCap] = useState(draft?.totalCap ?? b.totalCap);
+  const isMetaDraft = draft?.channel === "meta";
+  const [copy, setCopy] = useState({ message: draft?.ads[0]?.descriptions[0] || "", headline: draft?.ads[0]?.headlines[0] || "", description: draft?.ads[0]?.descriptions[1] || "" });
+  const [media, setMedia] = useState({ imageUrl: "", videoUrl: "" });
 
   async function api(path: string, body?: unknown, method = "POST") {
     setErr("");
@@ -31,9 +34,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   }
   async function saveFicha() { setBusy("ficha"); await api(`/api/negocios/${b.id}`, b, "PATCH"); setBusy(""); r.refresh(); }
   async function propose() { setBusy("proponer"); await api(`/api/negocios/${b.id}/proponer`); setBusy(""); r.refresh(); }
+  async function proposeMeta() { setBusy("meta"); await api(`/api/negocios/${b.id}/proponer`, { channel: "meta", ...media }); setBusy(""); r.refresh(); }
   async function approve() {
     setBusy("aprobar");
-    const j = await api(`/api/negocios/${b.id}/aprobar`, { campaignId: draft!.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType })) });
+    const j = await api(`/api/negocios/${b.id}/aprobar`, { campaignId: draft!.id, dailyBudget: budget, totalCap: cap, ...copy, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType })) });
     setBusy(""); if (j) r.refresh();
   }
   async function status(s: string) { setBusy(s); await api(`/api/campanas/${live!.id}/estado`, { status: s }); setBusy(""); r.refresh(); }
@@ -87,15 +91,53 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             </select>
           ) : <input value={b.metaPixelId || ""} onChange={(e) => set("metaPixelId", e.target.value)} placeholder={b.metaAdAccountId ? "Guarda la ficha para elegirlo" : "1431144915623956"} />}
         </label>
+        {b.metaAdAccountId && <label className="field">Página de Facebook (id)<input value={b.metaPageId || ""} onChange={(e) => set("metaPageId", e.target.value.trim())} placeholder="1254151691124601" /></label>}
+        {b.metaAdAccountId && <label className="field">Anunciante (aviso UE)<input value={b.metaAdvertiser || ""} onChange={(e) => set("metaAdvertiser", e.target.value)} placeholder="Quién se anuncia y paga" /></label>}
       </div>
       <div className="row" style={{ marginTop: 14 }}>
         <button onClick={saveFicha} disabled={!!busy}>{busy === "ficha" ? "Guardando…" : "Guardar ficha"}</button>
-        {!live && <button className="btn-secondary" onClick={propose} disabled={!!busy || !b.googleCustomerId}>{busy === "proponer" ? "Consultando CPC reales en Google…" : draft ? "Volver a proponer" : "Proponer campaña"}</button>}
-        {!b.googleCustomerId && <span className="small">Elige la cuenta de Google Ads para poder proponer.</span>}
+        {!live && b.googleCustomerId && <button className="btn-secondary" onClick={propose} disabled={!!busy}>{busy === "proponer" ? "Consultando CPC reales en Google…" : draft && !isMetaDraft ? "Volver a proponer (Google)" : "Proponer campaña en Google"}</button>}
+        {!b.googleCustomerId && !b.metaAdAccountId && <span className="small">Elige una cuenta de Google Ads o de Meta para poder proponer.</span>}
       </div>
+      {!live && b.metaAdAccountId && (
+        <div className="row" style={{ marginTop: 10 }}>
+          <label className="field">Imagen (URL)<input value={media.imageUrl} onChange={(e) => setMedia({ ...media, imageUrl: e.target.value.trim() })} placeholder="https://…/portada.jpg" style={{ width: 300 }} /></label>
+          <label className="field">Vídeo (URL, opcional)<input value={media.videoUrl} onChange={(e) => setMedia({ ...media, videoUrl: e.target.value.trim() })} placeholder="https://…/trailer.mp4" style={{ width: 300 }} /></label>
+          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrl}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : isMetaDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
+        </div>
+      )}
       {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
 
-      {draft && !live && (
+      {draft && !live && isMetaDraft && (
+        <>
+          <h2>Propuesta Meta · revisa y aprueba</h2>
+          <p className="muted">Nada existe en Meta hasta que pulses «Crear en pausa». Público: {b.country}, 35–48 años. Optimiza hacia el clic de compra del píxel. El gasto total es un tope que Meta respeta sola.</p>
+          <div className="row" style={{ margin: "10px 0 16px" }}>
+            <label className="field">Presupuesto diario (aprox.)<input type="number" step="1" value={budget} onChange={(e) => setBudget(+e.target.value)} style={{ width: 120 }} /></label>
+            <label className="field">Gasto total máximo<input type="number" step="10" value={cap} onChange={(e) => setCap(+e.target.value)} style={{ width: 120 }} /></label>
+            <div className="small" style={{ alignSelf: "end" }}>~{budget > 0 ? Math.ceil(cap / budget) : 0} días de campaña</div>
+          </div>
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+            <label className="field">Texto principal ({copy.message.length}/300)<textarea rows={5} value={copy.message} maxLength={300} onChange={(e) => setCopy({ ...copy, message: e.target.value })} /></label>
+            <label className="field">Titular ({copy.headline.length}/40)<input value={copy.headline} maxLength={40} onChange={(e) => setCopy({ ...copy, headline: e.target.value })} /></label>
+            <label className="field">Descripción ({copy.description.length}/30)<input value={copy.description} maxLength={30} onChange={(e) => setCopy({ ...copy, description: e.target.value })} /></label>
+          </div>
+          <div className="grid" style={{ marginTop: 14 }}>
+            {draft.ads.map((a, i) => (
+              <div className="card" key={i}>
+                <div className="small">Anuncio {i + 1} · {a.mediaType === "video" ? "vídeo" : "imagen"}</div>
+                {a.mediaType === "video" ? <video src={a.mediaUrl} controls muted style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
+              </div>
+            ))}
+          </div>
+          <div className="row" style={{ marginTop: 18 }}>
+            <button onClick={approve} disabled={!!busy || !copy.message || !copy.headline || !(cap >= budget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
+            <span className="small">Facebook + Instagram · un conjunto, {draft.ads.length} anuncio{draft.ads.length > 1 ? "s" : ""}</span>
+          </div>
+        </>
+      )}
+
+      {draft && !live && !isMetaDraft && (
         <>
           <h2>Propuesta · revisa y aprueba</h2>
           <p className="muted">Nada existe en Google hasta que pulses «Crear en pausa». Edita el CPC máximo de cada palabra, quita las que no quieras y ajusta presupuesto y tope.</p>
@@ -162,7 +204,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
               ))}
             </div>
           )}
-          <div className="tablewrap">
+          {live.channel === "meta" && <p className="small">Campaña de Meta · las métricas llegarán con la sincronización diaria.</p>}
+          {live.channel !== "meta" && <div className="tablewrap">
             <table>
               <thead><tr><th>Palabra</th><th>Estado</th><th className="num">CPC máx.</th><th className="num">Impr.</th><th className="num">Clics</th><th className="num">CPC real</th><th className="num">Gasto</th><th className="num">Ventas</th><th className="num">Coste/venta</th></tr></thead>
               <tbody>
@@ -185,7 +228,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                 })}
               </tbody>
             </table>
-          </div>
+          </div>}
         </>
       )}
 

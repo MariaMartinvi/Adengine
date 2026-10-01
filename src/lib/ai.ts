@@ -46,3 +46,18 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
     descriptions: Array.from(new Set(a.descriptions.map((d) => d.trim()).filter((d) => d.length <= 90 && d.length > 0))).slice(0, 4),
   })).filter((a) => a.headlines.length >= 3 && a.descriptions.length >= 2);
 }
+
+export type MetaCopy = { message: string; headline: string; description: string };
+
+// Textos para Facebook/Instagram. Un solo juego de textos, compartido por el anuncio de imagen y el de vídeo.
+export async function writeMetaAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; url: string; notes?: string | null }): Promise<MetaCopy> {
+  const sys = `Escribes anuncios para Facebook e Instagram en el idioma indicado. Devuelves SOLO JSON: {"message","headline","description"}.
+- message (texto principal): 2-4 frases, máximo 300 caracteres. La primera frase engancha por sí sola (es lo único que se ve sin pulsar "ver más"). Lenguaje cercano, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin emojis en exceso (máximo 2).
+- headline (titular bajo la imagen): máximo 40 caracteres.
+- description (línea pequeña bajo el titular): máximo 30 caracteres.
+El anuncio lo ve un adulto que decide (madre, padre, docente); si el producto es para menores, háblale a ese adulto, nunca al menor.`;
+  const user = `Producto: ${ficha.name} — ${ficha.sells}\nPara quién: ${ficha.audience}\nIdioma: ${ficha.language}\nPrecio: ${ficha.price}\nWeb: ${ficha.url}\nNotas: ${ficha.notes || ""}`;
+  const j = json<MetaCopy>(await ask(sys, user, 1000));
+  // Recorta por seguridad a los límites de Meta.
+  return { message: j.message.trim().slice(0, 300), headline: j.headline.trim().slice(0, 40), description: j.description.trim().slice(0, 30) };
+}

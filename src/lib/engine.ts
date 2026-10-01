@@ -3,7 +3,8 @@ import { db } from "./db";
 import * as ads from "./google/ads";
 import { fichaFromSite } from "./ai";
 import { fetchSiteText } from "./fetchSite";
-import { pickKeywords, writeAds } from "./ai";
+import { pickKeywords, writeAds, writeMetaAds } from "./ai";
+import * as meta from "./meta/ads";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -84,10 +85,56 @@ export async function approveCampaign(campaignId: string) {
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Google Ads en pausa (id ${res.campaignId}): ${kws.length} palabras, ${c.dailyBudget} ${b.currency}/día, tope total ${c.totalCap}.`);
 }
 
+// ---------- Meta (Facebook + Instagram) ----------
+// Propuesta: textos de la IA + imagen (y vídeo opcional) subidos a la biblioteca de la cuenta. No crea ni gasta nada.
+export async function proposeMetaCampaign(businessId: string, media: { imageUrl: string; videoUrl?: string }) {
+  const b = await db.business.findUniqueOrThrow({ where: { id: businessId } });
+  const missing = [["cuenta de Meta", b.metaAdAccountId], ["píxel", b.metaPixelId], ["página de Facebook", b.metaPageId], ["anunciante", b.metaAdvertiser]].filter(([, v]) => !v).map(([k]) => k);
+  if (missing.length) throw new Error(`Completa en la ficha: ${missing.join(", ")}.`);
+  if (!media.imageUrl) throw new Error("Falta la imagen (también sirve de miniatura del vídeo).");
+  const copy = await writeMetaAds(b);
+  const imageHash = await meta.uploadImage(b.metaAdAccountId!, media.imageUrl);
+  const videoId = media.videoUrl ? await meta.uploadVideo(b.metaAdAccountId!, media.videoUrl, `${b.name} · vídeo`) : null;
+  const ad = (mediaType: string, mediaUrl: string, mediaRef: string) => ({ mediaType, mediaUrl, mediaRef, finalUrl: b.url, headlines: [copy.headline], descriptions: [copy.message, copy.description] });
+  await db.campaign.deleteMany({ where: { businessId, status: "DRAFT" } });
+  const c = await db.campaign.create({ data: {
+    businessId, channel: "meta", name: `${b.name} · Meta ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
+    ads: { create: [ad("image", media.imageUrl, imageHash), ...(videoId ? [ad("video", media.videoUrl!, videoId)] : [])] },
+  } });
+  await log(businessId, "PROPUESTA", `Meta: ${videoId ? "imagen + vídeo" : "imagen"}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
+  return c.id;
+}
+
+// Aprobación: crea en Meta campaña EN PAUSA + conjunto con presupuesto total (freno nativo) + un anuncio por creatividad.
+export async function approveMetaCampaign(campaignId: string, edits: { dailyBudget: number; totalCap: number; message: string; headline: string; description: string }) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: true } });
+  const b = c.business;
+  if (c.status !== "DRAFT" || c.channel !== "meta") throw new Error("Esta propuesta ya no está pendiente.");
+  if (!(edits.dailyBudget > 0) || !(edits.totalCap >= edits.dailyBudget)) throw new Error("El gasto total debe ser al menos el presupuesto diario.");
+  const copy = { message: edits.message.trim().slice(0, 300), headline: edits.headline.trim().slice(0, 40), description: edits.description.trim().slice(0, 30) };
+  for (const a of c.ads) if (a.mediaType === "video" && !(await meta.videoReady(a.mediaRef!))) throw new Error("Meta aún está procesando el vídeo. Prueba de nuevo en un minuto.");
+  const image = c.ads.find((a) => a.mediaType === "image")!;
+  const res = await meta.createCampaign(b.metaAdAccountId!, {
+    name: c.name, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: 35, ageMax: 48,
+    pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: image.mediaRef!, advertiser: b.metaAdvertiser!,
+    ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, ...copy })),
+  });
+  await db.$transaction([
+    db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, metaCampaignId: res.campaignId, metaAdSetId: res.adSetId } }),
+    ...c.ads.map((a, i) => db.ad.update({ where: { id: a.id }, data: { metaAdId: res.adIds[i], headlines: [copy.headline], descriptions: [copy.message, copy.description] } })),
+  ]);
+  await log(b.id, "CAMPAÑA_CREADA", `Creada en Meta en pausa (id ${res.campaignId}): ${c.ads.length} anuncios, ${edits.totalCap} ${b.currency} en total hasta agotar (~${edits.dailyBudget}/día).`);
+}
+
 export async function setStatus(campaignId: string, status: "ENABLED" | "PAUSED" | "STOPPED") {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true } });
-  if (!c.googleCampaignId) throw new Error("La campaña aún no existe en Google Ads.");
-  await ads.setCampaignStatus(c.business.googleCustomerId!, c.googleCampaignId, status === "ENABLED" ? "ENABLED" : "PAUSED");
+  if (c.channel === "meta") {
+    if (!c.metaCampaignId) throw new Error("La campaña aún no existe en Meta.");
+    await meta.setCampaignStatus(c.metaCampaignId, status === "ENABLED" ? "ACTIVE" : "PAUSED");
+  } else {
+    if (!c.googleCampaignId) throw new Error("La campaña aún no existe en Google Ads.");
+    await ads.setCampaignStatus(c.business.googleCustomerId!, c.googleCampaignId, status === "ENABLED" ? "ENABLED" : "PAUSED");
+  }
   await db.campaign.update({ where: { id: c.id }, data: { status } });
   await log(c.businessId, status === "ENABLED" ? "ACTIVADA" : status === "STOPPED" ? "DETENIDA" : "PAUSADA", `Campaña ${c.name}`);
 }

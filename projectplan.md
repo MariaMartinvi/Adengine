@@ -46,10 +46,11 @@ Sin cambios de código. Todo es configuración:
 **Diferencias con Google que marcan el diseño:**
 - Sin palabras clave: **público + creatividades**. Público amplio (Advantage+: país + edad), que es lo que Meta recomienda hoy; nada de intereses al principio.
 - Las **imágenes las pones tú** (portada, ilustraciones). La IA escribe los textos.
-- **Freno nativo de Meta:** el `spend_cap` de la campaña = gasto total máximo. Meta la para sola aunque AdEngine falle. Más el freno de AdEngine: pausa un anuncio que gaste 2× CAC sin conversiones.
+- **Freno nativo de Meta:** el conjunto lleva **presupuesto total** (= gasto total máximo) con fecha de fin (total ÷ diario días). Meta nunca gasta más. (El `spend_cap` de campaña exige mínimo 100 €.) Más el freno de AdEngine (fase 4): pausa un anuncio que gaste 2× CAC sin conversiones.
+- **UE (DSA):** cada conjunto declara anunciante y pagador (`dsa_beneficiary`/`dsa_payor`), campo "Anunciante" de la ficha.
 - **Acceso sin OAuth:** token de un *usuario del sistema* del Business Manager (no caduca). Una variable `META_ACCESS_TOKEN` para todas las cuentas; cada negocio guarda su `metaAdAccountId` y su `metaPixelId`.
 
-**Suposiciones (confirmar):** España, español; público adultos 25-55 (padres/docentes); 5 €/día, 100 € tope; conversión = clic en el botón de Amazon.
+**Decidido:** España, español; público 35-48 años; conversión = clic en el botón de Amazon. Página de Facebook "Equipo Tierra" (1254151691124601). App de Meta publicada (modo Live): en modo desarrollo Meta no deja crear anuncios.
 
 ### Fase 0 · Preparación (María, sin código)
 - [x] 0.1 Porfolio renombrado a "Comartinvi"; cuenta publicitaria "Equipo Tierra" creada (EUR, Europe/Madrid) con método de pago
@@ -72,10 +73,10 @@ Sin cambios de código. Todo es configuración:
 - [x] 2.3 Desplegables "Cuenta de Meta" y "Píxel de Meta" en la ficha (input de respaldo sin token). Verificado con navegador en local sobre un negocio de prueba (borrado después): elegir cuenta → guardar → aparece el píxel → elegir → guardar → al recargar persisten ambos; 0 errores de consola
 
 ### Fase 3 · Propuesta y creación en pausa
-- [ ] 3.1 IA: textos de Meta (texto principal, titular, descripción) a partir de la ficha → verificar: test con una ficha de ejemplo, límites de caracteres respetados
-- [ ] 3.2 Subida de 1-3 imágenes en la propuesta → verificar: se suben a Meta y devuelve sus hashes
-- [ ] 3.3 Crear campaña + conjunto + anuncios EN PAUSA con `spend_cap`, presupuesto diario, público ES 25-55 y optimización a `InitiateCheckout` → verificar: aparece en el Administrador de anuncios, en pausa, con esos ajustes
-- [ ] 3.4 Activar/pausar desde AdEngine → verificar: cambia el estado en Meta y en el panel
+- [x] 3.1 `writeMetaAds` (texto principal ≤300, titular ≤40, descripción ≤30, recortados por seguridad; habla al adulto si el producto es para menores). Pendiente de probar en producción (la clave de Anthropic solo está en Vercel)
+- [x] 3.2 Imagen (URL) + vídeo opcional (URL) se suben a la biblioteca de la cuenta al proponer. Verificado en vivo: portada → hash, tráiler → vídeo procesado (`ready`)
+- [x] 3.3 Crear en pausa desde la pantalla de revisión (textos editables). Verificado de punta a punta en local con un negocio de prueba: campaña PAUSED, conjunto con 50 € totales hasta +10 días, optimización `INITIATED_CHECKOUT` del píxel, 2 anuncios con la página. Borrado después en Meta y en la base de datos
+- [x] 3.4 `setStatus` distingue canal; verificado pausar vía `/api/campanas/:id/estado` contra Meta
 
 ### Fase 4 · Sincronización y frenos
 - [ ] 4.1 Cron diario: gasto, impresiones, clics y conversiones por anuncio → verificar: los números coinciden con el Administrador de anuncios
