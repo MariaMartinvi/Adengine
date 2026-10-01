@@ -106,7 +106,7 @@ Sin cambios de código. Todo es configuración:
 - **Medición:** píxel de TikTok en la web de cada negocio (por GTM donde ya hay GTM; por código en equipotierra.com) con el mismo evento de conversión que use ese negocio.
 
 ### Fase 0 · Preparación (María, sin código)
-- [ ] 0.1 TikTok Business Center "Comartinvi" + cuenta publicitaria del primer negocio, con método de pago
+- [x] 0.1 Business Center "Comartinvi_bc_o7vloy" (7691699034276380693); cuenta de ChatSalsa: **Chatsalsa_qwt3d7** (7691700167782842420), en revisión por TikTok (01/10/2026). Hay otras cuentas creadas por error (Chatsalsa, Comartinvi, Comartinvi_adv): se ignoran
 - [ ] 0.2 Cuenta de desarrollador en business-api.tiktok.com → app "AdEngine" con permisos de cuentas, anuncios, informes y píxel; URL de retorno `https://adengine-omega.vercel.app/api/tiktok/callback` → enviar a revisión
 - [ ] 0.3 Píxel de TikTok del primer negocio
 - [x] 0.4 Primer negocio en TikTok: **ChatSalsa** (ya tiene GTM GTM-P4PTW3CH; el píxel se pone por GTM) — decidido 01/10/2026
