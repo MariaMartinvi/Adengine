@@ -19,7 +19,7 @@ Diseñado para varios negocios y varios canales. Hoy tiene el adaptador de Googl
    - `STRIPE_WEBHOOK_SECRET`: se rellena en el paso 6.
 4. **Despliega.** El build crea o actualiza las tablas solo (`prisma db push`), no hay que instalar nada en tu ordenador.
 5. **Google Cloud**: en el cliente OAuth «AdEngine» añade la URI de redirección autorizada: `APP_URL/api/google/callback` (p. ej. `https://adengine.vercel.app/api/google/callback`). En la pantalla de consentimiento, publica la app o añade el correo del MCC como usuario de prueba.
-6. **Stripe** (por negocio): Developers → Webhooks → Add endpoint → `APP_URL/api/webhooks/stripe?negocio=<id del negocio>` con los eventos `checkout.session.completed`, `invoice.paid`, `payment_intent.succeeded`. Copia el «Signing secret» a `STRIPE_WEBHOOK_SECRET`.
+6. **Stripe** (por negocio): Developers → Webhooks → Add endpoint → `APP_URL/api/webhooks/stripe?negocio=<id del negocio>` con **solo** el evento `checkout.session.completed` (un mismo pago dispara también `invoice.paid` y `payment_intent.succeeded`, y cada evento se contaría como una venta distinta; `invoice.paid` además salta en cada renovación). Copia el «Signing secret» a `STRIPE_WEBHOOK_SECRET`.
 7. **Snippet** en cada web anunciada, antes de `</body>`:
    ```html
    <script src="https://adengine.vercel.app/adengine.js" data-endpoint="https://adengine.vercel.app/api/track"></script>

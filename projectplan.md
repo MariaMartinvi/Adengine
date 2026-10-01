@@ -15,8 +15,8 @@ Todo lo demás (páginas, `/api/negocios`, `/api/propuestas`, `/api/campanas`, `
 
 - [x] 1.1 Crear `src/middleware.ts` → verificado: `tsc --noEmit` OK y, con `next dev` local, `/` y `/api/negocios` → 401 sin credenciales (y con credenciales malas), `/` → 200 con credenciales; `/adengine.js`, `/api/track`, `/api/webhooks/stripe`, `/api/cron/sync` siguen llegando a su ruta sin pedir contraseña
 - [x] 1.2 Añadir `ADMIN_USER` y `ADMIN_PASSWORD` a `.env.example` y README
-- [ ] 1.3 María añade las dos variables en Vercel; push + deploy
-- [ ] 1.4 Verificar en producción con curl:
+- [x] 1.3 María añade las dos variables en Vercel; push + deploy (commit 0b98e5e)
+- [x] 1.4 Verificado en producción con curl (30/09/2026): `/`, `/negocios/nuevo`, `/api/negocios`, `/api/google/auth` → 401; `/adengine.js` y `/api/track` → 200; `/api/webhooks/stripe` → 400 (firma, llega a la ruta); `/api/cron/sync` → 401 del propio CRON_SECRET
   - `GET /` sin credenciales → 401
   - `GET /` con credenciales → 200
   - `POST /api/track` sin credenciales → 200
@@ -31,13 +31,16 @@ Todo lo demás (páginas, `/api/negocios`, `/api/propuestas`, `/api/campanas`, `
 
 Sin cambios de código. Todo es configuración:
 
-- [ ] 3.1 Stripe → Developers → Webhooks → Add endpoint:
+- [x] 3.1 Webhook creado por API (we_1ULg7fFJyDU54kF6EjE9o2ti, live, 01/10/2026):
   - URL: `https://adengine-omega.vercel.app/api/webhooks/stripe?negocio=cmunxjfi2000010sgyys2f42a`
-  - Eventos: `checkout.session.completed`, `invoice.paid`, `payment_intent.succeeded`
+  - Eventos: solo `checkout.session.completed` (los otros duplicarían la venta)
 - [ ] 3.2 Copiar el *Signing secret* (`whsec_…`) → Vercel `STRIPE_WEBHOOK_SECRET` → Redeploy
 - [ ] 3.3 Verificar: en Stripe, "Send test event" (`checkout.session.completed`) → Stripe muestra respuesta 200 y en AdEngine aparece una línea `VENTA` en el historial del negocio (canal `organic`, porque el email de prueba no tiene gclid)
 
 ## Pendiente (después)
+- Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta
+- Borrar `src/app/api/debug/ideas/route.ts` cuando la propuesta salga con métricas
+- Pasar la pantalla de consentimiento OAuth de Google Cloud a "In production" (en Testing el token caduca cada 7 días)
 - Conectar Google Ads y asignar la cuenta al negocio
 - Cambiar la contraseña de Neon (se pegó en el chat)
 - Actualizar Next.js 14.2.15 (aviso de seguridad)
