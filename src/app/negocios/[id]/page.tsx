@@ -16,5 +16,6 @@ export default async function Page({ params }: { params: { id: string } }) {
   if (!b) notFound();
   let accounts: { id: string; name: string }[] = [];
   try { accounts = await listAccessibleCustomers(); } catch { /* sin conexión aún */ }
-  return <BusinessPanel data={JSON.parse(JSON.stringify(b))} accounts={accounts} />;
+  // key: al cambiar la campaña (nueva propuesta) se remonta el panel y descarta el estado antiguo
+  return <BusinessPanel key={b.campaigns[0]?.id ?? b.id} data={JSON.parse(JSON.stringify(b))} accounts={accounts} />;
 }

@@ -175,14 +175,14 @@ export default function BusinessPanel({ data, accounts }: { data: Business; acco
       {b.sales.length > 0 && (
         <>
           <h2>Ventas registradas</h2>
-          <ul className="log">{b.sales.map((s) => <li key={s.id}><time>{new Date(s.createdAt).toLocaleString("es-ES")}</time><span>{money(s.amount, s.currency)} · {s.channel}</span></li>)}</ul>
+          <ul className="log">{b.sales.map((s) => <li key={s.id}><time suppressHydrationWarning>{new Date(s.createdAt).toLocaleString("es-ES")}</time><span>{money(s.amount, s.currency)} · {s.channel}</span></li>)}</ul>
         </>
       )}
 
       <h2>Historial</h2>
       <ul className="log">
         {b.actions.map((a) => (
-          <li key={a.id}><time>{new Date(a.createdAt).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time><span><strong style={{ fontWeight: 500 }}>{a.kind.toLowerCase().replace(/_/g, " ")}</strong> · {a.detail}{a.auto && <span className="auto">automático</span>}</span></li>
+          <li key={a.id}><time suppressHydrationWarning>{new Date(a.createdAt).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time><span><strong style={{ fontWeight: 500 }}>{a.kind.toLowerCase().replace(/_/g, " ")}</strong> · {a.detail}{a.auto && <span className="auto">automático</span>}</span></li>
         ))}
         {!b.actions.length && <li className="small">Sin actividad todavía.</li>}
       </ul>
