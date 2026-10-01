@@ -141,9 +141,55 @@ export async function setStatus(campaignId: string, status: "ENABLED" | "PAUSED"
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+// Meta · regla de anuncio: gasta 2× el CAC tope sin ninguna conversión -> se pausa. Pura, para poder probarla.
+export function metaAdsToPause<T extends { id: string; status: string }>(ads: T[], totals: Map<string, { cost: number; conversions: number }>, cacCap: number) {
+  return ads.filter((a) => {
+    const t = totals.get(a.id);
+    return a.status === "ENABLED" && !!t && t.conversions === 0 && t.cost >= 2 * cacCap;
+  });
+}
+
+// Meta: métricas por anuncio y día + frenos. La campaña dura poco, así que se mira desde su creación.
+export async function syncMetaCampaign(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: true } });
+  if (!c.metaCampaignId || c.status === "DRAFT") return;
+  const b = c.business;
+  const today = iso(new Date());
+  const rows = await meta.adInsights(c.metaCampaignId, iso(c.createdAt), today);
+  const byMetaId = new Map(c.ads.map((a) => [a.metaAdId, a]));
+  for (const r of rows) {
+    const ad = byMetaId.get(r.adId);
+    if (!ad) continue;
+    const data = { impressions: r.impressions, clicks: r.clicks, cost: r.cost, conversions: r.conversions };
+    const existing = await db.dailyMetric.findFirst({ where: { campaignId: c.id, adId: ad.id, date: new Date(r.date) } });
+    if (existing) await db.dailyMetric.update({ where: { id: existing.id }, data });
+    else await db.dailyMetric.create({ data: { campaignId: c.id, adId: ad.id, date: new Date(r.date), ...data } });
+  }
+  if (c.status !== "ENABLED") return;
+
+  // Regla 1 · tope de gasto total (Meta ya no gasta más por el presupuesto total; aquí se refleja y se detiene).
+  const tot = await db.dailyMetric.aggregate({ where: { campaignId: c.id }, _sum: { cost: true } });
+  const spent = tot._sum.cost || 0;
+  if (spent >= c.totalCap) {
+    await setStatus(c.id, "STOPPED");
+    await log(b.id, "REGLA", `Campaña detenida: gasto acumulado ${spent.toFixed(2)} ≥ tope ${c.totalCap}.`, true);
+    return;
+  }
+
+  // Regla 2 · por anuncio: 2× CAC tope sin conversiones -> pausa automática.
+  const sums = await db.dailyMetric.groupBy({ by: ["adId"], where: { campaignId: c.id, adId: { not: null } }, _sum: { cost: true, conversions: true } });
+  const totals = new Map(sums.map((s) => [s.adId!, { cost: s._sum.cost || 0, conversions: s._sum.conversions || 0 }]));
+  for (const ad of metaAdsToPause(c.ads, totals, b.cacCap)) {
+    await meta.setAdStatus(ad.metaAdId!, "PAUSED");
+    await db.ad.update({ where: { id: ad.id }, data: { status: "PAUSED" } });
+    await log(b.id, "REGLA", `Anuncio de ${ad.mediaType === "video" ? "vídeo" : "imagen"} pausado: ${totals.get(ad.id)!.cost.toFixed(2)} gastados sin conversiones (2× CAC tope ${b.cacCap}).`, true);
+  }
+}
+
 // Sincronización diaria + reglas. Baja y pausa sola; subir siempre es propuesta.
 export async function syncCampaign(campaignId: string) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, keywords: true } });
+  if (c.channel === "meta") return syncMetaCampaign(c.id);
   if (!c.googleCampaignId || c.status === "DRAFT") return;
   const b = c.business;
   const cid = b.googleCustomerId!;

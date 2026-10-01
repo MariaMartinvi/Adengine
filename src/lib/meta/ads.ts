@@ -92,3 +92,21 @@ export async function setCampaignStatus(campaignId: string, status: "ACTIVE" | "
   await call(`/${campaignId}`, { status }, "POST");
 }
 
+
+export type AdDayRow = { adId: string; date: string; impressions: number; clicks: number; cost: number; conversions: number };
+// Conversión = clic de compra del píxel (InitiateCheckout). Clics = clics en el enlace, no "me gusta" ni ampliaciones.
+const CONV = ["offsite_conversion.fb_pixel_initiate_checkout", "initiate_checkout"];
+export async function adInsights(campaignId: string, since: string, until: string): Promise<AdDayRow[]> {
+  const j = await call(`/${campaignId}/insights`, {
+    level: "ad", time_increment: "1", time_range: { since, until }, limit: "500",
+    fields: "ad_id,date_start,impressions,inline_link_clicks,spend,actions",
+  });
+  return (j.data || []).map((r: any) => {
+    const act = (r.actions || []).find((a: any) => CONV.includes(a.action_type));
+    return { adId: r.ad_id, date: r.date_start, impressions: Number(r.impressions || 0), clicks: Number(r.inline_link_clicks || 0), cost: Number(r.spend || 0), conversions: Number(act?.value || 0) };
+  });
+}
+
+export async function setAdStatus(adId: string, status: "ACTIVE" | "PAUSED") {
+  await call(`/${adId}`, { status }, "POST");
+}

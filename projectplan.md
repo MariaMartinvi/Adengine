@@ -79,9 +79,9 @@ Sin cambios de código. Todo es configuración:
 - [x] 3.4 `setStatus` distingue canal; verificado pausar vía `/api/campanas/:id/estado` contra Meta
 
 ### Fase 4 · Sincronización y frenos
-- [ ] 4.1 Cron diario: gasto, impresiones, clics y conversiones por anuncio → verificar: los números coinciden con el Administrador de anuncios
-- [ ] 4.2 Regla: pausar anuncio con gasto ≥ 2× CAC sin conversiones; parar campaña al llegar al tope → verificar: test con datos simulados
-- [ ] 4.3 Panel: métricas de Meta en la ficha del negocio → verificar: se ven tras la primera sincronización
+- [x] 4.1 `syncMetaCampaign`: insights por anuncio y día (gasto, impresiones, clics en enlace, `InitiateCheckout`) en `DailyMetric.adId`; el cron incluye campañas de Meta. Probado contra la campaña real (sin entrega aún: 0 filas, sin errores). **Pendiente: comparar con el Administrador de anuncios cuando haya datos**
+- [x] 4.2 Reglas: campaña detenida al llegar al tope; anuncio pausado con gasto ≥ 2× CAC sin conversiones (`metaAdsToPause`, función pura). 6 casos de prueba OK
+- [x] 4.3 Tabla por anuncio (impresiones, clics, gasto, clics a compra, coste por clic a compra). Verificada en local con datos sembrados (sumas correctas, anuncio pausado atenuado); datos borrados
 
 ## Pendiente (después)
 - Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta

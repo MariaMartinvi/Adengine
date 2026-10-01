@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization");
   if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const campaigns = await db.campaign.findMany({ where: { status: { in: ["ENABLED", "PAUSED"] }, googleCampaignId: { not: null } } });
+  const campaigns = await db.campaign.findMany({ where: { status: { in: ["ENABLED", "PAUSED"] }, OR: [{ googleCampaignId: { not: null } }, { metaCampaignId: { not: null } }] } });
   const out: Record<string, string> = {};
   for (const c of campaigns) {
     try { await syncCampaign(c.id); out[c.name] = "ok"; }

@@ -2,10 +2,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number };
+type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string }[]; metrics: Metric[]; proposals: Proposal[] };
+type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string }[]; metrics: Metric[]; proposals: Proposal[] };
 type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; notes?: string; campaigns: Campaign[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
@@ -204,7 +204,32 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
               ))}
             </div>
           )}
-          {live.channel === "meta" && <p className="small">Campaña de Meta · las métricas llegarán con la sincronización diaria.</p>}
+          {live.channel === "meta" && (
+            <div className="tablewrap">
+              <table>
+                <thead><tr><th>Anuncio</th><th>Estado</th><th className="num">Impr.</th><th className="num">Clics</th><th className="num">Gasto</th><th className="num">Clics a compra</th><th className="num">Coste/clic a compra</th></tr></thead>
+                <tbody>
+                  {live.ads.map((a) => {
+                    const m = live.metrics.filter((x) => x.adId === a.id);
+                    const cost = sum(m, "cost"), conv = sum(m, "conversions");
+                    const cpa = conv ? cost / conv : null;
+                    return (
+                      <tr key={a.id} style={{ opacity: a.status === "PAUSED" ? .5 : 1 }}>
+                        <td>{a.mediaType === "video" ? "Vídeo" : "Imagen"}</td>
+                        <td><span className={`status ${a.status}`}>{a.status === "ENABLED" ? "activo" : "pausado"}</span></td>
+                        <td className="num">{sum(m, "impressions")}</td>
+                        <td className="num">{sum(m, "clicks")}</td>
+                        <td className="num">{cost.toFixed(2)}</td>
+                        <td className="num">{conv}</td>
+                        <td className={`num ${cpa != null && cpa > b.cacCap ? "over" : ""}`}>{cpa != null ? cpa.toFixed(2) : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {!live.metrics.length && <p className="small">Sin datos todavía · se actualiza cada mañana.</p>}
+            </div>
+          )}
           {live.channel !== "meta" && <div className="tablewrap">
             <table>
               <thead><tr><th>Palabra</th><th>Estado</th><th className="num">CPC máx.</th><th className="num">Impr.</th><th className="num">Clics</th><th className="num">CPC real</th><th className="num">Gasto</th><th className="num">Ventas</th><th className="num">Coste/venta</th></tr></thead>
