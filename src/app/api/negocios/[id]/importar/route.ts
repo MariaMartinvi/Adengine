@@ -3,9 +3,9 @@ import { db } from "@/lib/db";
 import { log } from "@/lib/engine";
 export const maxDuration = 60;
 
-// Importa las páginas de producto y de colección de la web del negocio desde su /sitemap.xml:
+// Importa las páginas de producto y de colección de la web del negocio desde su /sitemap.xml (se saltan las legales, de contacto, carrito…):
 // nombre (og:title o <title>, sin el nombre de la tienda) e imagen (la del sitemap u og:image). No duplica las ya cargadas.
-const SKIP = /\/(p|legal|carrito|cart|checkout|gracias|thanks|cuenta|account|login|admin|blog|faq|contacto|contact)(\/|$)|\/encuentra|\.(xml|txt|pdf)$/i;
+const SKIP = /legal|privacidad|privacy|cookies|aviso|terminos|t[eé]rminos|condiciones|terms|envios|env[ií]os|devoluci|returns|shipping|contacto|contact|sobre-nosotros|quienes-somos|about|faq|preguntas|carrito|cart|checkout|gracias|thanks|cuenta|account|login|admin|blog|encuentra|\/static\/|\.(xml|txt|pdf)$/i;
 const COLLECTION = /\/(coleccion|colecciones|collections?|categoria|category|tema)\//i;
 
 const meta = (html: string, prop: string) => html.match(new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']+)["']`, "i"))?.[1];
