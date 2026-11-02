@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
@@ -99,6 +100,16 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   async function archive(c: Campaign) {
     if (!confirm(`¿Archivar «${c.name}»? Queda en pausa en ${isMeta(c) ? "Meta" : "Google"} con su historial y podrás proponer una nueva.`)) return;
     setBusy("archivar"); await api(`/api/campanas/${c.id}/archivar`); setBusy(""); r.refresh();
+  }
+  // Sube un vídeo o una imagen propia al almacén y la pone en ese anuncio de la propuesta de Meta.
+  async function replaceMedia(adId: string, file: File) {
+    setErr(""); setBusy(`medio-${adId}`);
+    try {
+      const blob = await upload(`anuncios/${file.name}`, file, { access: "public", handleUploadUrl: "/api/subidas", multipart: file.size > 20 * 1024 * 1024 });
+      const j = await api(`/api/anuncios/${adId}/medio`, { url: blob.url, kind: file.type.startsWith("video/") ? "video" : "image" });
+      if (j) r.refresh();
+    } catch (e: any) { setErr(e.message || "No se pudo subir el archivo"); }
+    setBusy("");
   }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
@@ -374,7 +385,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                 <div className="card" key={a.id}>
                   <div className="small">Anuncio {i + 1} · <a href={a.finalUrl} target="_blank" rel="noreferrer">{a.finalUrl.replace(/^https?:\/\//, "")}</a></div>
                   {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
-                  <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />
+                  {a.mediaType === "video" ? <video src={a.mediaUrl} controls muted playsInline style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
+                  <label className="field" style={{ marginTop: 6 }}>{busy === `medio-${a.id}` ? "Subiendo a Meta…" : "Cambiar por mi vídeo o imagen"}
+                    <input type="file" accept="video/*,image/*" disabled={!!busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) replaceMedia(a.id, f); }} />
+                  </label>
                   <label className="field">Texto principal ({k.message.length}/300)<textarea rows={4} value={k.message} maxLength={300} onChange={(e) => set("message", e.target.value)} /></label>
                   <label className="field">Titular ({k.headline.length}/40)<input value={k.headline} maxLength={40} onChange={(e) => set("headline", e.target.value)} /></label>
                   <label className="field">Descripción ({k.description.length}/30)<input value={k.description} maxLength={30} onChange={(e) => set("description", e.target.value)} /></label>

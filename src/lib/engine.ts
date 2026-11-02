@@ -159,6 +159,23 @@ export async function rebuildMetaAds(campaignId: string, links: Record<string, s
   await log(b.id, "ANUNCIOS_REHECHOS", `Campaña ${c.name}: ${active.length} anuncios rehechos con botón ${b.metaCta}; los anteriores quedan en pausa.`);
 }
 
+// Cambia la imagen o el vídeo de un anuncio de una propuesta de Meta (subido por María o generado por Claude).
+// El vídeo guarda como miniatura la imagen que tenía el anuncio.
+export async function replaceDraftMedia(adId: string, url: string, kind: "image" | "video") {
+  const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { business: true } } } });
+  const c = a.campaign, b = c.business;
+  if (c.channel !== "meta" || c.status !== "DRAFT") throw new Error("Solo se cambia el medio de un anuncio de Meta en propuesta.");
+  if (kind === "image") {
+    const hash = await meta.uploadImage(b.metaAdAccountId!, url);
+    await db.ad.update({ where: { id: a.id }, data: { mediaType: "image", mediaUrl: url, mediaRef: hash, thumbRef: null } });
+  } else {
+    const videoId = await meta.uploadVideo(b.metaAdAccountId!, url, `${c.name} · vídeo`);
+    const thumbRef = a.mediaType === "image" ? a.mediaRef : a.thumbRef;
+    await db.ad.update({ where: { id: a.id }, data: { mediaType: "video", mediaUrl: url, mediaRef: videoId, thumbRef } });
+  }
+  await log(b.id, "MEDIO", `Propuesta de Meta: ${kind === "video" ? "vídeo" : "imagen"} nuevo en un anuncio.`);
+}
+
 // Aprobación: crea en Meta campaña EN PAUSA + conjunto con presupuesto total (freno nativo) + un anuncio por creatividad.
 export async function approveMetaCampaign(campaignId: string, edits: { dailyBudget: number; totalCap: number; ads: { id: string; message: string; headline: string; description: string }[] }) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: true } });
@@ -173,11 +190,13 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   };
   if (c.ads.some((a) => !copyOf(a).message || !copyOf(a).headline)) throw new Error("Cada anuncio necesita texto principal y titular.");
   for (const a of c.ads) if (a.mediaType === "video" && !(await meta.videoReady(a.mediaRef!))) throw new Error("Meta aún está procesando el vídeo. Prueba de nuevo en un minuto.");
-  const image = c.ads.find((a) => a.mediaType === "image")!;
+  // Miniatura de los vídeos: la imagen de un anuncio de imagen o la que guardó el vídeo al subirse.
+  const thumb = c.ads.find((a) => a.mediaType === "image")?.mediaRef || c.ads.find((a) => a.thumbRef)?.thumbRef;
+  if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
   const res = await meta.createCampaign(b.metaAdAccountId!, {
     name: c.name, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
-    pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: image.mediaRef!, advertiser: b.metaAdvertiser!, cta: b.metaCta,
-    ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, ...copyOf(a) })),
+    pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta,
+    ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, thumbHash: a.thumbRef || undefined, ...copyOf(a) })),
   });
   await db.$transaction([
     db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, metaCampaignId: res.campaignId, metaAdSetId: res.adSetId } }),

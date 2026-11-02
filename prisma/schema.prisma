@@ -102,6 +102,7 @@ model Ad {
   mediaRef     String?
   basedOn      String?
   brief        String?
+  thumbRef     String?
   status       String   @default("ENABLED")
 }
 

@@ -202,6 +202,14 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 - [x] 12.3 Propuesta de Meta: un anuncio por referencia con imagen y enlace del producto y textos calcados en estructura; para vídeos, además, guion para grabar → verificar: propuesta de Cuadros con Alma con 3 anuncios y "Imita" de cada uno. Hecho: 3 anuncios con enlace a su cuadro y guion de vídeo en los 2 de vídeo. Pendiente de revisión de María (frase de fundadora calcada de StarminStudio; frase entre comillas que parece testimonio)
 - [x] 12.4 Propuesta de Google: un anuncio por referencia, calcado en estructura, con el enlace de su producto o la tienda → verificar: propuesta de Cuadros con Alma con un anuncio por referencia de Google. Hecho: 4 anuncios válidos de 6 referencias (la IA a veces da títulos de más de 30: se descartan; el error ya dice qué llegó). Lector de JSON de la IA más robusto
 
+## 13. Vídeos en los anuncios de Meta
+
+**Petición (María, 02/11/2026):** que Claude cree los vídeos (con las fotos de cada cuadro, estilo de la prueba de La oveja que faltaba), pero que AdEngine deje editar cada anuncio y subir su propio vídeo o imagen.
+
+- [x] 13.1 Almacén de archivos: Vercel Blob `adengine-media` (público, enlazado al proyecto; `BLOB_READ_WRITE_TOKEN`). Público porque Meta descarga el vídeo por su enlace
+- [ ] 13.2 En la propuesta de Meta, cada anuncio con "Cambiar por mi vídeo o imagen": el navegador sube el archivo directo al almacén (sin el límite de 4,5 MB) y AdEngine lo pasa a Meta; el vídeo guarda como miniatura la imagen del anuncio → verificar: subir el vídeo de prueba a un anuncio de Cuadros con Alma, se ve en la tarjeta y Meta lo procesa
+- [ ] 13.3 Vídeos de Claude para los anuncios de vídeo (La oveja que faltaba, Calvario al alba) con la música que elija María de la Sound Collection de Meta, subidos por la misma vía
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)

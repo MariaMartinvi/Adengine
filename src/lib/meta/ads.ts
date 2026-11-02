@@ -44,7 +44,7 @@ export async function videoReady(videoId: string): Promise<boolean> {
   return (await call(`/${videoId}`, { fields: "status" })).status?.video_status === "ready";
 }
 
-export type MetaAdSpec = { mediaType: "image" | "video"; mediaRef: string; message: string; headline: string; description: string; link?: string };
+export type MetaAdSpec = { mediaType: "image" | "video"; mediaRef: string; message: string; headline: string; description: string; link?: string; thumbHash?: string };
 export type MetaCampaignSpec = {
   name: string; dailyBudget: number; totalCap: number; country: string; ageMin: number; ageMax: number;
   pageId: string; pixelId: string; link: string; thumbHash: string; cta: string; ads: MetaAdSpec[];
@@ -88,7 +88,7 @@ export async function createAd(adAccountId: string, adSetId: string, name: strin
   const link = ad.link || s.link;
   const cta = { type: s.cta, value: { link } };
   const story = ad.mediaType === "video"
-    ? { page_id: s.pageId, video_data: { video_id: ad.mediaRef, image_hash: s.thumbHash, message: ad.message, title: ad.headline, link_description: ad.description, call_to_action: cta } }
+    ? { page_id: s.pageId, video_data: { video_id: ad.mediaRef, image_hash: ad.thumbHash || s.thumbHash, message: ad.message, title: ad.headline, link_description: ad.description, call_to_action: cta } }
     : { page_id: s.pageId, link_data: { link, message: ad.message, name: ad.headline, description: ad.description, image_hash: ad.mediaRef, call_to_action: cta } };
   const creativeId = (await call(`/${a}/adcreatives`, { name, object_story_spec: story }, "POST")).id;
   return (await call(`/${a}/ads`, { name, adset_id: adSetId, creative: { creative_id: creativeId }, status: "ACTIVE" }, "POST")).id as string;
