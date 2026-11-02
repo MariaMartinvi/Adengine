@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
-type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
+type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string }[]; metrics: Metric[]; proposals: Proposal[] };
+type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null }[]; metrics: Metric[]; proposals: Proposal[] };
 type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
@@ -70,6 +70,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   async function saveFicha() { setBusy("ficha"); await api(`/api/negocios/${b.id}`, b, "PATCH"); setBusy(""); r.refresh(); }
   async function propose() { setBusy("proponer"); await api(`/api/negocios/${b.id}/proponer`); setBusy(""); r.refresh(); }
   async function proposeMeta() { setBusy("meta"); await api(`/api/negocios/${b.id}/proponer`, { channel: "meta" }); setBusy(""); r.refresh(); }
+  async function importSite() { setBusy("importar"); const j = await api(`/api/negocios/${b.id}/importar`); setBusy(""); if (j) { if (j.message) setErr(j.message); r.refresh(); } }
   async function addProduct() { setBusy("producto"); const j = await api(`/api/negocios/${b.id}/productos`, prodForm); setBusy(""); if (j) { setProdForm({ name: "", url: "", image: "" }); r.refresh(); } }
   async function delProduct(id: string) { setBusy("producto"); await api(`/api/productos/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
   async function setRefProduct(id: string, productId: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { productId }, "PATCH"); setBusy(""); r.refresh(); }
@@ -330,6 +331,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
       <details className="card" style={{ marginTop: 16 }}>
         <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Nuestros productos y páginas</strong> <span className="small">· {data.products.length} · pulsa para abrir</span></summary>
         <p className="small">Con ellos se hacen los anuncios: cada referencia elige su producto y el anuncio lleva su imagen y su enlace. Las colecciones sirven de página de destino para las palabras de Google.</p>
+        <button className="btn-secondary" onClick={importSite} disabled={!!busy}>{busy === "importar" ? "Leyendo la web…" : "Importar desde la web"}</button>
+        <span className="small" style={{ marginLeft: 8 }}>Lee el mapa del sitio ({b.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}/sitemap.xml) y añade las páginas de producto y colección que falten.</span>
         {data.products.length > 0 && (
           <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", margin: "10px 0" }}>
             {data.products.map((p) => (
@@ -431,12 +434,13 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           </div>
           <div className="tablewrap">
             <table>
-              <thead><tr><th></th><th>Palabra</th><th>Concordancia</th><th className="num">Búsquedas/mes</th><th className="num">CPC estimado</th><th className="num">CPC máximo</th><th>Lleva a</th><th>Por qué</th></tr></thead>
+              <thead><tr><th></th><th>Palabra</th><th>Grupo</th><th>Concordancia</th><th className="num">Búsquedas/mes</th><th className="num">CPC estimado</th><th className="num">CPC máximo</th><th>Lleva a</th><th>Por qué</th></tr></thead>
               <tbody>
                 {kws.map((k, i) => (
                   <tr key={k.id} style={{ opacity: k.included ? 1 : .45 }}>
                     <td><input type="checkbox" checked={k.included} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, included: e.target.checked } : x))} aria-label="Incluir" /></td>
                     <td>{k.text}</td>
+                    <td className="small">{k.adGroup || "—"}</td>
                     <td><select value={k.matchType} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, matchType: e.target.value } : x))}><option value="EXACT">Exacta</option><option value="PHRASE">Frase</option></select></td>
                     <td className="num">{k.volume ?? "—"}</td>
                     <td className="num">{k.estCpcLow != null ? `${k.estCpcLow.toFixed(2)} – ${k.estCpcHigh?.toFixed(2)}` : "—"}</td>
@@ -455,7 +459,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           <div className="grid">
             {gDraft.ads.map((a, i) => (
               <div className="card" key={i}>
-                <div className="small">Anuncio {i + 1} · Google combina estos textos</div>
+                <div className="small">Anuncio {i + 1}{a.adGroup ? ` · grupo «${a.adGroup}»` : ""} · Google combina estos textos</div>
                 {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
                 <div className="small"><a href={a.finalUrl} target="_blank" rel="noreferrer">{a.finalUrl.replace(/^https?:\/\//, "")}</a></div>
                 <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{a.headlines.map((h, j) => <li key={j}>{h}</li>)}</ul>

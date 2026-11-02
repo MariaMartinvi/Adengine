@@ -69,6 +69,7 @@ model Campaign {
   metaCampaignId   String?
   metaAdSetId      String?
   metaRtAdSetId    String?
+  groups           Json?
   keywords         Keyword[]
   ads              Ad[]
   metrics          DailyMetric[]
@@ -91,6 +92,8 @@ model Keyword {
   status            String        @default("ENABLED")
   googleCriterionId String?
   finalUrl          String?
+  adGroup           String?
+  googleAdGroupId   String?
   metrics           DailyMetric[]
 }
 
@@ -110,6 +113,7 @@ model Ad {
   basedOn      String?
   brief        String?
   thumbRef     String?
+  adGroup      String?
   status       String   @default("ENABLED")
 }
 

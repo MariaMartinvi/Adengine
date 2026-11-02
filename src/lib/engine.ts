@@ -45,27 +45,42 @@ export async function proposeCampaign(businessId: string) {
   const ideas = await ads.keywordIdeas(b.googleCustomerId, seeds, b.country, b.language, b.url);
   if (!ideas.length) throw new Error("Google no devolvió ideas de palabras. Revisa las semillas de la ficha.");
   // Páginas a las que puede llevar cada palabra: cuadros y colecciones de la ficha.
-  const pages = (await db.product.findMany({ where: { businessId } })).map((p) => ({ name: p.name, url: p.url }));
+  const products = await db.product.findMany({ where: { businessId } });
+  const pages = products.map((p) => ({ name: p.name, url: p.url, image: !!p.image }));
   const picked = await pickKeywords(b, ideas, pages);
   const byText = new Map(ideas.map((i) => [i.text.toLowerCase(), i]));
-  const adsCopy = await writeAds(b, picked.keywords.map((k) => k.text), refs);
+  // Grupos por tema: cada uno con su página y las fotos de sus cuadros (urls de imagen, no de página).
+  const imageOf = new Map(products.map((p) => [p.url, p.image]));
+  const groups = picked.groups.map((g) => ({ name: g.name, url: g.url, images: g.images.map((u) => imageOf.get(u)).filter((x): x is string => !!x) }));
+  const adsCopy = await writeAds(b, picked.keywords.map((k) => k.text), refs, groups.map((g) => ({ name: g.name, keywords: picked.keywords.filter((k) => k.group === g.name).map((k) => k.text) })));
   if (!adsCopy.length) throw new Error("La IA no devolvió anuncios válidos (títulos de 30 caracteres como máximo, descripciones de 90). Vuelve a proponer.");
+  // Un grupo sin anuncio no se muestra en Google: sus palabras pasan al grupo del primer anuncio.
+  const withAd = new Set(adsCopy.map((a) => groups[a.group - 1]?.name).filter(Boolean));
+  if (groups.length && withAd.size < groups.length) {
+    const fallback = groups[adsCopy[0].group - 1]?.name || groups[0].name;
+    for (const k of picked.keywords) if (!withAd.has(k.group!)) k.group = fallback;
+  }
 
   // Borra borradores anteriores: la propuesta es siempre la última.
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "google" } });
   const c = await db.campaign.create({ data: {
     businessId, name: `${b.name} · Búsqueda ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
+    groups: groups.length ? groups : undefined,
     keywords: { create: picked.keywords.map((k) => {
       const i = byText.get(k.text.toLowerCase());
       // Puja inicial: entre el mínimo estimado de Google y el techo de la ficha, nunca por encima del techo.
       const bid = Math.min(b.maxCpc, Math.max(0.2, i ? Math.max(i.cpcLow * 0.9, 0.2) : b.maxCpc * 0.7));
-      return { text: k.text, matchType: k.matchType, maxCpc: Math.round(bid * 100) / 100, estCpcLow: i?.cpcLow, estCpcHigh: i?.cpcHigh, volume: i?.volume, intent: k.intent, finalUrl: k.url || null };
+      return { text: k.text, matchType: k.matchType, maxCpc: Math.round(bid * 100) / 100, estCpcLow: i?.cpcLow, estCpcHigh: i?.cpcHigh, volume: i?.volume, intent: k.intent, finalUrl: k.url || null, adGroup: groups.length ? k.group : null };
     }) },
     // Cada anuncio calca una referencia y lleva al producto de esa referencia (o a la web de la ficha).
-    ads: { create: adsCopy.map((a) => ({ headlines: a.headlines, descriptions: a.descriptions, finalUrl: refs[a.ref - 1]?.item?.url || b.url, basedOn: a.basedOn })) },
+    // Con grupos, cada anuncio es de su tema y lleva a la página del grupo; sin grupos, al producto de su referencia.
+    ads: { create: adsCopy.map((a) => {
+      const g = groups[a.group - 1];
+      return { headlines: a.headlines, descriptions: a.descriptions, finalUrl: g?.url || refs[a.ref - 1]?.item?.url || b.url, basedOn: a.basedOn, adGroup: g?.name || null };
+    }) },
     proposals: { create: picked.negatives.map((n) => ({ kind: "ADD_NEGATIVE", target: n, payload: { text: n }, reason: "Excluir búsquedas sin intención de compra", status: "APPROVED" })) },
   } });
-  await log(businessId, "PROPUESTA", `${picked.keywords.length} palabras, ${adsCopy.length} anuncios, ${picked.negatives.length} negativas. Pendiente de tu aprobación.`);
+  await log(businessId, "PROPUESTA", `${picked.keywords.length} palabras${groups.length ? ` en ${groups.length} grupos (${groups.map((g) => g.name).join(", ")})` : ""}, ${adsCopy.length} anuncios, ${picked.negatives.length} negativas. Pendiente de tu aprobación.`);
   return c.id;
 }
 
@@ -92,6 +107,25 @@ async function addGoogleImages(c: { id: string; name: string; googleCampaignId: 
   await log(b.id, "IMAGENES", added ? `Campaña ${c.name}: imágenes de ${pick.slice(0, added).map((p) => p.name).join(", ")}.` : `Campaña ${c.name}: Google no aceptó las imágenes (${errors[0] || "sin productos con foto"}). La campaña sigue sin ellas.`);
 }
 
+// Fotos por grupo de anuncios: cada tema enseña sus cuadros (recortadas a 1,91:1 y 1:1). Igual que en campaña: si Google no las acepta, se apunta y sigue.
+async function addGroupImages(name: string, groups: { name: string; images: string[] }[], adGroupIds: Record<string, string>, b: { id: string; googleCustomerId: string | null }) {
+  const done: string[] = []; const errors: string[] = [];
+  for (const g of groups) {
+    const agId = adGroupIds[g.name];
+    if (!agId) continue;
+    for (const url of g.images) {
+      try {
+        const src = Buffer.from(await (await fetch(url)).arrayBuffer());
+        const tag = `${g.name} · ${Date.now()}`;
+        await ads.addAdGroupImage(b.googleCustomerId!, agId, `${tag} · horizontal`, await sharp(src).resize(1200, 628, { fit: "cover" }).jpeg({ quality: 85 }).toBuffer());
+        await ads.addAdGroupImage(b.googleCustomerId!, agId, `${tag} · cuadrada`, await sharp(src).resize(1200, 1200, { fit: "cover" }).jpeg({ quality: 85 }).toBuffer());
+        done.push(g.name);
+      } catch (e: any) { errors.push(`${g.name}: ${e.message}`); }
+    }
+  }
+  await log(b.id, "IMAGENES", done.length ? `Campaña ${name}: fotos en los grupos ${Array.from(new Set(done)).join(", ")}.${errors.length ? ` Fallaron ${errors.length}.` : ""}` : `Campaña ${name}: Google no aceptó las fotos (${errors[0] || "ningún grupo con foto"}). La campaña sigue sin ellas.`);
+}
+
 // Aprobación: crea todo en Google Ads EN PAUSA. Activar es un paso aparte y manual.
 export async function approveCampaign(campaignId: string) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, keywords: true, ads: true, proposals: true } });
@@ -107,19 +141,21 @@ export async function approveCampaign(campaignId: string) {
   }
   const res = await ads.createSearchCampaign(b.googleCustomerId!, {
     name: c.name, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url, path1: b.googlePath1, path2: b.googlePath2,
-    keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc, finalUrl: k.finalUrl })),
-    ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl })),
+    keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc, finalUrl: k.finalUrl, group: k.adGroup })),
+    ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl, group: a.adGroup })),
     negatives: c.proposals.filter((p) => p.kind === "ADD_NEGATIVE" && p.status === "APPROVED").map((p) => p.target),
     schedule: true,
   });
   await db.$transaction([
     db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", googleCampaignId: res.campaignId, googleBudgetId: res.budgetId, googleAdGroupId: res.adGroupId } }),
-    ...kws.map((k, i) => db.keyword.update({ where: { id: k.id }, data: { googleCriterionId: res.criterionIds[i] } })),
+    ...kws.map((k, i) => db.keyword.update({ where: { id: k.id }, data: { googleCriterionId: res.criterionIds[i], googleAdGroupId: res.adGroupIds[k.adGroup || ""] || res.adGroupId } })),
     ...c.ads.map((a, i) => db.ad.update({ where: { id: a.id }, data: { googleAdId: res.adIds[i] } })),
     db.keyword.deleteMany({ where: { campaignId: c.id, included: false } }),
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Google Ads en pausa (id ${res.campaignId}): ${kws.length} palabras, ${c.dailyBudget} ${b.currency}/día, tope total ${c.totalCap}.`);
-  await addGoogleImages({ id: c.id, name: c.name, googleCampaignId: res.campaignId, ads: c.ads }, b);
+  const groups = (c.groups as { name: string; url: string; images: string[] }[] | null) || [];
+  if (groups.length) await addGroupImages(c.name, groups, res.adGroupIds, b);
+  else await addGoogleImages({ id: c.id, name: c.name, googleCampaignId: res.campaignId, ads: c.ads }, b);
 }
 
 // ---------- Meta (Facebook + Instagram) ----------
@@ -401,7 +437,7 @@ export async function syncCampaign(campaignId: string) {
     const cost = m._sum.cost || 0, clicks = m._sum.clicks || 0, conv = m._sum.conversions || 0;
     // Regla 2 · gasta 2× el CAC tope sin vender -> pausa automática.
     if (conv === 0 && cost >= 2 * b.cacCap) {
-      await ads.updateKeyword(cid, c.googleAdGroupId!, k.googleCriterionId, { status: "PAUSED" });
+      await ads.updateKeyword(cid, k.googleAdGroupId || c.googleAdGroupId!, k.googleCriterionId, { status: "PAUSED" });
       await db.keyword.update({ where: { id: k.id }, data: { status: "PAUSED" } });
       await log(b.id, "REGLA", `Palabra «${k.text}» pausada: ${cost.toFixed(2)} gastados sin ventas (2× CAC tope ${b.cacCap}).`, true);
       continue;
@@ -439,12 +475,12 @@ export async function applyProposal(proposalId: string, decision: "APPROVED" | "
     const payload = p.payload as any;
     if (p.kind === "RAISE_BID" || p.kind === "LOWER_BID") {
       const k = await db.keyword.findUniqueOrThrow({ where: { id: p.target } });
-      await ads.updateKeyword(cid, c.googleAdGroupId!, k.googleCriterionId!, { maxCpc: payload.maxCpc });
+      await ads.updateKeyword(cid, k.googleAdGroupId || c.googleAdGroupId!, k.googleCriterionId!, { maxCpc: payload.maxCpc });
       await db.keyword.update({ where: { id: k.id }, data: { maxCpc: payload.maxCpc } });
       await log(b.id, "PUJA", `«${k.text}» → ${payload.maxCpc} (aprobado por ti).`);
     } else if (p.kind === "PAUSE_KEYWORD") {
       const k = await db.keyword.findUniqueOrThrow({ where: { id: p.target } });
-      await ads.updateKeyword(cid, c.googleAdGroupId!, k.googleCriterionId!, { status: "PAUSED" });
+      await ads.updateKeyword(cid, k.googleAdGroupId || c.googleAdGroupId!, k.googleCriterionId!, { status: "PAUSED" });
       await db.keyword.update({ where: { id: k.id }, data: { status: "PAUSED" } });
       await log(b.id, "PAUSA", `«${k.text}» pausada (aprobado por ti).`);
     } else if (p.kind === "ADD_NEGATIVE") {

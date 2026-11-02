@@ -65,8 +65,8 @@ export async function keywordIdeas(cid: string, seeds: string[], country: string
 
 export type CampaignSpec = {
   name: string; dailyBudget: number; country: string; language: string; finalUrl: string; path1?: string | null; path2?: string | null;
-  keywords: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number; finalUrl?: string | null }[];
-  ads: { headlines: string[]; descriptions: string[]; finalUrl?: string }[];
+  keywords: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number; finalUrl?: string | null; group?: string | null }[];
+  ads: { headlines: string[]; descriptions: string[]; finalUrl?: string; group?: string | null }[];
   negatives: string[];
   schedule: boolean; // lunes-viernes 8-20
 };
@@ -75,7 +75,9 @@ export type CampaignSpec = {
 export async function createSearchCampaign(cid: string, s: CampaignSpec) {
   const B = `customers/${cid}/campaignBudgets/-1`;
   const C = `customers/${cid}/campaigns/-2`;
-  const G = `customers/${cid}/adGroups/-3`;
+  // Un grupo de anuncios por tema (Virgen María, Buen Pastor…); sin temas, uno solo.
+  const groupNames = Array.from(new Set([...s.keywords.map((k) => k.group || "Grupo 1"), ...s.ads.map((a) => a.group || "Grupo 1")]));
+  const G = (name?: string | null) => `customers/${cid}/adGroups/-${3 + groupNames.indexOf(name || "Grupo 1")}`;
   const ops: any[] = [
     { campaignBudgetOperation: { create: { resourceName: B, name: `${s.name} · presupuesto`, amountMicros: toMicros(s.dailyBudget), deliveryMethod: "STANDARD", explicitlyShared: false } } },
     { campaignOperation: { create: {
@@ -87,7 +89,7 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
     } } },
     { campaignCriterionOperation: { create: { campaign: C, location: { geoTargetConstant: `geoTargetConstants/${GEO[s.country] || GEO.ES}` } } } },
     { campaignCriterionOperation: { create: { campaign: C, language: { languageConstant: `languageConstants/${LANG[s.language] || LANG.es}` } } } },
-    { adGroupOperation: { create: { resourceName: G, name: `${s.name} · grupo 1`, campaign: C, status: "ENABLED", type: "SEARCH_STANDARD" } } },
+    ...groupNames.map((n) => ({ adGroupOperation: { create: { resourceName: G(n), name: `${s.name} · ${n}`, campaign: C, status: "ENABLED", type: "SEARCH_STANDARD" } } })),
   ];
   if (s.schedule) {
     for (const day of ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]) {
@@ -99,10 +101,10 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
   }
   for (const k of s.keywords) {
     // Cada palabra puede llevar su página (el cuadro o la colección que busca la gente); si no, la del anuncio.
-    ops.push({ adGroupCriterionOperation: { create: { adGroup: G, status: "ENABLED", cpcBidMicros: toMicros(k.maxCpc), keyword: { text: k.text, matchType: k.matchType }, ...(k.finalUrl ? { finalUrls: [k.finalUrl] } : {}) } } });
+    ops.push({ adGroupCriterionOperation: { create: { adGroup: G(k.group), status: "ENABLED", cpcBidMicros: toMicros(k.maxCpc), keyword: { text: k.text, matchType: k.matchType }, ...(k.finalUrl ? { finalUrls: [k.finalUrl] } : {}) } } });
   }
   for (const a of s.ads) {
-    ops.push({ adGroupAdOperation: { create: { adGroup: G, status: "ENABLED", ad: {
+    ops.push({ adGroupAdOperation: { create: { adGroup: G(a.group), status: "ENABLED", ad: {
       finalUrls: [a.finalUrl || s.finalUrl],
       responsiveSearchAd: { headlines: a.headlines.map((t) => ({ text: t })), descriptions: a.descriptions.map((t) => ({ text: t })), ...(s.path1 ? { path1: s.path1, ...(s.path2 ? { path2: s.path2 } : {}) } : {}) },
     } } } });
@@ -112,10 +114,12 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
   const id = (rn: string) => rn.split("/").pop()!.split("~").pop()!;
   const budgetId = id(res[0].campaignBudgetResult.resourceName);
   const campaignId = id(res[1].campaignResult.resourceName);
-  const adGroupId = id(res[4].adGroupResult.resourceName);
+  const agIds = res.filter((r) => r.adGroupResult).map((r) => id(r.adGroupResult.resourceName));
+  const adGroupIds: Record<string, string> = Object.fromEntries(groupNames.map((n, i) => [n, agIds[i]]));
+  const adGroupId = agIds[0];
   const criterionIds = res.filter((r) => r.adGroupCriterionResult).map((r) => id(r.adGroupCriterionResult.resourceName));
   const adIds = res.filter((r) => r.adGroupAdResult).map((r) => id(r.adGroupAdResult.resourceName));
-  return { budgetId, campaignId, adGroupId, criterionIds, adIds };
+  return { budgetId, campaignId, adGroupId, adGroupIds, criterionIds, adIds };
 }
 
 // Imagen de la campaña de búsqueda (Google la enseña junto al anuncio cuando cree que ayuda): recurso de imagen + enlace AD_IMAGE.
@@ -123,6 +127,13 @@ export async function addCampaignImage(cid: string, campaignId: string, name: st
   const j = await call(`/customers/${cid}/assets:mutate`, { operations: [{ create: { name, imageAsset: { data: data.toString("base64") } } }] });
   const asset = j.results[0].resourceName;
   await call(`/customers/${cid}/campaignAssets:mutate`, { operations: [{ create: { campaign: `customers/${cid}/campaigns/${campaignId}`, asset, fieldType: "AD_IMAGE" } }] });
+}
+
+// La misma imagen, pero solo para un grupo de anuncios (las búsquedas de ese tema ven su cuadro).
+export async function addAdGroupImage(cid: string, adGroupId: string, name: string, data: Buffer) {
+  const j = await call(`/customers/${cid}/assets:mutate`, { operations: [{ create: { name, imageAsset: { data: data.toString("base64") } } }] });
+  const asset = j.results[0].resourceName;
+  await call(`/customers/${cid}/adGroupAssets:mutate`, { operations: [{ create: { adGroup: `customers/${cid}/adGroups/${adGroupId}`, asset, fieldType: "AD_IMAGE" } }] });
 }
 
 export async function setCampaignStatus(cid: string, campaignId: string, status: "ENABLED" | "PAUSED") {

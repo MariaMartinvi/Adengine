@@ -240,6 +240,17 @@ Nota: el píxel se instaló el 02/11/2026; Meta necesita ~100 personas en el pú
 - [x] 17.2 Colecciones de la web cargadas como páginas en la ficha de Cuadros con Alma → verificar: aparecen en "Nuestros productos" y en el desplegable. Hecho: 39 colecciones; la sección de productos es plegable
 - [x] 17.3 Volver a proponer Google de Cuadros con Alma → verificar: cada palabra con su página (Buen Pastor → /coleccion/buen-pastor, versículos → /coleccion/versiculos…). Hecho: 6 anuncios, 27 palabras, las 27 con página. Arreglado de paso: descripciones de las referencias = dos de 90; acortado en dos rondas sin cortar frases; filtro de rankings/reseñas/cifras ("más regalado", "nº 1", "estrellas"…)
 
+## 18. Google por temas y negocios nuevos sin ayuda
+
+**Petición (María, 02/11/2026):** que cada búsqueda vea la imagen de su cuadro (grupos por tema) y que el siguiente negocio se pueda montar entero desde AdEngine.
+
+- [x] 18.1 Grupos por tema: la IA que elige las palabras las agrupa en 3-7 temas; cada grupo con su página (colección o cuadro) y hasta 2 fotos de cuadros del tema
+- [x] 18.2 Un anuncio por grupo, que habla del tema y calca la referencia que mejor le encaje (indica cuál)
+- [x] 18.3 Al crear: un grupo de anuncios de Google por tema, con sus palabras, su anuncio (a la página del grupo) y sus fotos (AD_IMAGE a nivel de grupo); las pausas y cambios de puja usan el grupo de cada palabra
+- [x] 18.4 Panel: columna "Grupo" en las palabras y el grupo en cada anuncio de la propuesta
+- [x] 18.5 Botón "Importar desde la web" en la ficha: lee /sitemap.xml y carga cada página de producto y colección con su título y su foto (og:image o la del sitemap) → verificar con caricaturea.com. Código de 18.1-18.5 hecho, `tsc` y build OK; falta probar en producción
+- [ ] 18.6 Volver a proponer Google de Cuadros con Alma → verificar: grupos Virgen María, Buen Pastor, versículos… cada uno con su anuncio, su página y sus fotos
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
