@@ -177,9 +177,19 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 
 **Por qué:** AdEngine pone siempre "Más información" y manda todo a la portada. Christian Modern usa "Comprar" y cada anuncio lleva a la página de su cuadro (titular = nombre del producto).
 
-- [ ] 10.1 Botón de Meta en la ficha (Comprar / Más información / Registrarte; por defecto Comprar). Equipo Tierra y ChatSalsa se quedan en "Más información" → verificar: la ficha guarda el botón y los anuncios nuevos lo usan
-- [ ] 10.2 Enlace por anuncio: al proponer, cada imagen puede llevar su enlace (`imagen | enlace`, una por línea); sin enlace, la web de la ficha → verificar: la propuesta guarda el enlace de cada anuncio
-- [ ] 10.3 Rehacer los anuncios de una campaña de Meta viva con el botón y los enlaces actuales (en Meta el botón no se edita: se crea un anuncio nuevo y se pausa el viejo). Enlace editable por anuncio en el panel → verificar: Cuadros con Alma pasa a "Comprar" y cada anuncio a la página de su cuadro; los viejos quedan en pausa
+- [x] 10.1 Botón de Meta en la ficha (Comprar / Más información / Registrarte; por defecto Comprar). Equipo Tierra y ChatSalsa se quedan en "Más información" → verificar: la ficha guarda el botón y los anuncios nuevos lo usan. Hecho (02/11/2026): `metaCta` (SHOP_NOW por defecto), Equipo Tierra fijada en LEARN_MORE; build OK
+- [x] 10.2 Enlace por anuncio: al proponer, cada imagen puede llevar su enlace (`imagen | enlace`, una por línea); sin enlace, la web de la ficha → verificar: la propuesta guarda el enlace de cada anuncio. Código hecho; se prueba en vivo con la propuesta nueva de Cuadros con Alma (sección 11)
+- [ ] 10.3 Rehacer los anuncios de una campaña de Meta viva con el botón y los enlaces actuales (en Meta el botón no se edita: se crea un anuncio nuevo y se pausa el viejo). Enlace editable por anuncio en el panel → verificar: Cuadros con Alma pasa a "Comprar" y cada anuncio a la página de su cuadro; los viejos quedan en pausa. Código hecho y desplegado (el anuncio viejo queda en pausa con su historial y se crea uno nuevo, para no mezclar el gasto del día). No aplicado: María decide rehacer Cuadros con Alma desde cero
+
+## 11. Cuadros con Alma desde cero
+
+**Decisión (María, 02/11/2026):** parar todo lo de Cuadros con Alma y hacerlo bien desde cero. Hecho: campaña de Meta pausada desde AdEngine (Meta: 0 € gastados), Google ya en pausa. Se mantienen ficha y referencias.
+
+- [ ] 11.1 Botón "Archivar campaña" (solo en pausa o detenida): queda en pausa en Meta/Google con su historial, estado ARCHIVED en AdEngine, el cron no la toca, y la pestaña vuelve a permitir proponer → verificar: archivar las dos de Cuadros con Alma; las pestañas muestran "Proponer"; siguen en pausa en Meta/Google
+- [ ] 11.2 Referencias de Cuadros con Alma: Meta (vídeo de Christian Modern ya guardado + sus 2 anuncios de imagen) y Google (Centro de transparencia), con la secuencia enlace → lo que veo → música → guardar
+- [ ] 11.3 Propuesta de Meta: botón Comprar, cada imagen con el enlace a su cuadro, textos que copian la fórmula de las referencias
+- [ ] 11.4 Propuesta de Google con referencias: oferta del 15 % y detalles reales, sin reseñas inventadas
+- [ ] 11.5 María revisa, se crean en pausa y las activa ella
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
