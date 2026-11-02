@@ -13,6 +13,7 @@ export default async function Page({ params }: { params: { id: string } }) {
       actions: { orderBy: { createdAt: "desc" }, take: 40 },
       sales: { orderBy: { createdAt: "desc" }, take: 20 },
       references: { orderBy: { createdAt: "desc" } },
+      products: { orderBy: { name: "asc" } },
     },
   });
   if (!b) notFound();

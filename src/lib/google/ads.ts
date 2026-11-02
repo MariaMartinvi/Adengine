@@ -66,7 +66,7 @@ export async function keywordIdeas(cid: string, seeds: string[], country: string
 export type CampaignSpec = {
   name: string; dailyBudget: number; country: string; language: string; finalUrl: string;
   keywords: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number }[];
-  ads: { headlines: string[]; descriptions: string[] }[];
+  ads: { headlines: string[]; descriptions: string[]; finalUrl?: string }[];
   negatives: string[];
   schedule: boolean; // lunes-viernes 8-20
 };
@@ -102,7 +102,7 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
   }
   for (const a of s.ads) {
     ops.push({ adGroupAdOperation: { create: { adGroup: G, status: "ENABLED", ad: {
-      finalUrls: [s.finalUrl],
+      finalUrls: [a.finalUrl || s.finalUrl],
       responsiveSearchAd: { headlines: a.headlines.map((t) => ({ text: t })), descriptions: a.descriptions.map((t) => ({ text: t })) },
     } } } });
   }

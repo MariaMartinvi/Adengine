@@ -3,7 +3,7 @@ import { db } from "./db";
 import * as ads from "./google/ads";
 import { fichaFromSite } from "./ai";
 import { fetchSiteText } from "./fetchSite";
-import { pickKeywords, writeAds, writeMetaAds } from "./ai";
+import { pickKeywords, writeAds, writeMetaAdFromRef } from "./ai";
 import * as meta from "./meta/ads";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
@@ -31,7 +31,7 @@ function seedsFromNotes(notes?: string | null) {
 // Genera la propuesta: palabras con CPC reales de Google + anuncios. No toca Google Ads (solo lee).
 // Antes de generar, copiar lo que funciona: sin referencias del canal no se propone.
 async function latestRefs(businessId: string, channel: "meta" | "google") {
-  const refs = await db.reference.findMany({ where: { businessId, channel }, orderBy: { createdAt: "desc" }, take: 6 });
+  const refs = await db.reference.findMany({ where: { businessId, channel }, orderBy: { createdAt: "desc" }, take: 6, include: { item: true } });
   if (!refs.length) throw new Error(`Añade al menos una referencia que funcione en ${channel === "meta" ? "Meta" : "Google"} antes de proponer.`);
   return refs.reverse();
 }
@@ -57,7 +57,8 @@ export async function proposeCampaign(businessId: string) {
       const bid = Math.min(b.maxCpc, Math.max(0.2, i ? Math.max(i.cpcLow * 0.9, 0.2) : b.maxCpc * 0.7));
       return { text: k.text, matchType: k.matchType, maxCpc: Math.round(bid * 100) / 100, estCpcLow: i?.cpcLow, estCpcHigh: i?.cpcHigh, volume: i?.volume, intent: k.intent };
     }) },
-    ads: { create: adsCopy.map((a) => ({ headlines: a.headlines, descriptions: a.descriptions, finalUrl: b.url, basedOn: a.basedOn })) },
+    // Cada anuncio calca una referencia y lleva al producto de esa referencia (o a la web de la ficha).
+    ads: { create: adsCopy.map((a) => ({ headlines: a.headlines, descriptions: a.descriptions, finalUrl: refs[a.ref - 1]?.item?.url || b.url, basedOn: a.basedOn })) },
     proposals: { create: picked.negatives.map((n) => ({ kind: "ADD_NEGATIVE", target: n, payload: { text: n }, reason: "Excluir búsquedas sin intención de compra", status: "APPROVED" })) },
   } });
   await log(businessId, "PROPUESTA", `${picked.keywords.length} palabras, ${adsCopy.length} anuncios, ${picked.negatives.length} negativas. Pendiente de tu aprobación.`);
@@ -80,7 +81,7 @@ export async function approveCampaign(campaignId: string) {
   const res = await ads.createSearchCampaign(b.googleCustomerId!, {
     name: c.name, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url,
     keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc })),
-    ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[] })),
+    ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl })),
     negatives: c.proposals.filter((p) => p.kind === "ADD_NEGATIVE" && p.status === "APPROVED").map((p) => p.target),
     schedule: true,
   });
@@ -94,23 +95,27 @@ export async function approveCampaign(campaignId: string) {
 }
 
 // ---------- Meta (Facebook + Instagram) ----------
-// Propuesta: textos de la IA + imagen (y vídeo opcional) subidos a la biblioteca de la cuenta. No crea ni gasta nada.
-export async function proposeMetaCampaign(businessId: string, media: { images: { url: string; link?: string }[]; videoUrl?: string }) {
+// Propuesta: un anuncio por referencia de Meta, con la imagen y el enlace de su producto y los textos calcados de la referencia.
+// Las referencias de vídeo traen además el guion para grabar el nuestro. No crea ni gasta nada.
+export async function proposeMetaCampaign(businessId: string) {
   const b = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   const missing = [["cuenta de Meta", b.metaAdAccountId], ["píxel", b.metaPixelId], ["página de Facebook", b.metaPageId], ["anunciante", b.metaAdvertiser]].filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) throw new Error(`Completa en la ficha: ${missing.join(", ")}.`);
-  if (!media.images.length) throw new Error("Falta al menos una imagen (la primera también sirve de miniatura del vídeo).");
-  const copy = await writeMetaAds(b, await latestRefs(businessId, "meta"));
-  const hashes: string[] = [];
-  for (const im of media.images) hashes.push(await meta.uploadImage(b.metaAdAccountId!, im.url));
-  const videoId = media.videoUrl ? await meta.uploadVideo(b.metaAdAccountId!, media.videoUrl, `${b.name} · vídeo`) : null;
-  const ad = (mediaType: string, mediaUrl: string, mediaRef: string, link?: string) => ({ mediaType, mediaUrl, mediaRef, finalUrl: link || b.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn });
+  const refs = await latestRefs(businessId, "meta");
+  const sinCuadro = refs.filter((r) => !r.item?.image).length;
+  if (sinCuadro) throw new Error(`Elige «Nuestro cuadro» (con imagen) en ${sinCuadro === 1 ? "1 referencia" : `${sinCuadro} referencias`} de Meta.`);
+  const ads = [];
+  for (const r of refs) {
+    const copy = await writeMetaAdFromRef(b, r);
+    const hash = await meta.uploadImage(b.metaAdAccountId!, r.item!.image!);
+    ads.push({ mediaType: "image", mediaUrl: r.item!.image!, mediaRef: hash, finalUrl: r.item!.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn, brief: copy.script || null });
+  }
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "meta" } });
   const c = await db.campaign.create({ data: {
     businessId, channel: "meta", name: `${b.name} · Meta ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
-    ads: { create: [...media.images.map((im, i) => ad("image", im.url, hashes[i], im.link)), ...(videoId ? [ad("video", media.videoUrl!, videoId)] : [])] },
+    ads: { create: ads },
   } });
-  await log(businessId, "PROPUESTA", `Meta: ${media.images.length} imagen${media.images.length > 1 ? "es" : ""}${videoId ? " + vídeo" : ""}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
+  await log(businessId, "PROPUESTA", `Meta: ${ads.length} anuncios, uno por referencia, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
   return c.id;
 }
 
@@ -154,22 +159,28 @@ export async function rebuildMetaAds(campaignId: string, links: Record<string, s
 }
 
 // Aprobación: crea en Meta campaña EN PAUSA + conjunto con presupuesto total (freno nativo) + un anuncio por creatividad.
-export async function approveMetaCampaign(campaignId: string, edits: { dailyBudget: number; totalCap: number; message: string; headline: string; description: string }) {
+export async function approveMetaCampaign(campaignId: string, edits: { dailyBudget: number; totalCap: number; ads: { id: string; message: string; headline: string; description: string }[] }) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: true } });
   const b = c.business;
   if (c.status !== "CREATING" || c.channel !== "meta") throw new Error("Esta propuesta ya no está pendiente.");
   if (!(edits.dailyBudget > 0) || !(edits.totalCap >= edits.dailyBudget)) throw new Error("El gasto total debe ser al menos el presupuesto diario.");
-  const copy = { message: edits.message.trim().slice(0, 300), headline: edits.headline.trim().slice(0, 40), description: edits.description.trim().slice(0, 30) };
+  // Texto de cada anuncio: el editado en la pantalla de aprobación o, si no llega, el de la propuesta.
+  const copyOf = (a: { id: string; headlines: unknown; descriptions: unknown }) => {
+    const e = edits.ads.find((x) => x.id === a.id);
+    const [headline] = a.headlines as string[]; const [message, description] = a.descriptions as string[];
+    return { message: (e?.message ?? message).trim().slice(0, 300), headline: (e?.headline ?? headline).trim().slice(0, 40), description: (e?.description ?? description ?? "").trim().slice(0, 30) };
+  };
+  if (c.ads.some((a) => !copyOf(a).message || !copyOf(a).headline)) throw new Error("Cada anuncio necesita texto principal y titular.");
   for (const a of c.ads) if (a.mediaType === "video" && !(await meta.videoReady(a.mediaRef!))) throw new Error("Meta aún está procesando el vídeo. Prueba de nuevo en un minuto.");
   const image = c.ads.find((a) => a.mediaType === "image")!;
   const res = await meta.createCampaign(b.metaAdAccountId!, {
     name: c.name, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
     pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: image.mediaRef!, advertiser: b.metaAdvertiser!, cta: b.metaCta,
-    ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, ...copy })),
+    ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, ...copyOf(a) })),
   });
   await db.$transaction([
     db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, metaCampaignId: res.campaignId, metaAdSetId: res.adSetId } }),
-    ...c.ads.map((a, i) => db.ad.update({ where: { id: a.id }, data: { metaAdId: res.adIds[i], headlines: [copy.headline], descriptions: [copy.message, copy.description] } })),
+    ...c.ads.map((a, i) => { const k = copyOf(a); return db.ad.update({ where: { id: a.id }, data: { metaAdId: res.adIds[i], headlines: [k.headline], descriptions: [k.message, k.description] } }); }),
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Meta en pausa (id ${res.campaignId}): ${c.ads.length} anuncios, ${edits.totalCap} ${b.currency} en total hasta agotar (~${edits.dailyBudget}/día).`);
 }

@@ -15,13 +15,13 @@ function json<T>(s: string): T {
   return JSON.parse(clean.slice(start, end + 1));
 }
 
-export type Ref = { note: string; image?: string | null; video?: boolean; audio?: string | null; product?: string | null };
-const COPY_RULE = `Te paso referencias: anuncios que ya funcionan (texto y, a veces, captura). Antes de escribir, copia lo que funciona: replica su estructura (tipo de gancho, formato, longitud, oferta, detalles concretos, botón) con los datos reales de este negocio. Las imágenes, los vídeos y el producto del anuncio son siempre nuestros: si la referencia indica "Nuestro cuadro", el anuncio es de ese cuadro. No calques frases, marcas, imágenes ni cifras de las referencias, y no inventes reseñas, cifras de clientes ni datos que no estén en la ficha. Indica en basedOn qué referencia imitas y qué estructura tomas ("Referencia 2: testimonio de cliente + casa nueva"), máximo 120 caracteres.`;
+export type Ref = { note: string; image?: string | null; video?: boolean; audio?: string | null; product?: string | null; item?: { name: string; url: string } | null };
+const COPY_RULE = `Te paso referencias: anuncios que ya funcionan (texto y, a veces, captura). Cálcalos casi al 100 %: mismo formato, misma estructura, misma longitud, mismo tono, mismo tipo de gancho, mismos emojis y puntuación, mismo tipo de titular y de botón; en castellano de España y con nuestro producto ("Nuestro cuadro") y los datos reales de la ficha en lugar de los suyos. Lo único que NO se copia: testimonios o frases atribuidas a clientes, reseñas, estrellas, cifras de ventas o clientes, rankings ("#1", "el más regalado") y marcas ajenas, porque en nuestro anuncio serían falsos. Si la referencia usa un testimonio, escribe una frase de la marca (no de un cliente) con el mismo ritmo y dilo en basedOn. Ofertas: solo las que estén en la ficha. Indica en basedOn qué referencia calcas y qué has cambiado ("Referencia 2: testimonio → frase de la marca"), máximo 160 caracteres.`;
 // Mensaje con la ficha y las referencias; las capturas van como imágenes para que el modelo las vea.
 function withRefs(text: string, refs: Ref[]): any[] {
   const content: any[] = [{ type: "text", text }];
   refs.forEach((r, i) => {
-    content.push({ type: "text", text: `Referencia ${i + 1}${r.video ? " (vídeo)" : ""}: ${r.note || "(sin nota)"}${r.video ? `\nMúsica y audio: ${r.audio}` : ""}${r.product ? `\nNuestro cuadro para este anuncio: ${r.product}` : ""}` });
+    content.push({ type: "text", text: `Referencia ${i + 1}${r.video ? " (vídeo)" : ""}: ${r.note || "(sin nota)"}${r.video ? `\nMúsica y audio: ${r.audio}` : ""}${r.item ? `\nNuestro cuadro para este anuncio: ${r.item.name} · ${r.item.url}` : r.product ? `\nNuestro cuadro para este anuncio: ${r.product}` : ""}` });
     const m = r.image?.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
     if (m) content.push({ type: "image", source: { type: "base64", media_type: m[1], data: m[2] } });
   });
@@ -49,15 +49,16 @@ Reglas: elige 25-45 palabras de la lista de ideas (solo textos que estén en la 
   return json(await ask(sys, user, 4000));
 }
 
-export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string; notes?: string | null }, keywords: string[], refs: Ref[]): Promise<{ headlines: string[]; descriptions: string[]; basedOn: string }[]> {
-  const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres],"basedOn":"…"}]}. ${COPY_RULE} Genera 2 anuncios. Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
+export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string; notes?: string | null }, keywords: string[], refs: Ref[]): Promise<{ ref: number; headlines: string[]; descriptions: string[]; basedOn: string }[]> {
+  const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"ref":número de la referencia,"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres],"basedOn":"…"}]}. Un anuncio por referencia, en el mismo orden. ${COPY_RULE} Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
   const user = `Negocio: ${ficha.name} — ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nOferta de entrada: ${ficha.saleEvent} (${ficha.price})\nURL: ${ficha.url}\nNotas: ${ficha.notes || ""}\nBúsquedas objetivo: ${keywords.slice(0, 20).join(", ")}`;
-  const j = json<{ ads: { headlines: string[]; descriptions: string[]; basedOn?: string }[] }>(await ask(sys, withRefs(user, refs), 3000));
+  const j = json<{ ads: { ref?: number; headlines: string[]; descriptions: string[]; basedOn?: string }[] }>(await ask(sys, withRefs(user, refs), 8000));
   // Recorta por seguridad: Google rechaza el anuncio entero si un texto se pasa.
-  return j.ads.map((a) => ({
+  return j.ads.map((a, i) => ({
+    ref: Number(a.ref) || i + 1,
     headlines: Array.from(new Set(a.headlines.map((h) => h.trim()).filter((h) => h.length <= 30 && h.length > 0))).slice(0, 15),
     descriptions: Array.from(new Set(a.descriptions.map((d) => d.trim()).filter((d) => d.length <= 90 && d.length > 0))).slice(0, 4),
-    basedOn: (a.basedOn || "").trim().slice(0, 120),
+    basedOn: (a.basedOn || "").trim().slice(0, 160),
   })).filter((a) => a.headlines.length >= 3 && a.descriptions.length >= 2);
 }
 
@@ -74,4 +75,17 @@ El anuncio lo ve un adulto que decide (madre, padre, docente); si el producto es
   const j = json<MetaCopy>(await ask(sys, withRefs(user, refs), 1000));
   // Recorta por seguridad a los límites de Meta.
   return { message: j.message.trim().slice(0, 300), headline: j.headline.trim().slice(0, 40), description: j.description.trim().slice(0, 30), basedOn: (j.basedOn || "").trim().slice(0, 120) };
+}
+
+export type MetaAdCopy = MetaCopy & { script: string };
+
+// Un anuncio de Meta que calca una referencia con nuestro cuadro. Si la referencia es un vídeo, además un guion para grabar el nuestro igual.
+export async function writeMetaAdFromRef(ficha: { name: string; sells: string; audience: string; language: string; price: number; url: string; notes?: string | null }, ref: Ref): Promise<MetaAdCopy> {
+  const sys = `Escribes un anuncio para Facebook e Instagram en el idioma indicado, calcando la referencia. Devuelves SOLO JSON: {"message","headline","description","basedOn","script"}.
+- message (texto principal): máximo 300 caracteres. headline (titular bajo la imagen): máximo 40. description: máximo 30.
+- script: si la referencia es un vídeo, guion para grabar el nuestro igual con nuestro cuadro: duración, plano a plano con segundos, texto sobreimpreso y música (la de la referencia). Si no es vídeo, "".
+${COPY_RULE}`;
+  const user = `Producto: ${ficha.name} — ${ficha.sells}\nPara quién: ${ficha.audience}\nIdioma: ${ficha.language}\nPrecio: desde ${ficha.price}\nWeb: ${ficha.url}\nNotas y datos reales: ${ficha.notes || ""}`;
+  const j = json<MetaAdCopy>(await ask(sys, withRefs(user, [ref]), 2000));
+  return { message: j.message.trim().slice(0, 300), headline: j.headline.trim().slice(0, 40), description: (j.description || "").trim().slice(0, 30), basedOn: (j.basedOn || "").trim().slice(0, 160), script: ref.video ? (j.script || "").trim() : "" };
 }

@@ -5,14 +5,15 @@ import { useRouter } from "next/navigation";
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; finalUrl: string }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; metaCta: string; notes?: string; campaigns: Campaign[]; references: Ref[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string }[]; metrics: Metric[]; proposals: Proposal[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; metaCta: string; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
 
 type Option = { id: string; name: string };
-type Ref = { id: string; channel: string; note: string; image?: string | null; video: boolean; audio?: string | null; product?: string | null; createdAt: string };
+type Ref = { id: string; channel: string; note: string; image?: string | null; video: boolean; audio?: string | null; product?: string | null; productId?: string | null; createdAt: string };
+type Product = { id: string; name: string; url: string; image?: string | null };
 
 // Reduce la captura en el navegador (≤1280 px, JPEG) para que quepa en la BD y en la llamada a la IA.
 function shrink(file: File): Promise<string> {
@@ -46,8 +47,9 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [cap, setCap] = useState(gDraft?.totalCap ?? b.totalCap);
   const [mBudget, setMBudget] = useState(mDraft?.dailyBudget ?? b.dailyBudget);
   const [mCap, setMCap] = useState(mDraft?.totalCap ?? b.totalCap);
-  const [copy, setCopy] = useState({ message: mDraft?.ads[0]?.descriptions[0] || "", headline: mDraft?.ads[0]?.headlines[0] || "", description: mDraft?.ads[0]?.descriptions[1] || "" });
-  const [media, setMedia] = useState({ imageUrls: "", videoUrl: "" });
+  // Texto de cada anuncio de Meta propuesto (uno por referencia), editable antes de crear.
+  const [mCopy, setMCopy] = useState<Record<string, { message: string; headline: string; description: string }>>(Object.fromEntries((mDraft?.ads || []).map((a) => [a.id, { message: a.descriptions[0] || "", headline: a.headlines[0] || "", description: a.descriptions[1] || "" }])));
+  const [prodForm, setProdForm] = useState({ name: "", url: "", image: "" });
   const [newCover, setNewCover] = useState("");
   const [adLinks, setAdLinks] = useState<Record<string, string>>({});
   const [refForm, setRefForm] = useState<Record<string, { note: string; image: string; video: boolean; audio: string; product: string }>>({});
@@ -66,12 +68,15 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   }
   async function saveFicha() { setBusy("ficha"); await api(`/api/negocios/${b.id}`, b, "PATCH"); setBusy(""); r.refresh(); }
   async function propose() { setBusy("proponer"); await api(`/api/negocios/${b.id}/proponer`); setBusy(""); r.refresh(); }
-  async function proposeMeta() { setBusy("meta"); await api(`/api/negocios/${b.id}/proponer`, { channel: "meta", ...media }); setBusy(""); r.refresh(); }
+  async function proposeMeta() { setBusy("meta"); await api(`/api/negocios/${b.id}/proponer`, { channel: "meta" }); setBusy(""); r.refresh(); }
+  async function addProduct() { setBusy("producto"); const j = await api(`/api/negocios/${b.id}/productos`, prodForm); setBusy(""); if (j) { setProdForm({ name: "", url: "", image: "" }); r.refresh(); } }
+  async function delProduct(id: string) { setBusy("producto"); await api(`/api/productos/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
+  async function setRefProduct(id: string, productId: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { productId }, "PATCH"); setBusy(""); r.refresh(); }
   async function addCover() { setBusy("portada"); const j = await api(`/api/campanas/${mLive!.id}/anuncios`, { imageUrl: newCover }); setBusy(""); if (j) { setNewCover(""); r.refresh(); } }
   async function approve(d: Campaign) {
     setBusy("aprobar");
     const body = isMeta(d)
-      ? { campaignId: d.id, dailyBudget: mBudget, totalCap: mCap, ...copy, keywords: [] }
+      ? { campaignId: d.id, dailyBudget: mBudget, totalCap: mCap, ads: d.ads.map((a) => ({ id: a.id, ...mCopy[a.id] })), keywords: [] }
       : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType })) };
     const j = await api(`/api/negocios/${b.id}/aprobar`, body);
     setBusy(""); if (j) r.refresh();
@@ -85,7 +90,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   async function saveBudget(c: Campaign) { setBusy("presupuesto"); const j = await api(`/api/campanas/${c.id}/presupuesto`, { dailyBudget: lb(c).d, totalCap: lb(c).t }); setBusy(""); if (j) r.refresh(); }
   async function applyAudience(c: Campaign) { setBusy("publico"); await api(`/api/campanas/${c.id}/publico`); setBusy(""); r.refresh(); }
   async function addRef(ch: string) {
-    setBusy("ref"); const j = await api(`/api/negocios/${b.id}/referencias`, { channel: ch, ...refForm[ch] }); setBusy("");
+    const f = refForm[ch];
+    setBusy("ref"); const j = await api(`/api/negocios/${b.id}/referencias`, { channel: ch, note: f.note, image: f.image, video: f.video, audio: f.audio, productId: f.product || null }); setBusy("");
     if (j) { setRefForm({ ...refForm, [ch]: { note: "", image: "", video: false, audio: "", product: "" } }); r.refresh(); }
   }
   async function delRef(id: string) { setBusy("ref"); await api(`/api/referencias/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
@@ -116,7 +122,12 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                 {x.image && <img src={x.image} alt="" style={{ width: "100%", marginTop: 6 }} />}
                 {x.note && <p className="small" style={{ whiteSpace: "pre-wrap", margin: "6px 0" }}>{x.note}</p>}
                 {x.video && <p className="small" style={{ margin: "6px 0" }}>Vídeo · música y audio: {x.audio}</p>}
-                {x.product && <p className="small" style={{ margin: "6px 0" }}>Nuestro cuadro: {x.product}</p>}
+                <label className="field" style={{ margin: "6px 0" }}>Nuestro cuadro
+                  <select value={x.productId || ""} onChange={(e) => setRefProduct(x.id, e.target.value)} disabled={!!busy}>
+                    <option value="">{x.product ? `Sin elegir (antes: ${x.product.split(" · ")[0]})` : "Sin elegir"}</option>
+                    {data.products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </label>
                 <button className="btn-secondary" onClick={() => delRef(x.id)} disabled={!!busy}>Quitar</button>
               </div>
             ))}
@@ -126,7 +137,12 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           <label className="field">Nota (texto del anuncio, enlace, cuánto lleva activo…)<textarea rows={3} value={f.note} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, note: e.target.value } })} style={{ width: 340 }} /></label>
           <label className="field">Captura (opcional)<input type="file" accept="image/*" onChange={async (e) => { const file = e.target.files?.[0]; if (file) setRefForm({ ...refForm, [ch]: { ...f, image: await shrink(file) } }); }} /></label>
           {f.image && <img src={f.image} alt="" style={{ width: 80, alignSelf: "end" }} />}
-          <label className="field">Nuestro cuadro para este anuncio (nombre y enlace)<input value={f.product} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, product: e.target.value } })} placeholder="La oveja que faltaba · https://…/cuadro/…" style={{ width: 340 }} /></label>
+          <label className="field">Nuestro cuadro para este anuncio
+            <select value={f.product} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, product: e.target.value } })}>
+              <option value="">Elegir…</option>
+              {data.products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
           <label className="row small" style={{ alignSelf: "end" }}><input type="checkbox" checked={f.video} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, video: e.target.checked } })} /> Es un vídeo</label>
           {f.video && <label className="field">Música y audio (la IA no oye el vídeo: estilo, instrumentos, si hay voz y qué dice)<input value={f.audio} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, audio: e.target.value } })} placeholder="Clásica relajada, cuerda + piano, sin voz" style={{ width: 340 }} /></label>}
           <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRef(ch)} disabled={!!busy || (!f.note.trim() && !f.image) || (f.video && !f.audio.trim())}>{busy === "ref" ? "Guardando…" : "Añadir referencia"}</button>
@@ -297,6 +313,28 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
       </div>
       {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
 
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3>Nuestros productos</h3>
+        <p className="small">Con ellos se hacen los anuncios: cada referencia elige su producto y el anuncio lleva su imagen y su enlace.</p>
+        {data.products.length > 0 && (
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", margin: "10px 0" }}>
+            {data.products.map((p) => (
+              <div key={p.id} className="card" style={{ padding: 8 }}>
+                {p.image && <img src={p.image} alt="" style={{ width: "100%" }} />}
+                <div className="small" style={{ margin: "4px 0" }}><a href={p.url} target="_blank" rel="noreferrer">{p.name}</a></div>
+                <button className="btn-secondary" onClick={() => delProduct(p.id)} disabled={!!busy}>Quitar</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="row" style={{ marginTop: 8 }}>
+          <label className="field">Nombre<input value={prodForm.name} onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })} placeholder="La oveja que faltaba" /></label>
+          <label className="field">Enlace<input value={prodForm.url} onChange={(e) => setProdForm({ ...prodForm, url: e.target.value.trim() })} placeholder="https://…/cuadro/…" /></label>
+          <label className="field">Imagen (enlace)<input value={prodForm.image} onChange={(e) => setProdForm({ ...prodForm, image: e.target.value.trim() })} placeholder="https://…/foto.jpg" /></label>
+          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={addProduct} disabled={!!busy || !prodForm.name || !prodForm.url}>{busy === "producto" ? "Guardando…" : "Añadir producto"}</button>
+        </div>
+      </div>
+
       <div className="tabs" role="tablist">
         {(["meta", "google"] as const).map((t) => {
           const live = t === "meta" ? mLive : gLive, draft = t === "meta" ? mDraft : gDraft;
@@ -315,9 +353,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           {renderRefs("meta")}
       {!mLive && b.metaAdAccountId && (
         <div className="row" style={{ marginTop: 10 }}>
-          <label className="field">Imágenes (una por línea; opcional: «imagen | enlace del producto»)<textarea rows={3} value={media.imageUrls} onChange={(e) => setMedia({ ...media, imageUrls: e.target.value })} placeholder={"https://…/cuadro-1.jpg | https://tienda.com/cuadro/1\nhttps://…/cuadro-2.jpg"} style={{ width: 300 }} /></label>
-          <label className="field">Vídeo (URL, opcional)<input value={media.videoUrl} onChange={(e) => setMedia({ ...media, videoUrl: e.target.value.trim() })} placeholder="https://…/trailer.mp4" style={{ width: 300 }} /></label>
-          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim() || !refsOf("meta").length}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : mDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
+          <button className="btn-secondary" onClick={proposeMeta} disabled={!!busy || !refsOf("meta").length || refsOf("meta").some((x) => !x.productId)}>{busy === "meta" ? "Calcando referencias y subiendo a Meta…" : mDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
+          <span className="small">Un anuncio por referencia, con la imagen y el enlace de su cuadro.{refsOf("meta").some((x) => !x.productId) ? " Falta elegir «Nuestro cuadro» en alguna referencia." : ""}</span>
         </div>
       )}
       {mDraft && !mLive && (
@@ -329,22 +366,25 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             <label className="field">Gasto total máximo<input type="number" step="10" value={mCap} onChange={(e) => setMCap(+e.target.value)} style={{ width: 120 }} /></label>
             <div className="small" style={{ alignSelf: "end" }}>~{mBudget > 0 ? Math.ceil(mCap / mBudget) : 0} días de campaña</div>
           </div>
-          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-            <label className="field">Texto principal ({copy.message.length}/300)<textarea rows={5} value={copy.message} maxLength={300} onChange={(e) => setCopy({ ...copy, message: e.target.value })} /></label>
-            <label className="field">Titular ({copy.headline.length}/40)<input value={copy.headline} maxLength={40} onChange={(e) => setCopy({ ...copy, headline: e.target.value })} /></label>
-            <label className="field">Descripción ({copy.description.length}/30)<input value={copy.description} maxLength={30} onChange={(e) => setCopy({ ...copy, description: e.target.value })} /></label>
-          </div>
-          {mDraft.ads[0]?.basedOn && <p className="small" style={{ marginTop: 8 }}>Imita: {mDraft.ads[0].basedOn}</p>}
-          <div className="grid" style={{ marginTop: 14 }}>
-            {mDraft.ads.map((a, i) => (
-              <div className="card" key={i}>
-                <div className="small">Anuncio {i + 1} · {a.mediaType === "video" ? "vídeo" : "imagen"}</div>
-                {a.mediaType === "video" ? <video src={a.mediaUrl} controls muted style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
-              </div>
-            ))}
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", marginTop: 14 }}>
+            {mDraft.ads.map((a, i) => {
+              const k = mCopy[a.id] || { message: "", headline: "", description: "" };
+              const set = (f: string, v: string) => setMCopy({ ...mCopy, [a.id]: { ...k, [f]: v } });
+              return (
+                <div className="card" key={a.id}>
+                  <div className="small">Anuncio {i + 1} · <a href={a.finalUrl} target="_blank" rel="noreferrer">{a.finalUrl.replace(/^https?:\/\//, "")}</a></div>
+                  {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
+                  <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />
+                  <label className="field">Texto principal ({k.message.length}/300)<textarea rows={4} value={k.message} maxLength={300} onChange={(e) => set("message", e.target.value)} /></label>
+                  <label className="field">Titular ({k.headline.length}/40)<input value={k.headline} maxLength={40} onChange={(e) => set("headline", e.target.value)} /></label>
+                  <label className="field">Descripción ({k.description.length}/30)<input value={k.description} maxLength={30} onChange={(e) => set("description", e.target.value)} /></label>
+                  {a.brief && <details style={{ marginTop: 8 }}><summary className="small">Guion para grabar el vídeo</summary><p className="small" style={{ whiteSpace: "pre-wrap" }}>{a.brief}</p></details>}
+                </div>
+              );
+            })}
           </div>
           <div className="row" style={{ marginTop: 18 }}>
-            <button onClick={() => approve(mDraft)} disabled={!!busy || !copy.message || !copy.headline || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
+            <button onClick={() => approve(mDraft)} disabled={!!busy || mDraft.ads.some((a) => !mCopy[a.id]?.message || !mCopy[a.id]?.headline) || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
             <span className="small">Facebook + Instagram · un conjunto, {mDraft.ads.length} anuncio{mDraft.ads.length > 1 ? "s" : ""}</span>
           </div>
         </>
@@ -396,6 +436,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
               <div className="card" key={i}>
                 <div className="small">Anuncio {i + 1} · Google combina estos textos</div>
                 {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
+                <div className="small"><a href={a.finalUrl} target="_blank" rel="noreferrer">{a.finalUrl.replace(/^https?:\/\//, "")}</a></div>
                 <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{a.headlines.map((h, j) => <li key={j}>{h}</li>)}</ul>
                 <p className="muted" style={{ marginTop: 8 }}>{a.descriptions.join(" · ")}</p>
               </div>

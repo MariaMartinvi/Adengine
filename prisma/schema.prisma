@@ -47,6 +47,7 @@ model Business {
   actions            ActionLog[]
   sales              Sale[]
   references         Reference[]
+  products           Product[]
 }
 
 model Campaign {
@@ -100,6 +101,7 @@ model Ad {
   mediaUrl     String?
   mediaRef     String?
   basedOn      String?
+  brief        String?
   status       String   @default("ENABLED")
 }
 
@@ -178,5 +180,19 @@ model Reference {
   video      Boolean  @default(false)
   audio      String?
   product    String?
+  productId  String?
+  item       Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
+}
+
+// Nuestros productos (p. ej. cada cuadro): con ellos se hacen los anuncios que copian las referencias.
+model Product {
+  id         String      @id @default(cuid())
+  businessId String
+  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  url        String
+  image      String?
+  references Reference[]
+  createdAt  DateTime    @default(now())
 }

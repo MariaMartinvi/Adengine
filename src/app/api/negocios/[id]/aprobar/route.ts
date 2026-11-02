@@ -13,7 +13,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     try {
     const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId } });
     if (c.channel === "meta") {
-      await approveMetaCampaign(c.id, { dailyBudget: Number(dailyBudget), totalCap: Number(totalCap), message: String(body.message || ""), headline: String(body.headline || ""), description: String(body.description || "") });
+      await approveMetaCampaign(c.id, { dailyBudget: Number(dailyBudget), totalCap: Number(totalCap), ads: Array.isArray(body.ads) ? body.ads : [] });
       return NextResponse.json({ ok: true });
     }
     await db.$transaction([
