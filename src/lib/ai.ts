@@ -9,10 +9,19 @@ async function ask(system: string, user: string | any[], maxTokens = 3000): Prom
   if (!r.ok) throw new Error(`Modelo: ${JSON.stringify(j)}`);
   return j.content.map((c: any) => c.text || "").join("");
 }
+// Primer objeto JSON completo de la respuesta (el modelo a veces añade texto detrás).
 function json<T>(s: string): T {
   const clean = s.replace(/```json|```/g, "").trim();
-  const start = clean.indexOf("{"), end = clean.lastIndexOf("}");
-  return JSON.parse(clean.slice(start, end + 1));
+  const start = clean.indexOf("{");
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < clean.length; i++) {
+    const ch = clean[i];
+    if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) return JSON.parse(clean.slice(start, i + 1));
+  }
+  return JSON.parse(clean.slice(start));
 }
 
 export type Ref = { note: string; image?: string | null; video?: boolean; audio?: string | null; product?: string | null; item?: { name: string; url: string } | null };
