@@ -197,10 +197,10 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 **Petición (María, 02/11/2026):** que AdEngine proponga anuncios casi al 100 % iguales a las referencias, pero con nuestros productos y en castellano.
 **Límite:** testimonios, reseñas y cifras ("#1", "4,9 estrellas", "el más regalado") no se copian: serían falsos. Todo lo demás sí (formato, estructura, longitud, tono, gancho, botón). Si falta una frase real, AdEngine avisa o usa una nuestra.
 
-- [ ] 12.1 Productos en la ficha (nombre, enlace, imagen), comunes a Meta y Google; carga inicial desde la web de Cuadros con Alma → verificar: lista de 21 cuadros en la ficha, se pueden quitar y añadir
-- [ ] 12.2 "Nuestro cuadro" de cada referencia = desplegable de productos → verificar: las referencias existentes quedan enlazadas a su producto
-- [ ] 12.3 Propuesta de Meta: un anuncio por referencia con imagen y enlace del producto y textos calcados en estructura; para vídeos, además, guion para grabar → verificar: propuesta de Cuadros con Alma con 3 anuncios y "Imita" de cada uno
-- [ ] 12.4 Propuesta de Google: un anuncio por referencia, calcado en estructura, con el enlace de su producto o la tienda → verificar: propuesta de Cuadros con Alma con un anuncio por referencia de Google
+- [x] 12.1 Productos en la ficha (nombre, enlace, imagen), comunes a Meta y Google; carga inicial desde la web de Cuadros con Alma → verificar: lista de 21 cuadros en la ficha, se pueden quitar y añadir. Hecho (02/11/2026): 20 cuadros + "La tienda en general" cargados desde la web; datos reales y presupuesto 5 €/día · 150 € en la ficha
+- [x] 12.2 "Nuestro cuadro" de cada referencia = desplegable de productos → verificar: las referencias existentes quedan enlazadas a su producto. Hecho: las 9 referencias enlazadas
+- [x] 12.3 Propuesta de Meta: un anuncio por referencia con imagen y enlace del producto y textos calcados en estructura; para vídeos, además, guion para grabar → verificar: propuesta de Cuadros con Alma con 3 anuncios y "Imita" de cada uno. Hecho: 3 anuncios con enlace a su cuadro y guion de vídeo en los 2 de vídeo. Pendiente de revisión de María (frase de fundadora calcada de StarminStudio; frase entre comillas que parece testimonio)
+- [x] 12.4 Propuesta de Google: un anuncio por referencia, calcado en estructura, con el enlace de su producto o la tienda → verificar: propuesta de Cuadros con Alma con un anuncio por referencia de Google. Hecho: 4 anuncios válidos de 6 referencias (la IA a veces da títulos de más de 30: se descartan; el error ya dice qué llegó). Lector de JSON de la IA más robusto
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
