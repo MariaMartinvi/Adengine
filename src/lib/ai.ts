@@ -1,5 +1,5 @@
 // Generación con el modelo: ficha desde URL, semillas, palabras y anuncios.
-async function ask(system: string, user: string, maxTokens = 3000): Promise<string> {
+async function ask(system: string, user: string | any[], maxTokens = 3000): Promise<string> {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
@@ -13,6 +13,19 @@ function json<T>(s: string): T {
   const clean = s.replace(/```json|```/g, "").trim();
   const start = clean.indexOf("{"), end = clean.lastIndexOf("}");
   return JSON.parse(clean.slice(start, end + 1));
+}
+
+export type Ref = { note: string; image?: string | null };
+const COPY_RULE = `Te paso referencias: anuncios que ya funcionan (texto y, a veces, captura). Antes de escribir, copia lo que funciona: replica su estructura (tipo de gancho, formato, longitud, oferta, detalles concretos, botón) con los datos reales de este negocio. No calques frases, marcas, imágenes ni cifras de las referencias, y no inventes reseñas, cifras de clientes ni datos que no estén en la ficha. Indica en basedOn qué referencia imitas y qué estructura tomas ("Referencia 2: testimonio de cliente + casa nueva"), máximo 120 caracteres.`;
+// Mensaje con la ficha y las referencias; las capturas van como imágenes para que el modelo las vea.
+function withRefs(text: string, refs: Ref[]): any[] {
+  const content: any[] = [{ type: "text", text }];
+  refs.forEach((r, i) => {
+    content.push({ type: "text", text: `Referencia ${i + 1}: ${r.note || "(sin nota)"}` });
+    const m = r.image?.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+    if (m) content.push({ type: "image", source: { type: "base64", media_type: m[1], data: m[2] } });
+  });
+  return content;
 }
 
 export type Ficha = {
@@ -36,28 +49,29 @@ Reglas: elige 25-45 palabras de la lista de ideas (solo textos que estén en la 
   return json(await ask(sys, user, 4000));
 }
 
-export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string }, keywords: string[]): Promise<{ headlines: string[]; descriptions: string[] }[]> {
-  const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres]}]}. Genera 2 anuncios. Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
-  const user = `Negocio: ${ficha.name} — ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nOferta de entrada: ${ficha.saleEvent} (${ficha.price})\nURL: ${ficha.url}\nBúsquedas objetivo: ${keywords.slice(0, 20).join(", ")}`;
-  const j = json<{ ads: { headlines: string[]; descriptions: string[] }[] }>(await ask(sys, user, 3000));
+export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string; notes?: string | null }, keywords: string[], refs: Ref[]): Promise<{ headlines: string[]; descriptions: string[]; basedOn: string }[]> {
+  const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres],"basedOn":"…"}]}. ${COPY_RULE} Genera 2 anuncios. Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
+  const user = `Negocio: ${ficha.name} — ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nOferta de entrada: ${ficha.saleEvent} (${ficha.price})\nURL: ${ficha.url}\nNotas: ${ficha.notes || ""}\nBúsquedas objetivo: ${keywords.slice(0, 20).join(", ")}`;
+  const j = json<{ ads: { headlines: string[]; descriptions: string[]; basedOn?: string }[] }>(await ask(sys, withRefs(user, refs), 3000));
   // Recorta por seguridad: Google rechaza el anuncio entero si un texto se pasa.
   return j.ads.map((a) => ({
     headlines: Array.from(new Set(a.headlines.map((h) => h.trim()).filter((h) => h.length <= 30 && h.length > 0))).slice(0, 15),
     descriptions: Array.from(new Set(a.descriptions.map((d) => d.trim()).filter((d) => d.length <= 90 && d.length > 0))).slice(0, 4),
+    basedOn: (a.basedOn || "").trim().slice(0, 120),
   })).filter((a) => a.headlines.length >= 3 && a.descriptions.length >= 2);
 }
 
-export type MetaCopy = { message: string; headline: string; description: string };
+export type MetaCopy = { message: string; headline: string; description: string; basedOn: string };
 
 // Textos para Facebook/Instagram. Un solo juego de textos, compartido por el anuncio de imagen y el de vídeo.
-export async function writeMetaAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; url: string; notes?: string | null }): Promise<MetaCopy> {
-  const sys = `Escribes anuncios para Facebook e Instagram en el idioma indicado. Devuelves SOLO JSON: {"message","headline","description"}.
+export async function writeMetaAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; url: string; notes?: string | null }, refs: Ref[]): Promise<MetaCopy> {
+  const sys = `Escribes anuncios para Facebook e Instagram en el idioma indicado. Devuelves SOLO JSON: {"message","headline","description","basedOn"}. ${COPY_RULE}
 - message (texto principal): 2-4 frases, máximo 300 caracteres. La primera frase engancha por sí sola (es lo único que se ve sin pulsar "ver más"). Lenguaje cercano, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin emojis en exceso (máximo 2).
 - headline (titular bajo la imagen): máximo 40 caracteres.
 - description (línea pequeña bajo el titular): máximo 30 caracteres.
 El anuncio lo ve un adulto que decide (madre, padre, docente); si el producto es para menores, háblale a ese adulto, nunca al menor.`;
   const user = `Producto: ${ficha.name} — ${ficha.sells}\nPara quién: ${ficha.audience}\nIdioma: ${ficha.language}\nPrecio: ${ficha.price}\nWeb: ${ficha.url}\nNotas: ${ficha.notes || ""}`;
-  const j = json<MetaCopy>(await ask(sys, user, 1000));
+  const j = json<MetaCopy>(await ask(sys, withRefs(user, refs), 1000));
   // Recorta por seguridad a los límites de Meta.
-  return { message: j.message.trim().slice(0, 300), headline: j.headline.trim().slice(0, 40), description: j.description.trim().slice(0, 30) };
+  return { message: j.message.trim().slice(0, 300), headline: j.headline.trim().slice(0, 40), description: j.description.trim().slice(0, 30), basedOn: (j.basedOn || "").trim().slice(0, 120) };
 }

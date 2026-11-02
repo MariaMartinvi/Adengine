@@ -158,8 +158,21 @@ Sin cambios de código. Todo es configuración:
 
 **Tests:** el proyecto no tiene test runner. Cada tarea se verifica con `tsc --noEmit` y los pasos manuales de arriba, en producción y sobre campañas reales (en pausa salvo Cuadros con Alma Meta, que ya está activa).
 
+## 9. Referencias que funcionan (inspiración para la IA)
+
+**Idea (María):** pasar a AdEngine anuncios de la competencia que llevan tiempo activos (p. ej. Christian Modern, Biblioteca de anuncios) para que la IA escriba con referencias de lo que funciona. Cubre también el antiguo pendiente "Contexto / aprendizajes".
+
+**Límites comprobados (02/11/2026):** la Biblioteca de anuncios es una página dinámica (no se puede leer desde el servidor de forma fiable) y su API pide una autorización aparte (error 10/2332002, facebook.com/ads/library/api) y solo devuelve anuncios comerciales mostrados en la UE.
+
+**Regla (María, 02/11/2026): antes de generar, copiar lo que funciona.** Se copia la fórmula (formato, gancho, estructura, oferta, botón); no el contenido (frases, imágenes, vídeos, marca, cifras de otros).
+
+- [ ] 9.1 Referencias por canal, cada canal en su pestaña, subidas por AdEngine (María, 02/11/2026): lista de referencias con nota de texto y captura opcional (se reduce en el navegador a ≤1280 px JPEG y se guarda en la BD; tabla `Reference`). Se pueden borrar. Vídeos no: captura del primer fotograma + nota → verificar: añadir una referencia con captura en cada pestaña, recargar y siguen ahí; borrar una
+- [ ] 9.2 La IA recibe solo las referencias de su canal y **replica su estructura** (formato, gancho, longitud, oferta, botón) con datos reales del negocio; no calca frases, imágenes ni cifras ajenas. Cada anuncio propuesto indica qué referencia imita. Sin referencias no se genera: el botón de proponer pide añadirlas antes → verificar: "Volver a proponer" en Cuadros con Alma con las referencias de Christian Modern → Meta usa el ángulo (testimonio, casa nueva) y Google la oferta del 15 % y detalles reales (marco de madera, envío gratis Península y Baleares), sin repetir sus frases ni inventar reseñas
+
+La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo las 6 referencias más recientes del canal.
+- [ ] 9.3 (Opcional, más adelante) Leer solos los anuncios activos de una página de la competencia con la API de la Biblioteca. Requiere que María complete la autorización en facebook.com/ads/library/api; útil solo para competidores que anuncian en la UE
+
 ## Pendiente (después)
-- Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
 - [x] Google Ads conectado; cuenta RankCoworker (9148745988) asignada; campaña creada y activada (01/10/2026)

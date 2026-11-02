@@ -5,13 +5,30 @@ import { useRouter } from "next/navigation";
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; notes?: string; campaigns: Campaign[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string }[]; metrics: Metric[]; proposals: Proposal[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; notes?: string; campaigns: Campaign[]; references: Ref[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
 
 type Option = { id: string; name: string };
+type Ref = { id: string; channel: string; note: string; image?: string | null; createdAt: string };
+
+// Reduce la captura en el navegador (≤1280 px, JPEG) para que quepa en la BD y en la llamada a la IA.
+function shrink(file: File): Promise<string> {
+  return new Promise((ok, ko) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src); ok(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => ko(new Error("No se pudo leer la imagen"));
+    img.src = URL.createObjectURL(file);
+  });
+}
 export default function BusinessPanel({ data, accounts, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; metaAccounts?: Option[]; metaPixels?: Option[] }) {
   const r = useRouter();
   const [b, setB] = useState(data);
@@ -30,6 +47,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [copy, setCopy] = useState({ message: mDraft?.ads[0]?.descriptions[0] || "", headline: mDraft?.ads[0]?.headlines[0] || "", description: mDraft?.ads[0]?.descriptions[1] || "" });
   const [media, setMedia] = useState({ imageUrls: "", videoUrl: "" });
   const [newCover, setNewCover] = useState("");
+  const [refForm, setRefForm] = useState<Record<string, { note: string; image: string }>>({});
+  const refsOf = (ch: string) => data.references.filter((x) => x.channel === ch);
   // Una pestaña por canal; se abre la que ya tiene algo.
   const [tab, setTab] = useState<"meta" | "google">(mLive || mDraft || (!gLive && !gDraft && data.metaAdAccountId) ? "meta" : "google");
   const [liveEdit, setLiveEdit] = useState<Record<string, { d: number; t: number }>>({});
@@ -62,12 +81,46 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   }
   async function saveBudget(c: Campaign) { setBusy("presupuesto"); const j = await api(`/api/campanas/${c.id}/presupuesto`, { dailyBudget: lb(c).d, totalCap: lb(c).t }); setBusy(""); if (j) r.refresh(); }
   async function applyAudience(c: Campaign) { setBusy("publico"); await api(`/api/campanas/${c.id}/publico`); setBusy(""); r.refresh(); }
+  async function addRef(ch: string) {
+    setBusy("ref"); const j = await api(`/api/negocios/${b.id}/referencias`, { channel: ch, ...refForm[ch] }); setBusy("");
+    if (j) { setRefForm({ ...refForm, [ch]: { note: "", image: "" } }); r.refresh(); }
+  }
+  async function delRef(id: string) { setBusy("ref"); await api(`/api/referencias/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
   const inc = kws.filter((k) => k.included);
   const overCap = inc.filter((k) => k.maxCpc > b.maxCpc).length;
   const estDailyClicks = useMemo(() => inc.length ? budget / (inc.reduce((s, k) => s + k.maxCpc, 0) / inc.length) : 0, [inc, budget]);
   const set = (k: keyof Business, v: any) => setB({ ...b, [k]: v });
+
+  const renderRefs = (ch: "meta" | "google") => {
+    const f = refForm[ch] || { note: "", image: "" };
+    const list = refsOf(ch);
+    return (
+      <div className="card" style={{ margin: "16px 0" }}>
+        <h3>Referencias que funcionan en {ch === "meta" ? "Meta" : "Google"}</h3>
+        <p className="small">Antes de generar, copiamos lo que funciona: la IA replica la estructura de estos anuncios (gancho, formato, oferta, botón) con los datos de este negocio. Nunca calca frases, imágenes ni cifras ajenas. Vídeos: sube una captura y describe en la nota qué pasa.</p>
+        {list.length > 0 && (
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", margin: "10px 0" }}>
+            {list.map((x, i) => (
+              <div key={x.id} className="card" style={{ padding: 10 }}>
+                <div className="small">Referencia {list.length - i}</div>
+                {x.image && <img src={x.image} alt="" style={{ width: "100%", marginTop: 6 }} />}
+                {x.note && <p className="small" style={{ whiteSpace: "pre-wrap", margin: "6px 0" }}>{x.note}</p>}
+                <button className="btn-secondary" onClick={() => delRef(x.id)} disabled={!!busy}>Quitar</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="row" style={{ marginTop: 8 }}>
+          <label className="field">Nota (texto del anuncio, enlace, cuánto lleva activo…)<textarea rows={3} value={f.note} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, note: e.target.value } })} style={{ width: 340 }} /></label>
+          <label className="field">Captura (opcional)<input type="file" accept="image/*" onChange={async (e) => { const file = e.target.files?.[0]; if (file) setRefForm({ ...refForm, [ch]: { ...f, image: await shrink(file) } }); }} /></label>
+          {f.image && <img src={f.image} alt="" style={{ width: 80, alignSelf: "end" }} />}
+          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRef(ch)} disabled={!!busy || (!f.note.trim() && !f.image)}>{busy === "ref" ? "Guardando…" : "Añadir referencia"}</button>
+        </div>
+      </div>
+    );
+  };
 
   const renderLive = (live: Campaign) => (
         <div key={live.id}>
@@ -226,11 +279,12 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
       {tab === "meta" && (
         <>
           {!b.metaAdAccountId && <p className="muted">Elige una cuenta de Meta en la ficha y guárdala para poder proponer.</p>}
+          {renderRefs("meta")}
       {!mLive && b.metaAdAccountId && (
         <div className="row" style={{ marginTop: 10 }}>
           <label className="field">Imágenes (URLs, una por línea)<textarea rows={3} value={media.imageUrls} onChange={(e) => setMedia({ ...media, imageUrls: e.target.value })} placeholder={"https://…/portada.jpg\nhttps://…/portada-2.jpg"} style={{ width: 300 }} /></label>
           <label className="field">Vídeo (URL, opcional)<input value={media.videoUrl} onChange={(e) => setMedia({ ...media, videoUrl: e.target.value.trim() })} placeholder="https://…/trailer.mp4" style={{ width: 300 }} /></label>
-          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim()}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : mDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
+          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim() || !refsOf("meta").length}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : mDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
         </div>
       )}
       {mDraft && !mLive && (
@@ -247,6 +301,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             <label className="field">Titular ({copy.headline.length}/40)<input value={copy.headline} maxLength={40} onChange={(e) => setCopy({ ...copy, headline: e.target.value })} /></label>
             <label className="field">Descripción ({copy.description.length}/30)<input value={copy.description} maxLength={30} onChange={(e) => setCopy({ ...copy, description: e.target.value })} /></label>
           </div>
+          {mDraft.ads[0]?.basedOn && <p className="small" style={{ marginTop: 8 }}>Imita: {mDraft.ads[0].basedOn}</p>}
           <div className="grid" style={{ marginTop: 14 }}>
             {mDraft.ads.map((a, i) => (
               <div className="card" key={i}>
@@ -269,9 +324,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
       {tab === "google" && (
         <>
           {!b.googleCustomerId && <p className="muted">Elige una cuenta de Google Ads en la ficha y guárdala para poder proponer.</p>}
+          {renderRefs("google")}
           {!gLive && b.googleCustomerId && (
             <div className="row" style={{ marginTop: 14 }}>
-              <button className="btn-secondary" onClick={propose} disabled={!!busy}>{busy === "proponer" ? "Consultando CPC reales en Google…" : gDraft ? "Volver a proponer (Google)" : "Proponer campaña en Google"}</button>
+              <button className="btn-secondary" onClick={propose} disabled={!!busy || !refsOf("google").length}>{busy === "proponer" ? "Consultando CPC reales en Google…" : gDraft ? "Volver a proponer (Google)" : "Proponer campaña en Google"}</button>
             </div>
           )}
       {gDraft && !gLive && (
@@ -306,6 +362,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             {gDraft.ads.map((a, i) => (
               <div className="card" key={i}>
                 <div className="small">Anuncio {i + 1} · Google combina estos textos</div>
+                {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
                 <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{a.headlines.map((h, j) => <li key={j}>{h}</li>)}</ul>
                 <p className="muted" style={{ marginTop: 8 }}>{a.descriptions.join(" · ")}</p>
               </div>

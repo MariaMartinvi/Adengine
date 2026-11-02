@@ -29,15 +29,23 @@ function seedsFromNotes(notes?: string | null) {
 }
 
 // Genera la propuesta: palabras con CPC reales de Google + anuncios. No toca Google Ads (solo lee).
+// Antes de generar, copiar lo que funciona: sin referencias del canal no se propone.
+async function latestRefs(businessId: string, channel: "meta" | "google") {
+  const refs = await db.reference.findMany({ where: { businessId, channel }, orderBy: { createdAt: "desc" }, take: 6 });
+  if (!refs.length) throw new Error(`Añade al menos una referencia que funcione en ${channel === "meta" ? "Meta" : "Google"} antes de proponer.`);
+  return refs.reverse();
+}
+
 export async function proposeCampaign(businessId: string) {
   const b = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   if (!b.googleCustomerId) throw new Error("Asigna primero la cuenta de Google Ads del negocio.");
+  const refs = await latestRefs(businessId, "google");
   const seeds = seedsFromNotes(b.notes);
   const ideas = await ads.keywordIdeas(b.googleCustomerId, seeds, b.country, b.language, b.url);
   if (!ideas.length) throw new Error("Google no devolvió ideas de palabras. Revisa las semillas de la ficha.");
   const picked = await pickKeywords(b, ideas);
   const byText = new Map(ideas.map((i) => [i.text.toLowerCase(), i]));
-  const adsCopy = await writeAds(b, picked.keywords.map((k) => k.text));
+  const adsCopy = await writeAds(b, picked.keywords.map((k) => k.text), refs);
 
   // Borra borradores anteriores: la propuesta es siempre la última.
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "google" } });
@@ -49,7 +57,7 @@ export async function proposeCampaign(businessId: string) {
       const bid = Math.min(b.maxCpc, Math.max(0.2, i ? Math.max(i.cpcLow * 0.9, 0.2) : b.maxCpc * 0.7));
       return { text: k.text, matchType: k.matchType, maxCpc: Math.round(bid * 100) / 100, estCpcLow: i?.cpcLow, estCpcHigh: i?.cpcHigh, volume: i?.volume, intent: k.intent };
     }) },
-    ads: { create: adsCopy.map((a) => ({ headlines: a.headlines, descriptions: a.descriptions, finalUrl: b.url })) },
+    ads: { create: adsCopy.map((a) => ({ headlines: a.headlines, descriptions: a.descriptions, finalUrl: b.url, basedOn: a.basedOn })) },
     proposals: { create: picked.negatives.map((n) => ({ kind: "ADD_NEGATIVE", target: n, payload: { text: n }, reason: "Excluir búsquedas sin intención de compra", status: "APPROVED" })) },
   } });
   await log(businessId, "PROPUESTA", `${picked.keywords.length} palabras, ${adsCopy.length} anuncios, ${picked.negatives.length} negativas. Pendiente de tu aprobación.`);
@@ -92,11 +100,11 @@ export async function proposeMetaCampaign(businessId: string, media: { imageUrls
   const missing = [["cuenta de Meta", b.metaAdAccountId], ["píxel", b.metaPixelId], ["página de Facebook", b.metaPageId], ["anunciante", b.metaAdvertiser]].filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) throw new Error(`Completa en la ficha: ${missing.join(", ")}.`);
   if (!media.imageUrls.length) throw new Error("Falta al menos una imagen (la primera también sirve de miniatura del vídeo).");
-  const copy = await writeMetaAds(b);
+  const copy = await writeMetaAds(b, await latestRefs(businessId, "meta"));
   const hashes: string[] = [];
   for (const url of media.imageUrls) hashes.push(await meta.uploadImage(b.metaAdAccountId!, url));
   const videoId = media.videoUrl ? await meta.uploadVideo(b.metaAdAccountId!, media.videoUrl, `${b.name} · vídeo`) : null;
-  const ad = (mediaType: string, mediaUrl: string, mediaRef: string) => ({ mediaType, mediaUrl, mediaRef, finalUrl: b.url, headlines: [copy.headline], descriptions: [copy.message, copy.description] });
+  const ad = (mediaType: string, mediaUrl: string, mediaRef: string) => ({ mediaType, mediaUrl, mediaRef, finalUrl: b.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn });
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "meta" } });
   const c = await db.campaign.create({ data: {
     businessId, channel: "meta", name: `${b.name} · Meta ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,

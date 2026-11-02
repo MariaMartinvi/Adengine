@@ -45,6 +45,7 @@ model Business {
   campaigns          Campaign[]
   actions            ActionLog[]
   sales              Sale[]
+  references         Reference[]
 }
 
 model Campaign {
@@ -97,6 +98,7 @@ model Ad {
   mediaType    String?
   mediaUrl     String?
   mediaRef     String?
+  basedOn      String?
   status       String   @default("ENABLED")
 }
 
@@ -161,5 +163,16 @@ model Sale {
   gclid      String?
   channel    String?
   uploaded   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+// Anuncios que funcionan (de la competencia o propios), por canal. La IA replica su estructura al escribir.
+model Reference {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  channel    String
+  note       String
+  image      String?
   createdAt  DateTime @default(now())
 }
