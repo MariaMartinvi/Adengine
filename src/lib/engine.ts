@@ -5,6 +5,7 @@ import { fichaFromSite } from "./ai";
 import { fetchSiteText } from "./fetchSite";
 import { pickKeywords, writeAds, writeMetaAdFromRef } from "./ai";
 import * as meta from "./meta/ads";
+import sharp from "sharp";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -66,6 +67,29 @@ export async function proposeCampaign(businessId: string) {
   return c.id;
 }
 
+// Imágenes para la campaña de búsqueda: las fotos de los cuadros de sus anuncios y, si faltan, de los cuadros
+// de las referencias de Meta y del resto, hasta 3. Cada foto se recorta a 1,91:1 y 1:1, que es lo que pide Google.
+// No es imprescindible: si Google no las acepta (p. ej. cuenta nueva), se apunta y la campaña sigue.
+async function addGoogleImages(c: { id: string; name: string; googleCampaignId: string | null; ads: { finalUrl: string }[] }, b: { id: string; googleCustomerId: string | null }) {
+  const products = await db.product.findMany({ where: { businessId: b.id, image: { not: null } }, include: { references: true } });
+  const urls = new Set(c.ads.map((a) => a.finalUrl));
+  const score = (p: (typeof products)[number]) => (urls.has(p.url) ? 2 : 0) + (p.references.some((r) => r.channel === "meta") ? 1 : 0);
+  const pick = products.sort((x, y) => score(y) - score(x)).slice(0, 3);
+  let added = 0; const errors: string[] = [];
+  for (const p of pick) {
+    try {
+      const src = Buffer.from(await (await fetch(p.image!)).arrayBuffer());
+      const wide = await sharp(src).resize(1200, 628, { fit: "cover" }).jpeg({ quality: 85 }).toBuffer();
+      const square = await sharp(src).resize(1200, 1200, { fit: "cover" }).jpeg({ quality: 85 }).toBuffer();
+      const tag = `${p.name} · ${Date.now()}`;
+      await ads.addCampaignImage(b.googleCustomerId!, c.googleCampaignId!, `${tag} · horizontal`, wide);
+      await ads.addCampaignImage(b.googleCustomerId!, c.googleCampaignId!, `${tag} · cuadrada`, square);
+      added++;
+    } catch (e: any) { errors.push(`${p.name}: ${e.message}`); }
+  }
+  await log(b.id, "IMAGENES", added ? `Campaña ${c.name}: imágenes de ${pick.slice(0, added).map((p) => p.name).join(", ")}.` : `Campaña ${c.name}: Google no aceptó las imágenes (${errors[0] || "sin productos con foto"}). La campaña sigue sin ellas.`);
+}
+
 // Aprobación: crea todo en Google Ads EN PAUSA. Activar es un paso aparte y manual.
 export async function approveCampaign(campaignId: string) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, keywords: true, ads: true, proposals: true } });
@@ -93,6 +117,7 @@ export async function approveCampaign(campaignId: string) {
     db.keyword.deleteMany({ where: { campaignId: c.id, included: false } }),
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Google Ads en pausa (id ${res.campaignId}): ${kws.length} palabras, ${c.dailyBudget} ${b.currency}/día, tope total ${c.totalCap}.`);
+  await addGoogleImages({ id: c.id, name: c.name, googleCampaignId: res.campaignId, ads: c.ads }, b);
 }
 
 // ---------- Meta (Facebook + Instagram) ----------

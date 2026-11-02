@@ -117,6 +117,13 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
   return { budgetId, campaignId, adGroupId, criterionIds, adIds };
 }
 
+// Imagen de la campaña de búsqueda (Google la enseña junto al anuncio cuando cree que ayuda): recurso de imagen + enlace AD_IMAGE.
+export async function addCampaignImage(cid: string, campaignId: string, name: string, data: Buffer) {
+  const j = await call(`/customers/${cid}/assets:mutate`, { operations: [{ create: { name, imageAsset: { data: data.toString("base64") } } }] });
+  const asset = j.results[0].resourceName;
+  await call(`/customers/${cid}/campaignAssets:mutate`, { operations: [{ create: { campaign: `customers/${cid}/campaigns/${campaignId}`, asset, fieldType: "AD_IMAGE" } }] });
+}
+
 export async function setCampaignStatus(cid: string, campaignId: string, status: "ENABLED" | "PAUSED") {
   await call(`/customers/${cid}/campaigns:mutate`, { operations: [{ updateMask: "status", update: { resourceName: `customers/${cid}/campaigns/${campaignId}`, status } }] });
 }

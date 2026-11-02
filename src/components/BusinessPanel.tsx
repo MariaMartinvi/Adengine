@@ -461,7 +461,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           </div>
           <div className="row" style={{ marginTop: 18 }}>
             <button onClick={() => approve(gDraft)} disabled={!!busy || !inc.length || overCap > 0}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
-            <span className="small">Lunes a viernes, 8–20 h · solo Búsqueda · puja manual con techo</span>
+            <span className="small">Lunes a viernes, 8–20 h · solo Búsqueda · puja manual con techo · con las fotos de hasta 3 cuadros como imágenes (Google decide cuándo enseñarlas)</span>
           </div>
         </>
       )}

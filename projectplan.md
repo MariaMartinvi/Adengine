@@ -216,6 +216,12 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 
 - [ ] 14.1 Campo "Ruta del enlace en Google" (2 partes, 15 caracteres, sin espacios) → `path1`/`path2` del anuncio adaptable → verificar: Cuadros con Alma guardado como comprar / cuadros; al crear la campaña de Google los anuncios lo llevan
 
+## 15. Imágenes en los anuncios de búsqueda de Google
+
+**Petición (María, 02/11/2026).** Al crear la campaña de Google, AdEngine sube las fotos de hasta 3 cuadros (los de sus anuncios, luego los de las referencias de Meta) recortadas a 1,91:1 y 1:1 y las enlaza a la campaña (AD_IMAGE). Google decide cuándo enseñarlas; si la cuenta aún no las admite, se apunta en el historial y la campaña se crea igual.
+
+- [ ] 15.1 Subida y enlace de imágenes al crear la campaña de Google → verificar: al crear la de Cuadros con Alma, línea IMAGENES en el historial y los recursos de imagen enlazados en Google Ads
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
