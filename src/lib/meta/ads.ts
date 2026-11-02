@@ -122,6 +122,10 @@ export async function setCampaignStatus(campaignId: string, status: "ACTIVE" | "
   await call(`/${campaignId}`, { status }, "POST");
 }
 
+export async function setCampaignName(campaignId: string, name: string) {
+  await call(`/${campaignId}`, { name }, "POST");
+}
+
 // Freno nativo de una campaña viva: presupuesto total del conjunto y fecha de fin. Meta rechaza un total por debajo de lo gastado.
 export async function setAdSetBudget(adSetId: string, totalCap: number, endTime: Date) {
   await call(`/${adSetId}`, { lifetime_budget: cents(totalCap), end_time: endTime.toISOString() }, "POST");

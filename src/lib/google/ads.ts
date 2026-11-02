@@ -144,6 +144,10 @@ export async function setDailyBudget(cid: string, budgetId: string, dailyBudget:
   await call(`/customers/${cid}/campaignBudgets:mutate`, { operations: [{ updateMask: "amount_micros", update: { resourceName: `customers/${cid}/campaignBudgets/${budgetId}`, amountMicros: toMicros(dailyBudget) } }] });
 }
 
+export async function setCampaignName(cid: string, campaignId: string, name: string) {
+  await call(`/customers/${cid}/campaigns:mutate`, { operations: [{ updateMask: "name", update: { resourceName: `customers/${cid}/campaigns/${campaignId}`, name } }] });
+}
+
 export async function updateKeyword(cid: string, adGroupId: string, criterionId: string, patch: { status?: "ENABLED" | "PAUSED"; maxCpc?: number }) {
   const update: any = { resourceName: `customers/${cid}/adGroupCriteria/${adGroupId}~${criterionId}` };
   const mask: string[] = [];

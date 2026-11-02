@@ -140,7 +140,7 @@ export async function approveCampaign(campaignId: string) {
     await db.business.update({ where: { id: b.id }, data: { conversionActionId: id } });
   }
   const res = await ads.createSearchCampaign(b.googleCustomerId!, {
-    name: c.name, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url, path1: b.googlePath1, path2: b.googlePath2,
+    name: `${c.name} · ${stamp()}`, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url, path1: b.googlePath1, path2: b.googlePath2,
     keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc, finalUrl: k.finalUrl, group: k.adGroup })),
     ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl, group: a.adGroup })),
     negatives: c.proposals.filter((p) => p.kind === "ADD_NEGATIVE" && p.status === "APPROVED").map((p) => p.target),
@@ -277,7 +277,7 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   let audError: string | null = null;
   try { remarketing = { ...(await websiteAudiences(b)), share: RT_SHARE }; } catch (e: any) { audError = e.message; }
   const res = await meta.createCampaign(b.metaAdAccountId!, {
-    name: c.name, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
+    name: `${c.name} · ${stamp()}`, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
     pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta, remarketing,
     ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, thumbHash: a.thumbRef || undefined, ...copyOf(a) })),
   });
@@ -303,11 +303,20 @@ export async function setStatus(campaignId: string, status: "ENABLED" | "PAUSED"
   await log(c.businessId, status === "ENABLED" ? "ACTIVADA" : status === "STOPPED" ? "DETENIDA" : "PAUSADA", `Campaña ${c.name}`);
 }
 
+// Nombre en Meta/Google: el de AdEngine + fecha y hora de creación, para que nunca se repita (Google no admite dos iguales
+// y en Meta dos campañas con el mismo nombre se confunden).
+const stamp = () => new Date().toLocaleString("sv-SE", { timeZone: "Europe/Madrid" }).slice(0, 16);
+
 // Archivar: la campaña ya parada queda en pausa en Meta/Google con su historial, el cron deja de vigilarla
 // y el canal vuelve a admitir una propuesta nueva. No borra nada.
 export async function archiveCampaign(campaignId: string) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId } });
   if (!["PAUSED", "STOPPED"].includes(c.status)) throw new Error("Pausa la campaña antes de archivarla.");
+  // En la plataforma se le añade "archivada" al nombre para distinguirla de la nueva.
+  const b = await db.business.findUniqueOrThrow({ where: { id: c.businessId } });
+  const label = `${c.name} · archivada ${stamp()}`;
+  if (c.channel === "meta" && c.metaCampaignId) await meta.setCampaignName(c.metaCampaignId, label).catch(() => {});
+  if (c.channel !== "meta" && c.googleCampaignId) await ads.setCampaignName(b.googleCustomerId!, c.googleCampaignId, label).catch(() => {});
   await db.campaign.update({ where: { id: c.id }, data: { status: "ARCHIVED" } });
   await log(c.businessId, "ARCHIVADA", `Campaña ${c.name}: queda en pausa en ${c.channel === "meta" ? "Meta" : "Google"} con su historial.`);
 }
