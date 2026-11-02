@@ -126,13 +126,13 @@ export async function addMetaImageAd(campaignId: string, imageUrl: string) {
 export async function approveMetaCampaign(campaignId: string, edits: { dailyBudget: number; totalCap: number; message: string; headline: string; description: string }) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: true } });
   const b = c.business;
-  if (c.status !== "DRAFT" || c.channel !== "meta") throw new Error("Esta propuesta ya no está pendiente.");
+  if (c.status !== "CREATING" || c.channel !== "meta") throw new Error("Esta propuesta ya no está pendiente.");
   if (!(edits.dailyBudget > 0) || !(edits.totalCap >= edits.dailyBudget)) throw new Error("El gasto total debe ser al menos el presupuesto diario.");
   const copy = { message: edits.message.trim().slice(0, 300), headline: edits.headline.trim().slice(0, 40), description: edits.description.trim().slice(0, 30) };
   for (const a of c.ads) if (a.mediaType === "video" && !(await meta.videoReady(a.mediaRef!))) throw new Error("Meta aún está procesando el vídeo. Prueba de nuevo en un minuto.");
   const image = c.ads.find((a) => a.mediaType === "image")!;
   const res = await meta.createCampaign(b.metaAdAccountId!, {
-    name: c.name, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: 35, ageMax: 48,
+    name: c.name, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
     pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: image.mediaRef!, advertiser: b.metaAdvertiser!,
     ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, ...copy })),
   });
@@ -154,6 +154,33 @@ export async function setStatus(campaignId: string, status: "ENABLED" | "PAUSED"
   }
   await db.campaign.update({ where: { id: c.id }, data: { status } });
   await log(c.businessId, status === "ENABLED" ? "ACTIVADA" : status === "STOPPED" ? "DETENIDA" : "PAUSADA", `Campaña ${c.name}`);
+}
+
+// Presupuesto de una campaña viva. Meta: total del conjunto y fecha de fin al ritmo diario pedido. Google: importe diario; el tope total lo vigila el cron.
+export async function setBudget(campaignId: string, dailyBudget: number, totalCap: number) {
+  if (!(dailyBudget > 0) || !(totalCap >= dailyBudget)) throw new Error("El gasto total debe ser al menos el presupuesto diario.");
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, metrics: true } });
+  const spent = c.metrics.reduce((s, m) => s + m.cost, 0);
+  if (totalCap < spent) throw new Error(`Ya se han gastado ${spent.toFixed(2)} ${c.business.currency}: el tope no puede ser menor.`);
+  if (c.channel === "meta") {
+    if (!c.metaAdSetId) throw new Error("La campaña aún no existe en Meta.");
+    const days = Math.max(1, Math.ceil((totalCap - spent) / dailyBudget));
+    await meta.setAdSetBudget(c.metaAdSetId, totalCap, new Date(Date.now() + days * 86400000));
+  } else {
+    if (!c.googleBudgetId) throw new Error("La campaña aún no existe en Google Ads.");
+    await ads.setDailyBudget(c.business.googleCustomerId!, c.googleBudgetId, dailyBudget);
+  }
+  await db.campaign.update({ where: { id: c.id }, data: { dailyBudget, totalCap } });
+  await log(c.businessId, "PRESUPUESTO", `Campaña ${c.name}: ${dailyBudget} ${c.business.currency}/día, tope total ${totalCap}.`);
+}
+
+// Público de Meta: país y edad de la ficha aplicados al conjunto de una campaña viva.
+export async function applyMetaAudience(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true } });
+  if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se aplica a una campaña de Meta ya creada.");
+  const b = c.business;
+  await meta.setAdSetAudience(c.metaAdSetId, b.country, b.ageMin, b.ageMax);
+  await log(b.id, "PUBLICO", `Campaña ${c.name}: ${b.country}, ${b.ageMin}–${b.ageMax} años.`);
 }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);

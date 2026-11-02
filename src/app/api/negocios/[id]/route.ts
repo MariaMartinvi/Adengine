@@ -5,10 +5,10 @@ import { log } from "@/lib/engine";
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const data = await req.json();
-    const allowed = ["name", "url", "sells", "audience", "country", "language", "currency", "price", "marginPct", "saleEvent", "cacCap", "maxCpc", "dailyBudget", "totalCap", "googleCustomerId", "metaAdAccountId", "metaPixelId", "metaPageId", "metaAdvertiser", "notes"];
+    const allowed = ["name", "url", "sells", "audience", "country", "language", "currency", "price", "marginPct", "saleEvent", "cacCap", "maxCpc", "dailyBudget", "totalCap", "googleCustomerId", "metaAdAccountId", "metaPixelId", "metaPageId", "metaAdvertiser", "ageMin", "ageMax", "notes"];
     const patch: any = {};
     for (const k of allowed) if (k in data) patch[k] = data[k];
-    for (const k of ["price", "marginPct", "cacCap", "maxCpc", "dailyBudget", "totalCap"]) if (k in patch) patch[k] = Number(patch[k]);
+    for (const k of ["price", "marginPct", "cacCap", "maxCpc", "dailyBudget", "totalCap", "ageMin", "ageMax"]) if (k in patch) patch[k] = Number(patch[k]);
     if (patch.googleCustomerId) patch.googleCustomerId = String(patch.googleCustomerId).replace(/-/g, "");
     if (patch.metaAdAccountId) patch.metaAdAccountId = String(patch.metaAdAccountId).replace(/^act_/, "");
     const b = await db.business.update({ where: { id: params.id }, data: patch });

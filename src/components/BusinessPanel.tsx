@@ -6,7 +6,7 @@ type Metric = { date: string; cost: number; clicks: number; conversions: number;
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; notes?: string; campaigns: Campaign[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; notes?: string; campaigns: Campaign[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -30,6 +30,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [copy, setCopy] = useState({ message: mDraft?.ads[0]?.descriptions[0] || "", headline: mDraft?.ads[0]?.headlines[0] || "", description: mDraft?.ads[0]?.descriptions[1] || "" });
   const [media, setMedia] = useState({ imageUrls: "", videoUrl: "" });
   const [newCover, setNewCover] = useState("");
+  // Una pestaña por canal; se abre la que ya tiene algo.
+  const [tab, setTab] = useState<"meta" | "google">(mLive || mDraft || (!gLive && !gDraft && data.metaAdAccountId) ? "meta" : "google");
+  const [liveEdit, setLiveEdit] = useState<Record<string, { d: number; t: number }>>({});
+  const lb = (c: Campaign) => liveEdit[c.id] || { d: c.dailyBudget, t: c.totalCap };
 
   async function api(path: string, body?: unknown, method = "POST") {
     setErr("");
@@ -56,6 +60,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     setBusy("borrar"); const j = await api(`/api/negocios/${b.id}`, undefined, "DELETE"); setBusy("");
     if (j) { r.push("/"); r.refresh(); } else window.scrollTo(0, 0);
   }
+  async function saveBudget(c: Campaign) { setBusy("presupuesto"); const j = await api(`/api/campanas/${c.id}/presupuesto`, { dailyBudget: lb(c).d, totalCap: lb(c).t }); setBusy(""); if (j) r.refresh(); }
+  async function applyAudience(c: Campaign) { setBusy("publico"); await api(`/api/campanas/${c.id}/publico`); setBusy(""); r.refresh(); }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
   const inc = kws.filter((k) => k.included);
@@ -63,146 +69,19 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const estDailyClicks = useMemo(() => inc.length ? budget / (inc.reduce((s, k) => s + k.maxCpc, 0) / inc.length) : 0, [inc, budget]);
   const set = (k: keyof Business, v: any) => setB({ ...b, [k]: v });
 
-  return (
-    <main>
-      <h1>{b.name}</h1>
-      <div className="small"><a href={b.url} target="_blank" rel="noreferrer">{b.url}</a></div>
-      {err && <div className="notice error" style={{ marginTop: 16 }}>{err}</div>}
-
-      <h2>Ficha</h2>
-      <p className="muted">Es la única entrada del motor. Los cuatro topes de abajo son tu freno de mano: la herramienta nunca los supera.</p>
-      <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
-        <label className="field">Qué vende<input value={b.sells} onChange={(e) => set("sells", e.target.value)} /></label>
-        <label className="field">A quién<input value={b.audience} onChange={(e) => set("audience", e.target.value)} /></label>
-        <label className="field">País<input value={b.country} onChange={(e) => set("country", e.target.value.toUpperCase())} maxLength={2} /></label>
-        <label className="field">Idioma<input value={b.language} onChange={(e) => set("language", e.target.value.toLowerCase())} maxLength={2} /></label>
-        <label className="field">Venta que optimizamos<input value={b.saleEvent} onChange={(e) => set("saleEvent", e.target.value)} /></label>
-        <label className="field">Precio de esa venta<input type="number" step="0.01" value={b.price} onChange={(e) => set("price", +e.target.value)} /></label>
-        <label className="field">CAC tope (coste máx. por venta)<input type="number" step="1" value={b.cacCap} onChange={(e) => set("cacCap", +e.target.value)} /></label>
-        <label className="field">CPC máximo (techo por clic)<input type="number" step="0.05" value={b.maxCpc} onChange={(e) => set("maxCpc", +e.target.value)} /></label>
-        <label className="field">Presupuesto diario<input type="number" step="1" value={b.dailyBudget} onChange={(e) => set("dailyBudget", +e.target.value)} /></label>
-        <label className="field">Gasto total máximo<input type="number" step="10" value={b.totalCap} onChange={(e) => set("totalCap", +e.target.value)} /></label>
-        <label className="field">Cuenta de Google Ads
-          {accounts.length ? (
-            <select value={b.googleCustomerId || ""} onChange={(e) => set("googleCustomerId", e.target.value)}>
-              <option value="">Elegir…</option>
-              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.id}</option>)}
-            </select>
-          ) : <input value={b.googleCustomerId || ""} onChange={(e) => set("googleCustomerId", e.target.value)} placeholder="9148745988" />}
-        </label>
-        <label className="field">Cuenta de Meta
-          {metaAccounts.length ? (
-            <select value={b.metaAdAccountId || ""} onChange={(e) => setB({ ...b, metaAdAccountId: e.target.value, metaPixelId: "" })}>
-              <option value="">Sin Meta</option>
-              {metaAccounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.id}</option>)}
-            </select>
-          ) : <input value={b.metaAdAccountId || ""} onChange={(e) => set("metaAdAccountId", e.target.value)} placeholder="2190420808485726" />}
-        </label>
-        <label className="field">Píxel de Meta
-          {metaPixels.length && b.metaAdAccountId === data.metaAdAccountId ? (
-            <select value={b.metaPixelId || ""} onChange={(e) => set("metaPixelId", e.target.value)}>
-              <option value="">Elegir…</option>
-              {metaPixels.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
-            </select>
-          ) : <input value={b.metaPixelId || ""} onChange={(e) => set("metaPixelId", e.target.value)} placeholder={b.metaAdAccountId ? "Guarda la ficha para elegirlo" : "1431144915623956"} />}
-        </label>
-        {b.metaAdAccountId && <label className="field">Página de Facebook (id de Meta Business, no el del enlace)<input value={b.metaPageId || ""} onChange={(e) => set("metaPageId", e.target.value.trim())} placeholder="1254151691124601" /></label>}
-        {b.metaAdAccountId && <label className="field">Anunciante (aviso UE)<input value={b.metaAdvertiser || ""} onChange={(e) => set("metaAdvertiser", e.target.value)} placeholder="Quién se anuncia y paga" /></label>}
-      </div>
-      <div className="row" style={{ marginTop: 14 }}>
-        <button onClick={saveFicha} disabled={!!busy}>{busy === "ficha" ? "Guardando…" : "Guardar ficha"}</button>
-        {!gLive && b.googleCustomerId && <button className="btn-secondary" onClick={propose} disabled={!!busy}>{busy === "proponer" ? "Consultando CPC reales en Google…" : gDraft ? "Volver a proponer (Google)" : "Proponer campaña en Google"}</button>}
-        {!b.googleCustomerId && !b.metaAdAccountId && <span className="small">Elige una cuenta de Google Ads o de Meta para poder proponer.</span>}
-      </div>
-      {!mLive && b.metaAdAccountId && (
-        <div className="row" style={{ marginTop: 10 }}>
-          <label className="field">Imágenes (URLs, una por línea)<textarea rows={3} value={media.imageUrls} onChange={(e) => setMedia({ ...media, imageUrls: e.target.value })} placeholder={"https://…/portada.jpg\nhttps://…/portada-2.jpg"} style={{ width: 300 }} /></label>
-          <label className="field">Vídeo (URL, opcional)<input value={media.videoUrl} onChange={(e) => setMedia({ ...media, videoUrl: e.target.value.trim() })} placeholder="https://…/trailer.mp4" style={{ width: 300 }} /></label>
-          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim()}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : mDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
-        </div>
-      )}
-      {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
-
-      {mDraft && !mLive && (
-        <>
-          <h2>Propuesta Meta · revisa y aprueba</h2>
-          <p className="muted">Nada existe en Meta hasta que pulses «Crear en pausa». Público: {b.country}, 35–48 años. Optimiza hacia el clic de compra del píxel. El gasto total es un tope que Meta respeta sola.</p>
-          <div className="row" style={{ margin: "10px 0 16px" }}>
-            <label className="field">Presupuesto diario (aprox.)<input type="number" step="1" value={mBudget} onChange={(e) => setMBudget(+e.target.value)} style={{ width: 120 }} /></label>
-            <label className="field">Gasto total máximo<input type="number" step="10" value={mCap} onChange={(e) => setMCap(+e.target.value)} style={{ width: 120 }} /></label>
-            <div className="small" style={{ alignSelf: "end" }}>~{mBudget > 0 ? Math.ceil(mCap / mBudget) : 0} días de campaña</div>
-          </div>
-          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-            <label className="field">Texto principal ({copy.message.length}/300)<textarea rows={5} value={copy.message} maxLength={300} onChange={(e) => setCopy({ ...copy, message: e.target.value })} /></label>
-            <label className="field">Titular ({copy.headline.length}/40)<input value={copy.headline} maxLength={40} onChange={(e) => setCopy({ ...copy, headline: e.target.value })} /></label>
-            <label className="field">Descripción ({copy.description.length}/30)<input value={copy.description} maxLength={30} onChange={(e) => setCopy({ ...copy, description: e.target.value })} /></label>
-          </div>
-          <div className="grid" style={{ marginTop: 14 }}>
-            {mDraft.ads.map((a, i) => (
-              <div className="card" key={i}>
-                <div className="small">Anuncio {i + 1} · {a.mediaType === "video" ? "vídeo" : "imagen"}</div>
-                {a.mediaType === "video" ? <video src={a.mediaUrl} controls muted style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
-              </div>
-            ))}
-          </div>
-          <div className="row" style={{ marginTop: 18 }}>
-            <button onClick={() => approve(mDraft)} disabled={!!busy || !copy.message || !copy.headline || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
-            <span className="small">Facebook + Instagram · un conjunto, {mDraft.ads.length} anuncio{mDraft.ads.length > 1 ? "s" : ""}</span>
-          </div>
-        </>
-      )}
-
-      {gDraft && !gLive && (
-        <>
-          <h2>Propuesta · revisa y aprueba</h2>
-          <p className="muted">Nada existe en Google hasta que pulses «Crear en pausa». Edita el CPC máximo de cada palabra, quita las que no quieras y ajusta presupuesto y tope.</p>
-          <div className="row" style={{ margin: "10px 0 16px" }}>
-            <label className="field">Presupuesto diario<input type="number" step="1" value={budget} onChange={(e) => setBudget(+e.target.value)} style={{ width: 120 }} /></label>
-            <label className="field">Gasto total máximo<input type="number" step="10" value={cap} onChange={(e) => setCap(+e.target.value)} style={{ width: 120 }} /></label>
-            <div className="small" style={{ alignSelf: "end" }}>{inc.length} palabras · ~{estDailyClicks.toFixed(0)} clics/día como máximo · {overCap ? <span className="over">{overCap} por encima del techo {money(b.maxCpc, b.currency)}</span> : "todas dentro del techo"}</div>
-          </div>
-          <div className="tablewrap">
-            <table>
-              <thead><tr><th></th><th>Palabra</th><th>Concordancia</th><th className="num">Búsquedas/mes</th><th className="num">CPC estimado</th><th className="num">CPC máximo</th><th>Por qué</th></tr></thead>
-              <tbody>
-                {kws.map((k, i) => (
-                  <tr key={k.id} style={{ opacity: k.included ? 1 : .45 }}>
-                    <td><input type="checkbox" checked={k.included} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, included: e.target.checked } : x))} aria-label="Incluir" /></td>
-                    <td>{k.text}</td>
-                    <td><select value={k.matchType} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, matchType: e.target.value } : x))}><option value="EXACT">Exacta</option><option value="PHRASE">Frase</option></select></td>
-                    <td className="num">{k.volume ?? "—"}</td>
-                    <td className="num">{k.estCpcLow != null ? `${k.estCpcLow.toFixed(2)} – ${k.estCpcHigh?.toFixed(2)}` : "—"}</td>
-                    <td className="num"><input type="number" step="0.05" min="0.05" value={k.maxCpc} className={k.maxCpc > b.maxCpc ? "over" : ""} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, maxCpc: +e.target.value } : x))} style={{ width: 80, textAlign: "right" }} /></td>
-                    <td className="small">{k.intent}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <h2>Anuncios</h2>
-          <div className="grid">
-            {gDraft.ads.map((a, i) => (
-              <div className="card" key={i}>
-                <div className="small">Anuncio {i + 1} · Google combina estos textos</div>
-                <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{a.headlines.map((h, j) => <li key={j}>{h}</li>)}</ul>
-                <p className="muted" style={{ marginTop: 8 }}>{a.descriptions.join(" · ")}</p>
-              </div>
-            ))}
-          </div>
-          <div className="row" style={{ marginTop: 18 }}>
-            <button onClick={() => approve(gDraft)} disabled={!!busy || !inc.length || overCap > 0}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
-            <span className="small">Lunes a viernes, 8–20 h · solo Búsqueda · puja manual con techo</span>
-          </div>
-        </>
-      )}
-
-      {[gLive, mLive].map((live) => live && (
+  const renderLive = (live: Campaign) => (
         <div key={live.id}>
           <h2>Campaña · {live.name} <span className={`status ${live.status}`}>{({ ENABLED: "activa", PAUSED: "en pausa", STOPPED: "detenida" } as any)[live.status]}</span></h2>
           <div className="row" style={{ marginBottom: 14 }}>
             {live.status !== "ENABLED" && <button className="btn-ok" onClick={() => status(live, "ENABLED")} disabled={!!busy}>Activar</button>}
             {live.status === "ENABLED" && <button className="btn-secondary" onClick={() => status(live, "PAUSED")} disabled={!!busy}>Pausar</button>}
             <span className="small">{money(live.dailyBudget, b.currency)}/día · tope {money(live.totalCap, b.currency)} · gastado {money(sum(live.metrics, "cost"), b.currency)} · {sum(live.metrics, "conversions")} ventas</span>
+          </div>
+          <div className="row" style={{ marginBottom: 14 }}>
+            <label className="field">{live.channel === "meta" ? "€/día (aprox.)" : "€/día"}<input type="number" step="1" value={lb(live).d} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), d: +e.target.value } })} style={{ width: 100 }} /></label>
+            <label className="field">Tope total<input type="number" step="10" value={lb(live).t} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), t: +e.target.value } })} style={{ width: 100 }} /></label>
+            <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => saveBudget(live)} disabled={!!busy || !(lb(live).d > 0) || !(lb(live).t >= lb(live).d)}>{busy === "presupuesto" ? "Guardando…" : "Guardar presupuesto"}</button>
+            {live.channel === "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => applyAudience(live)} disabled={!!busy}>{busy === "publico" ? "Aplicando…" : `Aplicar público de la ficha (${data.country}, ${data.ageMin}–${data.ageMax} años)`}</button>}
           </div>
           {live.proposals.length > 0 && (
             <div className="card" style={{ marginBottom: 16 }}>
@@ -277,7 +156,171 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             </table>
           </div>}
         </div>
-      ))}
+  );
+
+  return (
+    <main>
+      <h1>{b.name}</h1>
+      <div className="small"><a href={b.url} target="_blank" rel="noreferrer">{b.url}</a></div>
+      {err && <div className="notice error" style={{ marginTop: 16 }}>{err}</div>}
+
+      <h2>Ficha</h2>
+      <p className="muted">Es la única entrada del motor. Los cuatro topes de abajo son tu freno de mano: la herramienta nunca los supera.</p>
+      <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
+        <label className="field">Qué vende<input value={b.sells} onChange={(e) => set("sells", e.target.value)} /></label>
+        <label className="field">A quién<input value={b.audience} onChange={(e) => set("audience", e.target.value)} /></label>
+        <label className="field">País<input value={b.country} onChange={(e) => set("country", e.target.value.toUpperCase())} maxLength={2} /></label>
+        <label className="field">Idioma<input value={b.language} onChange={(e) => set("language", e.target.value.toLowerCase())} maxLength={2} /></label>
+        <label className="field">Venta que optimizamos<input value={b.saleEvent} onChange={(e) => set("saleEvent", e.target.value)} /></label>
+        <label className="field">Precio de esa venta<input type="number" step="0.01" value={b.price} onChange={(e) => set("price", +e.target.value)} /></label>
+        <label className="field">CAC tope (coste máx. por venta)<input type="number" step="1" value={b.cacCap} onChange={(e) => set("cacCap", +e.target.value)} /></label>
+        <label className="field">CPC máximo (techo por clic)<input type="number" step="0.05" value={b.maxCpc} onChange={(e) => set("maxCpc", +e.target.value)} /></label>
+        <label className="field">Presupuesto diario<input type="number" step="1" value={b.dailyBudget} onChange={(e) => set("dailyBudget", +e.target.value)} /></label>
+        <label className="field">Gasto total máximo<input type="number" step="10" value={b.totalCap} onChange={(e) => set("totalCap", +e.target.value)} /></label>
+        <label className="field">Cuenta de Google Ads
+          {accounts.length ? (
+            <select value={b.googleCustomerId || ""} onChange={(e) => set("googleCustomerId", e.target.value)}>
+              <option value="">Elegir…</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.id}</option>)}
+            </select>
+          ) : <input value={b.googleCustomerId || ""} onChange={(e) => set("googleCustomerId", e.target.value)} placeholder="9148745988" />}
+        </label>
+        <label className="field">Cuenta de Meta
+          {metaAccounts.length ? (
+            <select value={b.metaAdAccountId || ""} onChange={(e) => setB({ ...b, metaAdAccountId: e.target.value, metaPixelId: "" })}>
+              <option value="">Sin Meta</option>
+              {metaAccounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.id}</option>)}
+            </select>
+          ) : <input value={b.metaAdAccountId || ""} onChange={(e) => set("metaAdAccountId", e.target.value)} placeholder="2190420808485726" />}
+        </label>
+        <label className="field">Píxel de Meta
+          {metaPixels.length && b.metaAdAccountId === data.metaAdAccountId ? (
+            <select value={b.metaPixelId || ""} onChange={(e) => set("metaPixelId", e.target.value)}>
+              <option value="">Elegir…</option>
+              {metaPixels.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
+            </select>
+          ) : <input value={b.metaPixelId || ""} onChange={(e) => set("metaPixelId", e.target.value)} placeholder={b.metaAdAccountId ? "Guarda la ficha para elegirlo" : "1431144915623956"} />}
+        </label>
+        {b.metaAdAccountId && <label className="field">Página de Facebook (id de Meta Business, no el del enlace)<input value={b.metaPageId || ""} onChange={(e) => set("metaPageId", e.target.value.trim())} placeholder="1254151691124601" /></label>}
+        {b.metaAdAccountId && <label className="field">Anunciante (aviso UE)<input value={b.metaAdvertiser || ""} onChange={(e) => set("metaAdvertiser", e.target.value)} placeholder="Quién se anuncia y paga" /></label>}
+        {b.metaAdAccountId && <label className="field">Edad mínima (Meta)<input type="number" min={18} max={65} value={b.ageMin} onChange={(e) => set("ageMin", +e.target.value)} /></label>}
+        {b.metaAdAccountId && <label className="field">Edad máxima (Meta)<input type="number" min={18} max={65} value={b.ageMax} onChange={(e) => set("ageMax", +e.target.value)} /></label>}
+      </div>
+      <div className="row" style={{ marginTop: 14 }}>
+        <button onClick={saveFicha} disabled={!!busy}>{busy === "ficha" ? "Guardando…" : "Guardar ficha"}</button>
+      </div>
+      {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
+
+      <div className="tabs" role="tablist">
+        {(["meta", "google"] as const).map((t) => {
+          const live = t === "meta" ? mLive : gLive, draft = t === "meta" ? mDraft : gDraft;
+          return (
+            <button key={t} role="tab" aria-selected={tab === t} className={`tab${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>
+              {t === "meta" ? "Meta" : "Google"}
+              <span className={`status ${live?.status || ""}`}>{live ? ({ ENABLED: "activa", PAUSED: "en pausa", STOPPED: "detenida" } as any)[live.status] : draft ? "propuesta" : "sin campaña"}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "meta" && (
+        <>
+          {!b.metaAdAccountId && <p className="muted">Elige una cuenta de Meta en la ficha y guárdala para poder proponer.</p>}
+      {!mLive && b.metaAdAccountId && (
+        <div className="row" style={{ marginTop: 10 }}>
+          <label className="field">Imágenes (URLs, una por línea)<textarea rows={3} value={media.imageUrls} onChange={(e) => setMedia({ ...media, imageUrls: e.target.value })} placeholder={"https://…/portada.jpg\nhttps://…/portada-2.jpg"} style={{ width: 300 }} /></label>
+          <label className="field">Vídeo (URL, opcional)<input value={media.videoUrl} onChange={(e) => setMedia({ ...media, videoUrl: e.target.value.trim() })} placeholder="https://…/trailer.mp4" style={{ width: 300 }} /></label>
+          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim()}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : mDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
+        </div>
+      )}
+      {mDraft && !mLive && (
+        <>
+          <h2>Propuesta Meta · revisa y aprueba</h2>
+          <p className="muted">Nada existe en Meta hasta que pulses «Crear en pausa». Público: {b.country}, {data.ageMin}–{data.ageMax} años. Optimiza hacia el clic de compra del píxel. El gasto total es un tope que Meta respeta sola.</p>
+          <div className="row" style={{ margin: "10px 0 16px" }}>
+            <label className="field">Presupuesto diario (aprox.)<input type="number" step="1" value={mBudget} onChange={(e) => setMBudget(+e.target.value)} style={{ width: 120 }} /></label>
+            <label className="field">Gasto total máximo<input type="number" step="10" value={mCap} onChange={(e) => setMCap(+e.target.value)} style={{ width: 120 }} /></label>
+            <div className="small" style={{ alignSelf: "end" }}>~{mBudget > 0 ? Math.ceil(mCap / mBudget) : 0} días de campaña</div>
+          </div>
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+            <label className="field">Texto principal ({copy.message.length}/300)<textarea rows={5} value={copy.message} maxLength={300} onChange={(e) => setCopy({ ...copy, message: e.target.value })} /></label>
+            <label className="field">Titular ({copy.headline.length}/40)<input value={copy.headline} maxLength={40} onChange={(e) => setCopy({ ...copy, headline: e.target.value })} /></label>
+            <label className="field">Descripción ({copy.description.length}/30)<input value={copy.description} maxLength={30} onChange={(e) => setCopy({ ...copy, description: e.target.value })} /></label>
+          </div>
+          <div className="grid" style={{ marginTop: 14 }}>
+            {mDraft.ads.map((a, i) => (
+              <div className="card" key={i}>
+                <div className="small">Anuncio {i + 1} · {a.mediaType === "video" ? "vídeo" : "imagen"}</div>
+                {a.mediaType === "video" ? <video src={a.mediaUrl} controls muted style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
+              </div>
+            ))}
+          </div>
+          <div className="row" style={{ marginTop: 18 }}>
+            <button onClick={() => approve(mDraft)} disabled={!!busy || !copy.message || !copy.headline || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
+            <span className="small">Facebook + Instagram · un conjunto, {mDraft.ads.length} anuncio{mDraft.ads.length > 1 ? "s" : ""}</span>
+          </div>
+        </>
+      )}
+
+          {mLive && renderLive(mLive)}
+        </>
+      )}
+
+      {tab === "google" && (
+        <>
+          {!b.googleCustomerId && <p className="muted">Elige una cuenta de Google Ads en la ficha y guárdala para poder proponer.</p>}
+          {!gLive && b.googleCustomerId && (
+            <div className="row" style={{ marginTop: 14 }}>
+              <button className="btn-secondary" onClick={propose} disabled={!!busy}>{busy === "proponer" ? "Consultando CPC reales en Google…" : gDraft ? "Volver a proponer (Google)" : "Proponer campaña en Google"}</button>
+            </div>
+          )}
+      {gDraft && !gLive && (
+        <>
+          <h2>Propuesta · revisa y aprueba</h2>
+          <p className="muted">Nada existe en Google hasta que pulses «Crear en pausa». Edita el CPC máximo de cada palabra, quita las que no quieras y ajusta presupuesto y tope.</p>
+          <div className="row" style={{ margin: "10px 0 16px" }}>
+            <label className="field">Presupuesto diario<input type="number" step="1" value={budget} onChange={(e) => setBudget(+e.target.value)} style={{ width: 120 }} /></label>
+            <label className="field">Gasto total máximo<input type="number" step="10" value={cap} onChange={(e) => setCap(+e.target.value)} style={{ width: 120 }} /></label>
+            <div className="small" style={{ alignSelf: "end" }}>{inc.length} palabras · ~{estDailyClicks.toFixed(0)} clics/día como máximo · {overCap ? <span className="over">{overCap} por encima del techo {money(b.maxCpc, b.currency)}</span> : "todas dentro del techo"}</div>
+          </div>
+          <div className="tablewrap">
+            <table>
+              <thead><tr><th></th><th>Palabra</th><th>Concordancia</th><th className="num">Búsquedas/mes</th><th className="num">CPC estimado</th><th className="num">CPC máximo</th><th>Por qué</th></tr></thead>
+              <tbody>
+                {kws.map((k, i) => (
+                  <tr key={k.id} style={{ opacity: k.included ? 1 : .45 }}>
+                    <td><input type="checkbox" checked={k.included} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, included: e.target.checked } : x))} aria-label="Incluir" /></td>
+                    <td>{k.text}</td>
+                    <td><select value={k.matchType} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, matchType: e.target.value } : x))}><option value="EXACT">Exacta</option><option value="PHRASE">Frase</option></select></td>
+                    <td className="num">{k.volume ?? "—"}</td>
+                    <td className="num">{k.estCpcLow != null ? `${k.estCpcLow.toFixed(2)} – ${k.estCpcHigh?.toFixed(2)}` : "—"}</td>
+                    <td className="num"><input type="number" step="0.05" min="0.05" value={k.maxCpc} className={k.maxCpc > b.maxCpc ? "over" : ""} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, maxCpc: +e.target.value } : x))} style={{ width: 80, textAlign: "right" }} /></td>
+                    <td className="small">{k.intent}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <h2>Anuncios</h2>
+          <div className="grid">
+            {gDraft.ads.map((a, i) => (
+              <div className="card" key={i}>
+                <div className="small">Anuncio {i + 1} · Google combina estos textos</div>
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{a.headlines.map((h, j) => <li key={j}>{h}</li>)}</ul>
+                <p className="muted" style={{ marginTop: 8 }}>{a.descriptions.join(" · ")}</p>
+              </div>
+            ))}
+          </div>
+          <div className="row" style={{ marginTop: 18 }}>
+            <button onClick={() => approve(gDraft)} disabled={!!busy || !inc.length || overCap > 0}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
+            <span className="small">Lunes a viernes, 8–20 h · solo Búsqueda · puja manual con techo</span>
+          </div>
+        </>
+      )}
+
+          {gLive && renderLive(gLive)}
+        </>
+      )}
 
       {b.sales.length > 0 && (
         <>

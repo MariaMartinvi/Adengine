@@ -38,6 +38,8 @@ model Business {
   metaPixelId        String?
   metaPageId         String?
   metaAdvertiser     String?
+  ageMin             Int         @default(18)
+  ageMax             Int         @default(65)
   notes              String?
   createdAt          DateTime    @default(now())
   campaigns          Campaign[]

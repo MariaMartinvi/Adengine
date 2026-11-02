@@ -96,6 +96,15 @@ export async function setCampaignStatus(campaignId: string, status: "ACTIVE" | "
   await call(`/${campaignId}`, { status }, "POST");
 }
 
+// Freno nativo de una campaña viva: presupuesto total del conjunto y fecha de fin. Meta rechaza un total por debajo de lo gastado.
+export async function setAdSetBudget(adSetId: string, totalCap: number, endTime: Date) {
+  await call(`/${adSetId}`, { lifetime_budget: cents(totalCap), end_time: endTime.toISOString() }, "POST");
+}
+
+export async function setAdSetAudience(adSetId: string, country: string, ageMin: number, ageMax: number) {
+  await call(`/${adSetId}`, { targeting: { geo_locations: { countries: [country] }, age_min: ageMin, age_max: ageMax, targeting_automation: { advantage_audience: 0 } } }, "POST");
+}
+
 
 export type AdDayRow = { adId: string; date: string; impressions: number; clicks: number; cost: number; conversions: number };
 // Conversión = clic de compra del píxel (InitiateCheckout). Clics = clics en el enlace, no "me gusta" ni ampliaciones.

@@ -143,6 +143,20 @@ Sin cambios de código. Todo es configuración:
 - [x] 7.2 Botón "Borrar ficha" en `BusinessPanel` (rojo, al final), con `confirm()` que nombra el negocio; tras borrar vuelve a `/` → verificar: borrar una ficha duplicada sin campaña en local → desaparece de la lista. Hecho: si el borrado falla, el error sale arriba y la página sube hasta él
 - [ ] 7.3 Push + borrar en producción los 3 duplicados sin campaña (lo haces tú desde el botón)
 
+## 8. Editar campañas vivas desde AdEngine
+
+**Problema:** una vez creada, AdEngine solo deja activar/pausar. Cambiar presupuesto o público obliga a tocar Meta/Google por fuera y el panel queda desfasado (Cuadros con Alma: Meta tiene 150 €, AdEngine cree 300 €). Además la edad de Meta está fija en 35-48 (la de Equipo Tierra) y un doble clic en "Crear" crea la campaña dos veces.
+
+**Regla:** todo cambio pasa por AdEngine. AdEngine actualiza Meta/Google y su propia BD en el mismo paso, y lo apunta en el historial.
+
+- [ ] 8.1 Cambiar presupuesto de una campaña viva. Campos "€/día" y "tope total" + botón "Guardar presupuesto" en el bloque de la campaña. Meta: `lifetime_budget` del conjunto = tope y fecha de fin = hoy + (tope − gastado) ÷ €/día; rechaza un tope por debajo de lo ya gastado. Google: importe diario del presupuesto de la campaña; el tope total lo sigue vigilando el cron → verificar: en producción, Cuadros con Alma (Meta) a 5 €/día y 150 € → el panel muestra 150 €, Meta tiene 150 € y la fecha cuadra, línea en el historial
+- [ ] 8.2 Edad del público de Meta en la ficha (campos "edad mín./máx."; por defecto 18-65; Equipo Tierra se queda en 35-48). La usan las campañas nuevas → verificar: `tsc` OK y la propuesta de Meta de Caricaturea sale con la edad de su ficha
+- [ ] 8.3 Aplicar la edad de la ficha a una campaña de Meta viva (botón junto al presupuesto) → verificar: Cuadros con Alma pasa de 35-48 a 35-65 en Meta y en el historial
+- [ ] 8.4 Doble clic en "Crear": la campaña pasa a `CREATING` de forma atómica antes de llamar a Meta/Google; un segundo clic recibe "ya se está creando"; si falla, vuelve a `DRAFT` → verificar: dos peticiones simultáneas de aprobar → una crea, la otra da error; solo una campaña en Meta
+- [ ] 8.5 Campaña duplicada de Cuadros con Alma en Meta (`120255427744780260`, en pausa): AdEngine no la conoce, así que no puede borrarla. La borra María en el Administrador de anuncios (o yo por API como excepción, si me lo dice)
+
+**Tests:** el proyecto no tiene test runner. Cada tarea se verifica con `tsc --noEmit` y los pasos manuales de arriba, en producción y sobre campañas reales (en pausa salvo Cuadros con Alma Meta, que ya está activa).
+
 ## Pendiente (después)
 - Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)

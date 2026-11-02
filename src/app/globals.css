@@ -52,3 +52,6 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .empty { padding: 40px 20px; text-align: left; border: 1px dashed var(--line); border-radius: 6px; }
 @media (prefers-reduced-motion: no-preference) { .gauge > i { transition: width .3s ease; } }
 @media (max-width: 640px) { .log li { grid-template-columns: 1fr; gap: 2px; } h1 { font-size: 22px; } }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 36px 0 4px; }
+.tab { display: flex; gap: 8px; align-items: center; background: none; color: var(--ink-2); border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; padding: 10px 18px; margin-bottom: -1px; }
+.tab.on { color: var(--ink); background: var(--bg); border-color: var(--line); font-weight: 500; }
