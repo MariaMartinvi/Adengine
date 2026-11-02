@@ -131,6 +131,18 @@ Sin cambios de código. Todo es configuración:
 - [ ] 3.2 Reglas (tope total, 2× CAC sin conversiones) con pruebas
 - [ ] 3.3 Tabla por anuncio en el panel
 
+## 7. Borrar fichas
+
+**Problema:** hay fichas duplicadas (4× "ChatSalsa – Porra Halloween") y no se pueden quitar desde la app.
+
+**Lo que ya hay:** `DELETE /api/negocios/[id]` existe (protegido por Basic Auth) y borra en cascada campañas, palabras, anuncios, métricas, propuestas, historial y ventas. Falta el botón y un freno.
+
+**Freno:** si la ficha tiene una campaña **activa** en Google o Meta, no se borra (error 409: "Pausa la campaña antes de borrar"). Motivo: al borrar la ficha, el cron deja de vigilarla y la campaña seguiría gastando en Google/Meta sin tope de AdEngine. Las campañas en pausa sí se pueden borrar: se quedan pausadas en Google/Meta (no gastan) y se pueden eliminar allí a mano.
+
+- [x] 7.1 Freno en `DELETE`: 409 si hay alguna campaña `ENABLED`; 404 si la ficha no existe → verificar: con `next dev`, curl a una ficha con campaña activa → 409 y sigue en la BD; ficha inexistente → 404. Hecho (02/11/2026): `tsc` OK; sin BD local, se verifica en producción en 7.3
+- [x] 7.2 Botón "Borrar ficha" en `BusinessPanel` (rojo, al final), con `confirm()` que nombra el negocio; tras borrar vuelve a `/` → verificar: borrar una ficha duplicada sin campaña en local → desaparece de la lista. Hecho: si el borrado falla, el error sale arriba y la página sube hasta él
+- [ ] 7.3 Push + borrar en producción los 3 duplicados sin campaña (lo haces tú desde el botón)
+
 ## Pendiente (después)
 - Campo "Contexto / aprendizajes" en la ficha que se pase a la IA al elegir palabras y escribir anuncios (feedback de campañas pasadas). No es necesario para el MVP: mientras tanto, el feedback se aplica a mano en la propuesta
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)

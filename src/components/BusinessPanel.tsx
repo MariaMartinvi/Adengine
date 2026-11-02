@@ -51,6 +51,11 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     setBusy(""); if (j) r.refresh();
   }
   async function status(c: Campaign, s: string) { setBusy(s); await api(`/api/campanas/${c.id}/estado`, { status: s }); setBusy(""); r.refresh(); }
+  async function remove() {
+    if (!confirm(`¿Borrar la ficha "${b.name}"? Se borran también sus campañas, ventas e historial en AdEngine.`)) return;
+    setBusy("borrar"); const j = await api(`/api/negocios/${b.id}`, undefined, "DELETE"); setBusy("");
+    if (j) { r.push("/"); r.refresh(); } else window.scrollTo(0, 0);
+  }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
   const inc = kws.filter((k) => k.included);
@@ -288,6 +293,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
         ))}
         {!b.actions.length && <li className="small">Sin actividad todavía.</li>}
       </ul>
+
+      <div style={{ marginTop: 32 }}>
+        <button className="btn-danger" onClick={remove} disabled={!!busy}>{busy === "borrar" ? "Borrando…" : "Borrar ficha"}</button>
+      </div>
     </main>
   );
 }

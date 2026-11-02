@@ -16,7 +16,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ ok: true });
   } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 500 }); }
 }
+// Borrar la ficha (en cascada). No con una campaña activa: sin ficha, el cron no la frena y seguiría gastando.
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  const b = await db.business.findUnique({ where: { id: params.id }, include: { campaigns: { where: { status: "ENABLED" } } } });
+  if (!b) return NextResponse.json({ error: "La ficha no existe" }, { status: 404 });
+  if (b.campaigns.length) return NextResponse.json({ error: "Pausa la campaña antes de borrar la ficha" }, { status: 409 });
   await db.business.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }
