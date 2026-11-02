@@ -15,13 +15,13 @@ function json<T>(s: string): T {
   return JSON.parse(clean.slice(start, end + 1));
 }
 
-export type Ref = { note: string; image?: string | null };
+export type Ref = { note: string; image?: string | null; video?: boolean; audio?: string | null };
 const COPY_RULE = `Te paso referencias: anuncios que ya funcionan (texto y, a veces, captura). Antes de escribir, copia lo que funciona: replica su estructura (tipo de gancho, formato, longitud, oferta, detalles concretos, botón) con los datos reales de este negocio. No calques frases, marcas, imágenes ni cifras de las referencias, y no inventes reseñas, cifras de clientes ni datos que no estén en la ficha. Indica en basedOn qué referencia imitas y qué estructura tomas ("Referencia 2: testimonio de cliente + casa nueva"), máximo 120 caracteres.`;
 // Mensaje con la ficha y las referencias; las capturas van como imágenes para que el modelo las vea.
 function withRefs(text: string, refs: Ref[]): any[] {
   const content: any[] = [{ type: "text", text }];
   refs.forEach((r, i) => {
-    content.push({ type: "text", text: `Referencia ${i + 1}: ${r.note || "(sin nota)"}` });
+    content.push({ type: "text", text: `Referencia ${i + 1}${r.video ? " (vídeo)" : ""}: ${r.note || "(sin nota)"}${r.video ? `\nMúsica y audio: ${r.audio}` : ""}` });
     const m = r.image?.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
     if (m) content.push({ type: "image", source: { type: "base64", media_type: m[1], data: m[2] } });
   });

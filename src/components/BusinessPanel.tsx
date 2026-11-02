@@ -12,7 +12,7 @@ const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: 
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
 
 type Option = { id: string; name: string };
-type Ref = { id: string; channel: string; note: string; image?: string | null; createdAt: string };
+type Ref = { id: string; channel: string; note: string; image?: string | null; video: boolean; audio?: string | null; createdAt: string };
 
 // Reduce la captura en el navegador (≤1280 px, JPEG) para que quepa en la BD y en la llamada a la IA.
 function shrink(file: File): Promise<string> {
@@ -47,7 +47,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [copy, setCopy] = useState({ message: mDraft?.ads[0]?.descriptions[0] || "", headline: mDraft?.ads[0]?.headlines[0] || "", description: mDraft?.ads[0]?.descriptions[1] || "" });
   const [media, setMedia] = useState({ imageUrls: "", videoUrl: "" });
   const [newCover, setNewCover] = useState("");
-  const [refForm, setRefForm] = useState<Record<string, { note: string; image: string }>>({});
+  const [refForm, setRefForm] = useState<Record<string, { note: string; image: string; video: boolean; audio: string }>>({});
   const refsOf = (ch: string) => data.references.filter((x) => x.channel === ch);
   // Una pestaña por canal; se abre la que ya tiene algo.
   const [tab, setTab] = useState<"meta" | "google">(mLive || mDraft || (!gLive && !gDraft && data.metaAdAccountId) ? "meta" : "google");
@@ -83,7 +83,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   async function applyAudience(c: Campaign) { setBusy("publico"); await api(`/api/campanas/${c.id}/publico`); setBusy(""); r.refresh(); }
   async function addRef(ch: string) {
     setBusy("ref"); const j = await api(`/api/negocios/${b.id}/referencias`, { channel: ch, ...refForm[ch] }); setBusy("");
-    if (j) { setRefForm({ ...refForm, [ch]: { note: "", image: "" } }); r.refresh(); }
+    if (j) { setRefForm({ ...refForm, [ch]: { note: "", image: "", video: false, audio: "" } }); r.refresh(); }
   }
   async function delRef(id: string) { setBusy("ref"); await api(`/api/referencias/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
@@ -94,7 +94,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const set = (k: keyof Business, v: any) => setB({ ...b, [k]: v });
 
   const renderRefs = (ch: "meta" | "google") => {
-    const f = refForm[ch] || { note: "", image: "" };
+    const f = refForm[ch] || { note: "", image: "", video: false, audio: "" };
     const list = refsOf(ch);
     return (
       <div className="card" style={{ margin: "16px 0" }}>
@@ -107,6 +107,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                 <div className="small">Referencia {list.length - i}</div>
                 {x.image && <img src={x.image} alt="" style={{ width: "100%", marginTop: 6 }} />}
                 {x.note && <p className="small" style={{ whiteSpace: "pre-wrap", margin: "6px 0" }}>{x.note}</p>}
+                {x.video && <p className="small" style={{ margin: "6px 0" }}>Vídeo · música y audio: {x.audio}</p>}
                 <button className="btn-secondary" onClick={() => delRef(x.id)} disabled={!!busy}>Quitar</button>
               </div>
             ))}
@@ -116,7 +117,9 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           <label className="field">Nota (texto del anuncio, enlace, cuánto lleva activo…)<textarea rows={3} value={f.note} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, note: e.target.value } })} style={{ width: 340 }} /></label>
           <label className="field">Captura (opcional)<input type="file" accept="image/*" onChange={async (e) => { const file = e.target.files?.[0]; if (file) setRefForm({ ...refForm, [ch]: { ...f, image: await shrink(file) } }); }} /></label>
           {f.image && <img src={f.image} alt="" style={{ width: 80, alignSelf: "end" }} />}
-          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRef(ch)} disabled={!!busy || (!f.note.trim() && !f.image)}>{busy === "ref" ? "Guardando…" : "Añadir referencia"}</button>
+          <label className="row small" style={{ alignSelf: "end" }}><input type="checkbox" checked={f.video} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, video: e.target.checked } })} /> Es un vídeo</label>
+          {f.video && <label className="field">Música y audio (la IA no oye el vídeo: estilo, instrumentos, si hay voz y qué dice)<input value={f.audio} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, audio: e.target.value } })} placeholder="Clásica relajada, cuerda + piano, sin voz" style={{ width: 340 }} /></label>}
+          <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRef(ch)} disabled={!!busy || (!f.note.trim() && !f.image) || (f.video && !f.audio.trim())}>{busy === "ref" ? "Guardando…" : "Añadir referencia"}</button>
         </div>
       </div>
     );

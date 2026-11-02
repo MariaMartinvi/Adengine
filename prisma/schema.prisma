@@ -174,5 +174,7 @@ model Reference {
   channel    String
   note       String
   image      String?
+  video      Boolean  @default(false)
+  audio      String?
   createdAt  DateTime @default(now())
 }
