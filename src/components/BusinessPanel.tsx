@@ -402,7 +402,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           </div>
           <div className="row" style={{ marginTop: 18 }}>
             <button onClick={() => approve(mDraft)} disabled={!!busy || mDraft.ads.some((a) => !mCopy[a.id]?.message || !mCopy[a.id]?.headline) || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
-            <span className="small">Facebook + Instagram · un conjunto, {mDraft.ads.length} anuncio{mDraft.ads.length > 1 ? "s" : ""}</span>
+            <span className="small">Facebook + Instagram · {mDraft.ads.length} anuncio{mDraft.ads.length > 1 ? "s" : ""} · captación (80 %) + remarketing a visitantes de la web sin compra (20 %)</span>
           </div>
         </>
       )}

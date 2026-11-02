@@ -222,6 +222,16 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 
 - [ ] 15.1 Subida y enlace de imágenes al crear la campaña de Google → verificar: al crear la de Cuadros con Alma, línea IMAGENES en el historial y los recursos de imagen enlazados en Google Ads
 
+## 16. Remarketing en Meta
+
+**Petición (María, 02/11/2026):** usar remarketing en Meta desde el principio. Reparto acordado: 80 % captación, 20 % remarketing, dentro del mismo tope.
+
+- [x] 16.1 Públicos por negocio creados por AdEngine desde el píxel: "Visitantes 30 días" (todo el tráfico) y "Compradores 180 días" (Purchase, para excluir). Se guardan en la ficha y se reutilizan → verificar: aparecen en la cuenta de Meta de Cuadros con Alma. Código hecho; se crean al crear la campaña (comprobar entonces)
+- [x] 16.2 Al crear la campaña de Meta: conjunto de captación (80 % del tope, público de la ficha) + conjunto de remarketing (20 %, visitantes sin compradores), con los mismos anuncios en los dos. Si el remarketing falla, la campaña se crea igual y se apunta → verificar: dos conjuntos en Meta con 120 € y 30 €. Código hecho; comprobar al crear la de Cuadros con Alma
+- [x] 16.3 Métricas y frenos con dos conjuntos: el gasto de los dos anuncios gemelos se suma por día antes de guardarlo; la regla de pausa pausa los dos; el presupuesto y el rehacer/añadir anuncios tocan los dos conjuntos → verificar: `tsc`, build y, con datos, que el gasto del panel cuadra con Meta. `tsc` y build OK; cuadre con datos reales pendiente
+
+Nota: el píxel se instaló el 02/11/2026; Meta necesita ~100 personas en el público para enseñar remarketing, así que ese conjunto gastará poco al principio.
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)

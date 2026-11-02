@@ -45,10 +45,20 @@ export async function videoReady(videoId: string): Promise<boolean> {
 }
 
 export type MetaAdSpec = { mediaType: "image" | "video"; mediaRef: string; message: string; headline: string; description: string; link?: string; thumbHash?: string };
+// Públicos de la web a partir del píxel: visitantes (30 días) para remarketing y compradores (180 días) para excluirlos.
+export async function createWebsiteAudiences(adAccountId: string, pixelId: string, label: string) {
+  const a = act(adAccountId);
+  const rule = (retention: number, filters: unknown[]) => ({ inclusions: { operator: "or", rules: [{ event_sources: [{ id: pixelId, type: "pixel" }], retention_seconds: retention, filter: { operator: "and", filters } }] } });
+  const visitors = (await call(`/${a}/customaudiences`, { name: `${label} · visitantes 30 días`, rule: rule(30 * 86400, [{ field: "url", operator: "i_contains", value: "" }]), prefill: "1" }, "POST")).id as string;
+  const buyers = (await call(`/${a}/customaudiences`, { name: `${label} · compradores 180 días`, rule: rule(180 * 86400, [{ field: "event", operator: "eq", value: "Purchase" }]), prefill: "1" }, "POST")).id as string;
+  return { visitors, buyers };
+}
+
 export type MetaCampaignSpec = {
   name: string; dailyBudget: number; totalCap: number; country: string; ageMin: number; ageMax: number;
   pageId: string; pixelId: string; link: string; thumbHash: string; cta: string; ads: MetaAdSpec[];
   advertiser: string; // UE (DSA): quién se anuncia y quién paga; sale en la Biblioteca de anuncios
+  remarketing?: { visitors: string; buyers: string; share: number }; // conjunto aparte para quien visitó la web y no compró
 };
 const cents = (eur: number) => Math.round(eur * 100);
 
@@ -65,16 +75,30 @@ export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
   // Si algo falla a partir de aquí, se borra la campaña para no dejar nada a medias en Meta.
   try {
   const days = Math.max(1, Math.ceil(s.totalCap / s.dailyBudget));
-  const adSetId = (await call(`/${a}/adsets`, {
-    name: `${s.name} · conjunto 1`, campaign_id: campaignId, status: "ACTIVE",
-    lifetime_budget: cents(s.totalCap), end_time: new Date(Date.now() + days * 86400000).toISOString(), billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+  const endTime = new Date(Date.now() + days * 86400000).toISOString();
+  const share = s.remarketing ? s.remarketing.share : 0;
+  const adSet = (name: string, total: number, targeting: Record<string, unknown>) => call(`/${a}/adsets`, {
+    name, campaign_id: campaignId, status: "ACTIVE",
+    lifetime_budget: cents(total), end_time: endTime, billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP",
     optimization_goal: "OFFSITE_CONVERSIONS", promoted_object: { pixel_id: s.pixelId, custom_event_type: "INITIATED_CHECKOUT" },
     dsa_beneficiary: s.advertiser, dsa_payor: s.advertiser,
-    targeting: { geo_locations: { countries: [s.country] }, age_min: s.ageMin, age_max: s.ageMax, targeting_automation: { advantage_audience: 0 } },
-  }, "POST")).id;
+    targeting: { geo_locations: { countries: [s.country] }, ...targeting, targeting_automation: { advantage_audience: 0 } },
+  }, "POST").then((r) => r.id as string);
+  const adSetId = await adSet(`${s.name} · conjunto 1`, s.totalCap * (1 - share), { age_min: s.ageMin, age_max: s.ageMax });
   const adIds: string[] = [];
   for (const [i, ad] of s.ads.entries()) adIds.push(await createAd(adAccountId, adSetId, `${s.name} · ${ad.mediaType} ${i + 1}`, s, ad));
-  return { campaignId, adSetId, adIds };
+  // Remarketing: si falla (público aún sin aceptar las condiciones, presupuesto mínimo…), la campaña sigue sin él.
+  let rtAdSetId: string | null = null; const rtAdIds: string[] = []; let rtError: string | null = null;
+  if (s.remarketing) {
+    try {
+      rtAdSetId = await adSet(`${s.name} · remarketing`, s.totalCap * share, { age_min: 18, custom_audiences: [{ id: s.remarketing.visitors }], excluded_custom_audiences: [{ id: s.remarketing.buyers }] });
+      for (const [i, ad] of s.ads.entries()) rtAdIds.push(await createAd(adAccountId, rtAdSetId, `${s.name} · remarketing · ${ad.mediaType} ${i + 1}`, s, ad));
+    } catch (e: any) {
+      if (rtAdSetId) await call(`/${rtAdSetId}`, {}, "DELETE").catch(() => {});
+      rtAdSetId = null; rtAdIds.length = 0; rtError = e.message;
+    }
+  }
+  return { campaignId, adSetId, adIds, rtAdSetId, rtAdIds, rtError };
   } catch (e) {
     await call(`/${campaignId}`, {}, "DELETE").catch(() => {});
     throw e;

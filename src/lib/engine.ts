@@ -157,8 +157,21 @@ export async function addMetaImageAd(campaignId: string, imageUrl: string) {
   const hash = await meta.uploadImage(b.metaAdAccountId!, imageUrl);
   const n = c.ads.length + 1;
   const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · image ${n}`, { pageId: b.metaPageId!, link: b.url, thumbHash: hash, cta: b.metaCta }, { mediaType: "image", mediaRef: hash, message, headline, description });
-  await db.ad.create({ data: { campaignId: c.id, mediaType: "image", mediaUrl: imageUrl, mediaRef: hash, metaAdId, finalUrl: b.url, headlines: [headline], descriptions: [message, description] } });
+  const metaRtAdId = c.metaRtAdSetId ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · image ${n}`, { pageId: b.metaPageId!, link: b.url, thumbHash: hash, cta: b.metaCta }, { mediaType: "image", mediaRef: hash, message, headline, description }) : null;
+  await db.ad.create({ data: { campaignId: c.id, mediaType: "image", mediaUrl: imageUrl, mediaRef: hash, metaAdId, metaRtAdId, finalUrl: b.url, headlines: [headline], descriptions: [message, description] } });
   await log(b.id, "ANUNCIO_AÑADIDO", `Nueva portada en Meta (anuncio ${n}): ${imageUrl}`);
+}
+
+// Remarketing en Meta: parte del tope para quien visitó la web y no compró (acordado con María: 20 %).
+const RT_SHARE = 0.2;
+
+// Públicos de la web (visitantes y compradores) del negocio: se crean una vez desde el píxel y se reutilizan.
+async function websiteAudiences(b: { id: string; name: string; metaAdAccountId: string | null; metaPixelId: string | null; metaVisitorsAudienceId: string | null; metaBuyersAudienceId: string | null }) {
+  if (b.metaVisitorsAudienceId && b.metaBuyersAudienceId) return { visitors: b.metaVisitorsAudienceId, buyers: b.metaBuyersAudienceId };
+  const res = await meta.createWebsiteAudiences(b.metaAdAccountId!, b.metaPixelId!, b.name);
+  await db.business.update({ where: { id: b.id }, data: { metaVisitorsAudienceId: res.visitors, metaBuyersAudienceId: res.buyers } });
+  await log(b.id, "PUBLICOS", "Públicos de la web creados en Meta: visitantes (30 días) y compradores (180 días).");
+  return res;
 }
 
 // Rehace los anuncios activos de una campaña de Meta viva con el botón de la ficha y el enlace de cada anuncio.
@@ -169,16 +182,20 @@ export async function rebuildMetaAds(campaignId: string, links: Record<string, s
   if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se rehacen anuncios de una campaña de Meta ya creada.");
   const active = c.ads.filter((a) => a.status === "ENABLED" && a.metaAdId);
   if (!active.length) throw new Error("No hay anuncios activos que rehacer.");
-  const thumb = c.ads.find((a) => a.mediaType === "image")!.mediaRef!;
+  const thumb = c.ads.find((a) => a.mediaType === "image")?.mediaRef || c.ads.find((a) => a.thumbRef)?.thumbRef;
+  if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
   for (const [i, a] of active.entries()) {
     const link = (links[a.id] || a.finalUrl || b.url).trim();
     const [headline] = a.headlines as string[];
     const [message, description] = a.descriptions as string[];
     const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · ${a.mediaType} ${c.ads.length + i + 1}`, { pageId: b.metaPageId!, link, thumbHash: thumb, cta: b.metaCta }, { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description, link });
+    const rtSpec = { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description, link, thumbHash: a.thumbRef || undefined };
+    const metaRtAdId = c.metaRtAdSetId ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · ${a.mediaType} ${c.ads.length + i + 1}`, { pageId: b.metaPageId!, link, thumbHash: thumb, cta: b.metaCta }, rtSpec) : null;
+    if (a.metaRtAdId) await meta.setAdStatus(a.metaRtAdId, "PAUSED");
     await meta.setAdStatus(a.metaAdId!, "PAUSED");
     await db.$transaction([
       db.ad.update({ where: { id: a.id }, data: { status: "PAUSED" } }),
-      db.ad.create({ data: { campaignId: c.id, mediaType: a.mediaType, mediaUrl: a.mediaUrl, mediaRef: a.mediaRef, basedOn: a.basedOn, metaAdId, finalUrl: link, headlines: a.headlines as string[], descriptions: a.descriptions as string[] } }),
+      db.ad.create({ data: { campaignId: c.id, mediaType: a.mediaType, mediaUrl: a.mediaUrl, mediaRef: a.mediaRef, basedOn: a.basedOn, thumbRef: a.thumbRef, metaAdId, metaRtAdId, finalUrl: link, headlines: a.headlines as string[], descriptions: a.descriptions as string[] } }),
     ]);
   }
   await log(b.id, "ANUNCIOS_REHECHOS", `Campaña ${c.name}: ${active.length} anuncios rehechos con botón ${b.metaCta}; los anteriores quedan en pausa.`);
@@ -218,16 +235,21 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   // Miniatura de los vídeos: la imagen de un anuncio de imagen o la que guardó el vídeo al subirse.
   const thumb = c.ads.find((a) => a.mediaType === "image")?.mediaRef || c.ads.find((a) => a.thumbRef)?.thumbRef;
   if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
+  let remarketing: { visitors: string; buyers: string; share: number } | undefined;
+  let audError: string | null = null;
+  try { remarketing = { ...(await websiteAudiences(b)), share: RT_SHARE }; } catch (e: any) { audError = e.message; }
   const res = await meta.createCampaign(b.metaAdAccountId!, {
     name: c.name, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
-    pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta,
+    pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta, remarketing,
     ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, thumbHash: a.thumbRef || undefined, ...copyOf(a) })),
   });
   await db.$transaction([
-    db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, metaCampaignId: res.campaignId, metaAdSetId: res.adSetId } }),
-    ...c.ads.map((a, i) => { const k = copyOf(a); return db.ad.update({ where: { id: a.id }, data: { metaAdId: res.adIds[i], headlines: [k.headline], descriptions: [k.message, k.description] } }); }),
+    db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, metaCampaignId: res.campaignId, metaAdSetId: res.adSetId, metaRtAdSetId: res.rtAdSetId } }),
+    ...c.ads.map((a, i) => { const k = copyOf(a); return db.ad.update({ where: { id: a.id }, data: { metaAdId: res.adIds[i], metaRtAdId: res.rtAdIds[i] || null, headlines: [k.headline], descriptions: [k.message, k.description] } }); }),
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Meta en pausa (id ${res.campaignId}): ${c.ads.length} anuncios, ${edits.totalCap} ${b.currency} en total hasta agotar (~${edits.dailyBudget}/día).`);
+  const rtWhy = audError || res.rtError;
+  await log(b.id, "REMARKETING", rtWhy ? `Sin remarketing: ${rtWhy}` : `Remarketing: ${Math.round(RT_SHARE * 100)} % del tope para visitantes de la web de los últimos 30 días que no han comprado.`);
 }
 
 export async function setStatus(campaignId: string, status: "ENABLED" | "PAUSED" | "STOPPED") {
@@ -261,7 +283,9 @@ export async function setBudget(campaignId: string, dailyBudget: number, totalCa
   if (c.channel === "meta") {
     if (!c.metaAdSetId) throw new Error("La campaña aún no existe en Meta.");
     const days = Math.max(1, Math.ceil((totalCap - spent) / dailyBudget));
-    await meta.setAdSetBudget(c.metaAdSetId, totalCap, new Date(Date.now() + days * 86400000));
+    const end = new Date(Date.now() + days * 86400000);
+    await meta.setAdSetBudget(c.metaAdSetId, c.metaRtAdSetId ? totalCap * (1 - RT_SHARE) : totalCap, end);
+    if (c.metaRtAdSetId) await meta.setAdSetBudget(c.metaRtAdSetId, totalCap * RT_SHARE, end);
   } else {
     if (!c.googleBudgetId) throw new Error("La campaña aún no existe en Google Ads.");
     await ads.setDailyBudget(c.business.googleCustomerId!, c.googleBudgetId, dailyBudget);
@@ -296,10 +320,20 @@ export async function syncMetaCampaign(campaignId: string) {
   const b = c.business;
   const today = iso(new Date());
   const rows = await meta.adInsights(c.metaCampaignId, iso(c.createdAt), today);
-  const byMetaId = new Map(c.ads.map((a) => [a.metaAdId, a]));
+  // Cada anuncio puede estar en captación y en remarketing: se suman sus dos filas del día antes de guardar.
+  const byMetaId = new Map<string, (typeof c.ads)[number]>();
+  for (const a of c.ads) { if (a.metaAdId) byMetaId.set(a.metaAdId, a); if (a.metaRtAdId) byMetaId.set(a.metaRtAdId, a); }
+  const daily = new Map<string, { ad: (typeof c.ads)[number]; date: string; impressions: number; clicks: number; cost: number; conversions: number }>();
   for (const r of rows) {
     const ad = byMetaId.get(r.adId);
     if (!ad) continue;
+    const key = `${ad.id}|${r.date}`;
+    const acc = daily.get(key) || { ad, date: r.date, impressions: 0, clicks: 0, cost: 0, conversions: 0 };
+    acc.impressions += r.impressions; acc.clicks += r.clicks; acc.cost += r.cost; acc.conversions += r.conversions;
+    daily.set(key, acc);
+  }
+  for (const r of daily.values()) {
+    const ad = r.ad;
     const data = { impressions: r.impressions, clicks: r.clicks, cost: r.cost, conversions: r.conversions };
     const existing = await db.dailyMetric.findFirst({ where: { campaignId: c.id, adId: ad.id, date: new Date(r.date) } });
     if (existing) await db.dailyMetric.update({ where: { id: existing.id }, data });
@@ -321,6 +355,7 @@ export async function syncMetaCampaign(campaignId: string) {
   const totals = new Map(sums.map((s) => [s.adId!, { cost: s._sum.cost || 0, conversions: s._sum.conversions || 0 }]));
   for (const ad of metaAdsToPause(c.ads, totals, b.cacCap)) {
     await meta.setAdStatus(ad.metaAdId!, "PAUSED");
+    if (ad.metaRtAdId) await meta.setAdStatus(ad.metaRtAdId, "PAUSED");
     await db.ad.update({ where: { id: ad.id }, data: { status: "PAUSED" } });
     await log(b.id, "REGLA", `Anuncio de ${ad.mediaType === "video" ? "vídeo" : "imagen"} pausado: ${totals.get(ad.id)!.cost.toFixed(2)} gastados sin conversiones (2× CAC tope ${b.cacCap}).`, true);
   }
