@@ -327,9 +327,9 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
       </div>
       {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3>Nuestros productos</h3>
-        <p className="small">Con ellos se hacen los anuncios: cada referencia elige su producto y el anuncio lleva su imagen y su enlace.</p>
+      <details className="card" style={{ marginTop: 16 }}>
+        <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Nuestros productos y páginas</strong> <span className="small">· {data.products.length} · pulsa para abrir</span></summary>
+        <p className="small">Con ellos se hacen los anuncios: cada referencia elige su producto y el anuncio lleva su imagen y su enlace. Las colecciones sirven de página de destino para las palabras de Google.</p>
         {data.products.length > 0 && (
           <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", margin: "10px 0" }}>
             {data.products.map((p) => (
@@ -347,7 +347,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           <label className="field">Imagen (enlace)<input value={prodForm.image} onChange={(e) => setProdForm({ ...prodForm, image: e.target.value.trim() })} placeholder="https://…/foto.jpg" /></label>
           <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={addProduct} disabled={!!busy || !prodForm.name || !prodForm.url}>{busy === "producto" ? "Guardando…" : "Añadir producto"}</button>
         </div>
-      </div>
+      </details>
 
       <div className="tabs" role="tablist">
         {(["meta", "google"] as const).map((t) => {

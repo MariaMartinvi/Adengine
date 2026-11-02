@@ -63,7 +63,7 @@ Páginas de destino: cada palabra lleva "url", la página más específica de la
 }
 
 export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string; notes?: string | null }, keywords: string[], refs: Ref[]): Promise<{ ref: number; headlines: string[]; descriptions: string[]; basedOn: string }[]> {
-  const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"ref":número de la referencia,"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres],"basedOn":"…"}]}. Un anuncio por referencia, en el mismo orden. En las referencias de Google, un título como «A - B» son dos títulos distintos que Google une: cálcalos como títulos separados, cada uno de 30 caracteres como máximo. ${COPY_RULE} Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
+  const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"ref":número de la referencia,"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres],"basedOn":"…"}]}. Un anuncio por referencia, en el mismo orden. En las referencias de Google, un título como «A - B» son dos títulos distintos que Google une: cálcalos como títulos separados, cada uno de 30 caracteres como máximo. Igual con la descripción: lo que ves suele ser dos descripciones unidas; cada una, 90 caracteres como máximo. ${COPY_RULE} Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
   const user = `Negocio: ${ficha.name} — ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nOferta de entrada: ${ficha.saleEvent} (${ficha.price})\nURL: ${ficha.url}\nNotas: ${ficha.notes || ""}\nBúsquedas objetivo: ${keywords.slice(0, 20).join(", ")}`;
   const raw = await ask(sys, withRefs(user, refs), 8000);
   const j = json<{ ads: { ref?: number; headlines: string[]; descriptions: string[]; basedOn?: string }[] }>(raw);
@@ -74,7 +74,7 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
     for (const d of a.descriptions || []) if (d.trim().length > 90) long.push({ text: d.trim(), max: 90 });
   }
   if (long.length) {
-    const short = await shorten(long, ficha.language);
+    const short = (await shorten(long, ficha.language)).map((t, i) => fit(t, long[i].max));
     const map = new Map(long.map((l, i) => [l.text, short[i]]));
     for (const a of j.ads || []) {
       a.headlines = (a.headlines || []).map((h) => map.get(h.trim()) ?? h);
@@ -94,6 +94,14 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
     throw new Error(`La IA no devolvió anuncios válidos: ${j.ads?.length ?? 0} recibidos${a ? `; el primero con ${a.headlines?.length ?? 0} títulos (largos: ${(a.headlines || []).map((h) => String(h).length).join(",")}) y ${a.descriptions?.length ?? 0} descripciones (largos: ${(a.descriptions || []).map((d) => String(d).length).join(",")})` : `; respuesta: ${raw.slice(0, 200)}`}.`);
   }
   return ok;
+}
+
+// Último recurso si el modelo no acierta con la longitud: cortar en la última palabra completa que quepa.
+function fit(text: string, max: number) {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max + 1);
+  return cut.slice(0, Math.max(cut.lastIndexOf(" "), 1)).replace(/[\s,;:·–—-]+$/, "").trim();
 }
 
 // Reescribe cada texto para que quepa en su límite, sin cambiar el sentido ni los datos.
