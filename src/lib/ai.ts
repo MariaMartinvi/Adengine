@@ -49,13 +49,17 @@ Campos: name, sells (qué vende, 1 frase), audience (a quién, 1 frase), country
   return json<Ficha>(await ask(sys, siteText));
 }
 
-export type KeywordPick = { text: string; matchType: "EXACT" | "PHRASE"; intent: string };
+export type KeywordPick = { text: string; matchType: "EXACT" | "PHRASE"; intent: string; url?: string };
 
-export async function pickKeywords(ficha: { sells: string; audience: string; language: string; maxCpc: number }, ideas: { text: string; volume: number; cpcLow: number; cpcHigh: number }[]): Promise<{ keywords: KeywordPick[]; negatives: string[] }> {
+export async function pickKeywords(ficha: { sells: string; audience: string; language: string; maxCpc: number }, ideas: { text: string; volume: number; cpcLow: number; cpcHigh: number }[], pages: { name: string; url: string }[] = []): Promise<{ keywords: KeywordPick[]; negatives: string[] }> {
   const sys = `Eres el planificador de un motor de anuncios en Google Búsqueda con estrategia de PRUDENCIA: pocas palabras, todas con intención de contratar/comprar, coste por clic bajo. Devuelves SOLO JSON: {"keywords":[{"text","matchType":"EXACT"|"PHRASE","intent"}],"negatives":[...]}.
-Reglas: elige 25-45 palabras de la lista de ideas (solo textos que estén en la lista). Descarta informativas puras ("qué es", "gratis", "curso", "empleo", "definición"), marcas de terceros y todo lo que tenga cpcLow por encima de 1.3× el techo de CPC. Prioriza volumen ≥ 30 y cpcLow bajo. matchType EXACT para las de intención más clara, PHRASE para las de cola larga. intent: 5-8 palabras explicando por qué. negatives: 15-25 términos a excluir (gratis, empleo, curso, cómo hacer, plantilla, ejemplo, pdf, wikipedia, marcas competidoras que aparezcan, etc.) en el idioma del mercado.`;
-  const user = `Negocio: ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nTecho CPC: ${ficha.maxCpc}\n\nIdeas (text | volume | cpcLow | cpcHigh):\n${ideas.slice(0, 300).map((i) => `${i.text} | ${i.volume} | ${i.cpcLow.toFixed(2)} | ${i.cpcHigh.toFixed(2)}`).join("\n")}`;
-  return json(await ask(sys, user, 4000));
+Reglas: elige 25-45 palabras de la lista de ideas (solo textos que estén en la lista). Descarta informativas puras ("qué es", "gratis", "curso", "empleo", "definición"), marcas de terceros y todo lo que tenga cpcLow por encima de 1.3× el techo de CPC. Prioriza volumen ≥ 30 y cpcLow bajo. matchType EXACT para las de intención más clara, PHRASE para las de cola larga. intent: 5-8 palabras explicando por qué. negatives: 15-25 términos a excluir (gratis, empleo, curso, cómo hacer, plantilla, ejemplo, pdf, wikipedia, marcas competidoras que aparezcan, etc.) en el idioma del mercado.${pages.length ? `
+Páginas de destino: cada palabra lleva "url", la página más específica de la lista que responde a esa búsqueda (el cuadro concreto, su colección o, si no encaja ninguna, la tienda). Solo urls de la lista.` : ""}`;
+  const user = `Negocio: ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nTecho CPC: ${ficha.maxCpc}\n\nIdeas (text | volume | cpcLow | cpcHigh):\n${ideas.slice(0, 300).map((i) => `${i.text} | ${i.volume} | ${i.cpcLow.toFixed(2)} | ${i.cpcHigh.toFixed(2)}`).join("\n")}${pages.length ? `\n\nPáginas de destino (nombre | url):\n${pages.map((p) => `${p.name} | ${p.url}`).join("\n")}` : ""}`;
+  const j = json<{ keywords: KeywordPick[]; negatives: string[] }>(await ask(sys, user, 6000));
+  const ok = new Set(pages.map((p) => p.url));
+  for (const k of j.keywords) if (k.url && !ok.has(k.url)) delete k.url;
+  return j;
 }
 
 export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string; notes?: string | null }, keywords: string[], refs: Ref[]): Promise<{ ref: number; headlines: string[]; descriptions: string[]; basedOn: string }[]> {

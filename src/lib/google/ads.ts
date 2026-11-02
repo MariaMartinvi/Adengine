@@ -65,7 +65,7 @@ export async function keywordIdeas(cid: string, seeds: string[], country: string
 
 export type CampaignSpec = {
   name: string; dailyBudget: number; country: string; language: string; finalUrl: string; path1?: string | null; path2?: string | null;
-  keywords: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number }[];
+  keywords: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number; finalUrl?: string | null }[];
   ads: { headlines: string[]; descriptions: string[]; finalUrl?: string }[];
   negatives: string[];
   schedule: boolean; // lunes-viernes 8-20
@@ -98,7 +98,8 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
     ops.push({ campaignCriterionOperation: { create: { campaign: C, negative: true, keyword: { text: n, matchType: "PHRASE" } } } });
   }
   for (const k of s.keywords) {
-    ops.push({ adGroupCriterionOperation: { create: { adGroup: G, status: "ENABLED", cpcBidMicros: toMicros(k.maxCpc), keyword: { text: k.text, matchType: k.matchType } } } });
+    // Cada palabra puede llevar su página (el cuadro o la colección que busca la gente); si no, la del anuncio.
+    ops.push({ adGroupCriterionOperation: { create: { adGroup: G, status: "ENABLED", cpcBidMicros: toMicros(k.maxCpc), keyword: { text: k.text, matchType: k.matchType }, ...(k.finalUrl ? { finalUrls: [k.finalUrl] } : {}) } } });
   }
   for (const a of s.ads) {
     ops.push({ adGroupAdOperation: { create: { adGroup: G, status: "ENABLED", ad: {

@@ -6,7 +6,7 @@ export const maxDuration = 60;
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const body = await req.json();
-    const { campaignId, dailyBudget, totalCap, keywords } = body as { campaignId: string; dailyBudget: number; totalCap: number; keywords: { id: string; maxCpc: number; included: boolean; matchType: string }[] };
+    const { campaignId, dailyBudget, totalCap, keywords } = body as { campaignId: string; dailyBudget: number; totalCap: number; keywords: { id: string; maxCpc: number; included: boolean; matchType: string; finalUrl?: string | null }[] };
     // Doble clic: solo una petición pasa la propuesta de DRAFT a CREATING; la otra se para aquí.
     const lock = await db.campaign.updateMany({ where: { id: campaignId, businessId: params.id, status: "DRAFT" }, data: { status: "CREATING" } });
     if (!lock.count) return NextResponse.json({ error: "Esta propuesta ya se está creando o ya no está pendiente." }, { status: 409 });
@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     await db.$transaction([
       db.campaign.update({ where: { id: c.id }, data: { dailyBudget: Number(dailyBudget), totalCap: Number(totalCap) } }),
-      ...keywords.map((k) => db.keyword.update({ where: { id: k.id }, data: { maxCpc: Number(k.maxCpc), included: !!k.included, matchType: k.matchType } })),
+      ...keywords.map((k) => db.keyword.update({ where: { id: k.id }, data: { maxCpc: Number(k.maxCpc), included: !!k.included, matchType: k.matchType, ...(k.finalUrl !== undefined ? { finalUrl: k.finalUrl || null } : {}) } })),
     ]);
     await approveCampaign(c.id);
     return NextResponse.json({ ok: true });

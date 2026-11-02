@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
-type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
+type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string }[]; metrics: Metric[]; proposals: Proposal[] };
 type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
@@ -78,7 +78,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     setBusy("aprobar");
     const body = isMeta(d)
       ? { campaignId: d.id, dailyBudget: mBudget, totalCap: mCap, ads: d.ads.map((a) => ({ id: a.id, ...mCopy[a.id] })), keywords: [] }
-      : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType })) };
+      : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType, finalUrl: k.finalUrl || null })) };
     const j = await api(`/api/negocios/${b.id}/aprobar`, body);
     setBusy(""); if (j) r.refresh();
   }
@@ -431,7 +431,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           </div>
           <div className="tablewrap">
             <table>
-              <thead><tr><th></th><th>Palabra</th><th>Concordancia</th><th className="num">Búsquedas/mes</th><th className="num">CPC estimado</th><th className="num">CPC máximo</th><th>Por qué</th></tr></thead>
+              <thead><tr><th></th><th>Palabra</th><th>Concordancia</th><th className="num">Búsquedas/mes</th><th className="num">CPC estimado</th><th className="num">CPC máximo</th><th>Lleva a</th><th>Por qué</th></tr></thead>
               <tbody>
                 {kws.map((k, i) => (
                   <tr key={k.id} style={{ opacity: k.included ? 1 : .45 }}>
@@ -441,6 +441,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                     <td className="num">{k.volume ?? "—"}</td>
                     <td className="num">{k.estCpcLow != null ? `${k.estCpcLow.toFixed(2)} – ${k.estCpcHigh?.toFixed(2)}` : "—"}</td>
                     <td className="num"><input type="number" step="0.05" min="0.05" value={k.maxCpc} className={k.maxCpc > b.maxCpc ? "over" : ""} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, maxCpc: +e.target.value } : x))} style={{ width: 80, textAlign: "right" }} /></td>
+                    <td><select value={k.finalUrl || ""} onChange={(e) => setKws(kws.map((x, j) => j === i ? { ...x, finalUrl: e.target.value || null } : x))} style={{ maxWidth: 200 }}>
+                      <option value="">La del anuncio</option>
+                      {data.products.map((p) => <option key={p.id} value={p.url}>{p.name}</option>)}
+                    </select></td>
                     <td className="small">{k.intent}</td>
                   </tr>
                 ))}

@@ -90,6 +90,7 @@ model Keyword {
   included          Boolean       @default(true)
   status            String        @default("ENABLED")
   googleCriterionId String?
+  finalUrl          String?
   metrics           DailyMetric[]
 }
 

@@ -44,7 +44,9 @@ export async function proposeCampaign(businessId: string) {
   const seeds = seedsFromNotes(b.notes);
   const ideas = await ads.keywordIdeas(b.googleCustomerId, seeds, b.country, b.language, b.url);
   if (!ideas.length) throw new Error("Google no devolvió ideas de palabras. Revisa las semillas de la ficha.");
-  const picked = await pickKeywords(b, ideas);
+  // Páginas a las que puede llevar cada palabra: cuadros y colecciones de la ficha.
+  const pages = (await db.product.findMany({ where: { businessId } })).map((p) => ({ name: p.name, url: p.url }));
+  const picked = await pickKeywords(b, ideas, pages);
   const byText = new Map(ideas.map((i) => [i.text.toLowerCase(), i]));
   const adsCopy = await writeAds(b, picked.keywords.map((k) => k.text), refs);
   if (!adsCopy.length) throw new Error("La IA no devolvió anuncios válidos (títulos de 30 caracteres como máximo, descripciones de 90). Vuelve a proponer.");
@@ -57,7 +59,7 @@ export async function proposeCampaign(businessId: string) {
       const i = byText.get(k.text.toLowerCase());
       // Puja inicial: entre el mínimo estimado de Google y el techo de la ficha, nunca por encima del techo.
       const bid = Math.min(b.maxCpc, Math.max(0.2, i ? Math.max(i.cpcLow * 0.9, 0.2) : b.maxCpc * 0.7));
-      return { text: k.text, matchType: k.matchType, maxCpc: Math.round(bid * 100) / 100, estCpcLow: i?.cpcLow, estCpcHigh: i?.cpcHigh, volume: i?.volume, intent: k.intent };
+      return { text: k.text, matchType: k.matchType, maxCpc: Math.round(bid * 100) / 100, estCpcLow: i?.cpcLow, estCpcHigh: i?.cpcHigh, volume: i?.volume, intent: k.intent, finalUrl: k.url || null };
     }) },
     // Cada anuncio calca una referencia y lleva al producto de esa referencia (o a la web de la ficha).
     ads: { create: adsCopy.map((a) => ({ headlines: a.headlines, descriptions: a.descriptions, finalUrl: refs[a.ref - 1]?.item?.url || b.url, basedOn: a.basedOn })) },
@@ -105,7 +107,7 @@ export async function approveCampaign(campaignId: string) {
   }
   const res = await ads.createSearchCampaign(b.googleCustomerId!, {
     name: c.name, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url, path1: b.googlePath1, path2: b.googlePath2,
-    keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc })),
+    keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc, finalUrl: k.finalUrl })),
     ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl })),
     negatives: c.proposals.filter((p) => p.kind === "ADD_NEGATIVE" && p.status === "APPROVED").map((p) => p.target),
     schedule: true,

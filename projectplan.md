@@ -232,6 +232,14 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 
 Nota: el píxel se instaló el 02/11/2026; Meta necesita ~100 personas en el público para enseñar remarketing, así que ese conjunto gastará poco al principio.
 
+## 17. Cada palabra clave de Google lleva a su página
+
+**Petición (María, 02/11/2026):** las búsquedas de cuadros concretos o temas (Buen Pastor, Virgen María, versículos…) deben aterrizar en esa página, no en la portada. La web ya tiene una página por cuadro y 36 colecciones (/coleccion/…, p. ej. buen-pastor, virgen-maria, versiculos).
+
+- [x] 17.1 Enlace por palabra clave: la IA que elige las palabras asigna a cada una la página más específica de la ficha (cuadro, colección o tienda); se guarda en la palabra y, al crear, va como `finalUrls` de la palabra en Google; desplegable "Lleva a" en la tabla de la propuesta → `tsc` y build OK
+- [ ] 17.2 Colecciones de la web cargadas como páginas en la ficha de Cuadros con Alma → verificar: aparecen en "Nuestros productos" y en el desplegable
+- [ ] 17.3 Volver a proponer Google de Cuadros con Alma → verificar: cada palabra con su página (Buen Pastor → /coleccion/buen-pastor, versículos → /coleccion/versiculos…)
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
