@@ -177,5 +177,6 @@ model Reference {
   image      String?
   video      Boolean  @default(false)
   audio      String?
+  product    String?
   createdAt  DateTime @default(now())
 }
