@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; notes?: string; campaigns: Campaign[]; references: Ref[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; finalUrl: string }[]; metrics: Metric[]; proposals: Proposal[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; metaCta: string; notes?: string; campaigns: Campaign[]; references: Ref[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -47,6 +47,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [copy, setCopy] = useState({ message: mDraft?.ads[0]?.descriptions[0] || "", headline: mDraft?.ads[0]?.headlines[0] || "", description: mDraft?.ads[0]?.descriptions[1] || "" });
   const [media, setMedia] = useState({ imageUrls: "", videoUrl: "" });
   const [newCover, setNewCover] = useState("");
+  const [adLinks, setAdLinks] = useState<Record<string, string>>({});
   const [refForm, setRefForm] = useState<Record<string, { note: string; image: string; video: boolean; audio: string }>>({});
   const refsOf = (ch: string) => data.references.filter((x) => x.channel === ch);
   // Una pestaña por canal; se abre la que ya tiene algo.
@@ -86,6 +87,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     if (j) { setRefForm({ ...refForm, [ch]: { note: "", image: "", video: false, audio: "" } }); r.refresh(); }
   }
   async function delRef(id: string) { setBusy("ref"); await api(`/api/referencias/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
+  async function rebuild(c: Campaign) { setBusy("rehacer"); const j = await api(`/api/campanas/${c.id}/rehacer`, { links: adLinks }); setBusy(""); if (j) { setAdLinks({}); r.refresh(); } }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
   const inc = kws.filter((k) => k.included);
@@ -159,6 +161,18 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
               <label className="field">Añadir portada (URL de imagen)<input value={newCover} onChange={(e) => setNewCover(e.target.value.trim())} placeholder="https://…/portada-2.jpg" style={{ width: 340 }} /></label>
               <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={addCover} disabled={!!busy || !newCover}>{busy === "portada" ? "Subiendo a Meta…" : "Añadir portada"}</button>
               <span className="small" style={{ alignSelf: "end" }}>Mismos textos y mismo presupuesto; Meta reparte entre todas.</span>
+            </div>
+          )}
+          {live.channel === "meta" && (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <h3>Botón y enlaces</h3>
+              <p className="small">En Meta el botón no se edita: «Rehacer» crea anuncios nuevos con el botón de la ficha ({({ SHOP_NOW: "Comprar", LEARN_MORE: "Más información", SIGN_UP: "Registrarte" } as any)[data.metaCta]}) y estos enlaces, y deja los anteriores en pausa con su historial.</p>
+              {live.ads.filter((a) => a.status === "ENABLED").map((a, i) => (
+                <label key={a.id} className="field" style={{ marginTop: 8 }}>Anuncio {i + 1} · {a.mediaType === "video" ? "vídeo" : "imagen"}
+                  <input value={adLinks[a.id] ?? a.finalUrl} onChange={(e) => setAdLinks({ ...adLinks, [a.id]: e.target.value.trim() })} />
+                </label>
+              ))}
+              <button className="btn-secondary" style={{ marginTop: 10 }} onClick={() => rebuild(live)} disabled={!!busy}>{busy === "rehacer" ? "Rehaciendo en Meta…" : "Rehacer anuncios"}</button>
             </div>
           )}
           {live.channel === "meta" && (
@@ -259,6 +273,13 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
         </label>
         {b.metaAdAccountId && <label className="field">Página de Facebook (id de Meta Business, no el del enlace)<input value={b.metaPageId || ""} onChange={(e) => set("metaPageId", e.target.value.trim())} placeholder="1254151691124601" /></label>}
         {b.metaAdAccountId && <label className="field">Anunciante (aviso UE)<input value={b.metaAdvertiser || ""} onChange={(e) => set("metaAdvertiser", e.target.value)} placeholder="Quién se anuncia y paga" /></label>}
+        {b.metaAdAccountId && <label className="field">Botón de los anuncios (Meta)
+          <select value={b.metaCta} onChange={(e) => set("metaCta", e.target.value)}>
+            <option value="SHOP_NOW">Comprar</option>
+            <option value="LEARN_MORE">Más información</option>
+            <option value="SIGN_UP">Registrarte</option>
+          </select>
+        </label>}
         {b.metaAdAccountId && <label className="field">Edad mínima (Meta)<input type="number" min={18} max={65} value={b.ageMin} onChange={(e) => set("ageMin", +e.target.value)} /></label>}
         {b.metaAdAccountId && <label className="field">Edad máxima (Meta)<input type="number" min={18} max={65} value={b.ageMax} onChange={(e) => set("ageMax", +e.target.value)} /></label>}
       </div>
@@ -285,7 +306,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           {renderRefs("meta")}
       {!mLive && b.metaAdAccountId && (
         <div className="row" style={{ marginTop: 10 }}>
-          <label className="field">Imágenes (URLs, una por línea)<textarea rows={3} value={media.imageUrls} onChange={(e) => setMedia({ ...media, imageUrls: e.target.value })} placeholder={"https://…/portada.jpg\nhttps://…/portada-2.jpg"} style={{ width: 300 }} /></label>
+          <label className="field">Imágenes (una por línea; opcional: «imagen | enlace del producto»)<textarea rows={3} value={media.imageUrls} onChange={(e) => setMedia({ ...media, imageUrls: e.target.value })} placeholder={"https://…/cuadro-1.jpg | https://tienda.com/cuadro/1\nhttps://…/cuadro-2.jpg"} style={{ width: 300 }} /></label>
           <label className="field">Vídeo (URL, opcional)<input value={media.videoUrl} onChange={(e) => setMedia({ ...media, videoUrl: e.target.value.trim() })} placeholder="https://…/trailer.mp4" style={{ width: 300 }} /></label>
           <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={proposeMeta} disabled={!!busy || !media.imageUrls.trim() || !refsOf("meta").length}>{busy === "meta" ? "Escribiendo textos y subiendo a Meta…" : mDraft ? "Volver a proponer (Meta)" : "Proponer campaña en Meta"}</button>
         </div>

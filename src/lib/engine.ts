@@ -95,22 +95,22 @@ export async function approveCampaign(campaignId: string) {
 
 // ---------- Meta (Facebook + Instagram) ----------
 // Propuesta: textos de la IA + imagen (y vídeo opcional) subidos a la biblioteca de la cuenta. No crea ni gasta nada.
-export async function proposeMetaCampaign(businessId: string, media: { imageUrls: string[]; videoUrl?: string }) {
+export async function proposeMetaCampaign(businessId: string, media: { images: { url: string; link?: string }[]; videoUrl?: string }) {
   const b = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   const missing = [["cuenta de Meta", b.metaAdAccountId], ["píxel", b.metaPixelId], ["página de Facebook", b.metaPageId], ["anunciante", b.metaAdvertiser]].filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) throw new Error(`Completa en la ficha: ${missing.join(", ")}.`);
-  if (!media.imageUrls.length) throw new Error("Falta al menos una imagen (la primera también sirve de miniatura del vídeo).");
+  if (!media.images.length) throw new Error("Falta al menos una imagen (la primera también sirve de miniatura del vídeo).");
   const copy = await writeMetaAds(b, await latestRefs(businessId, "meta"));
   const hashes: string[] = [];
-  for (const url of media.imageUrls) hashes.push(await meta.uploadImage(b.metaAdAccountId!, url));
+  for (const im of media.images) hashes.push(await meta.uploadImage(b.metaAdAccountId!, im.url));
   const videoId = media.videoUrl ? await meta.uploadVideo(b.metaAdAccountId!, media.videoUrl, `${b.name} · vídeo`) : null;
-  const ad = (mediaType: string, mediaUrl: string, mediaRef: string) => ({ mediaType, mediaUrl, mediaRef, finalUrl: b.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn });
+  const ad = (mediaType: string, mediaUrl: string, mediaRef: string, link?: string) => ({ mediaType, mediaUrl, mediaRef, finalUrl: link || b.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn });
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "meta" } });
   const c = await db.campaign.create({ data: {
     businessId, channel: "meta", name: `${b.name} · Meta ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
-    ads: { create: [...media.imageUrls.map((u, i) => ad("image", u, hashes[i])), ...(videoId ? [ad("video", media.videoUrl!, videoId)] : [])] },
+    ads: { create: [...media.images.map((im, i) => ad("image", im.url, hashes[i], im.link)), ...(videoId ? [ad("video", media.videoUrl!, videoId)] : [])] },
   } });
-  await log(businessId, "PROPUESTA", `Meta: ${media.imageUrls.length} imagen${media.imageUrls.length > 1 ? "es" : ""}${videoId ? " + vídeo" : ""}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
+  await log(businessId, "PROPUESTA", `Meta: ${media.images.length} imagen${media.images.length > 1 ? "es" : ""}${videoId ? " + vídeo" : ""}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
   return c.id;
 }
 
@@ -125,9 +125,32 @@ export async function addMetaImageAd(campaignId: string, imageUrl: string) {
   const [message, description] = base.descriptions as string[];
   const hash = await meta.uploadImage(b.metaAdAccountId!, imageUrl);
   const n = c.ads.length + 1;
-  const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · image ${n}`, { pageId: b.metaPageId!, link: b.url, thumbHash: hash }, { mediaType: "image", mediaRef: hash, message, headline, description });
+  const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · image ${n}`, { pageId: b.metaPageId!, link: b.url, thumbHash: hash, cta: b.metaCta }, { mediaType: "image", mediaRef: hash, message, headline, description });
   await db.ad.create({ data: { campaignId: c.id, mediaType: "image", mediaUrl: imageUrl, mediaRef: hash, metaAdId, finalUrl: b.url, headlines: [headline], descriptions: [message, description] } });
   await log(b.id, "ANUNCIO_AÑADIDO", `Nueva portada en Meta (anuncio ${n}): ${imageUrl}`);
+}
+
+// Rehace los anuncios activos de una campaña de Meta viva con el botón de la ficha y el enlace de cada anuncio.
+// En Meta el botón no se edita: se crea un anuncio nuevo y el viejo queda en pausa con su historial (el gasto se sigue contando bien).
+export async function rebuildMetaAds(campaignId: string, links: Record<string, string>) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: { orderBy: { id: "asc" } } } });
+  const b = c.business;
+  if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se rehacen anuncios de una campaña de Meta ya creada.");
+  const active = c.ads.filter((a) => a.status === "ENABLED" && a.metaAdId);
+  if (!active.length) throw new Error("No hay anuncios activos que rehacer.");
+  const thumb = c.ads.find((a) => a.mediaType === "image")!.mediaRef!;
+  for (const [i, a] of active.entries()) {
+    const link = (links[a.id] || a.finalUrl || b.url).trim();
+    const [headline] = a.headlines as string[];
+    const [message, description] = a.descriptions as string[];
+    const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · ${a.mediaType} ${c.ads.length + i + 1}`, { pageId: b.metaPageId!, link, thumbHash: thumb, cta: b.metaCta }, { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description, link });
+    await meta.setAdStatus(a.metaAdId!, "PAUSED");
+    await db.$transaction([
+      db.ad.update({ where: { id: a.id }, data: { status: "PAUSED" } }),
+      db.ad.create({ data: { campaignId: c.id, mediaType: a.mediaType, mediaUrl: a.mediaUrl, mediaRef: a.mediaRef, basedOn: a.basedOn, metaAdId, finalUrl: link, headlines: a.headlines as string[], descriptions: a.descriptions as string[] } }),
+    ]);
+  }
+  await log(b.id, "ANUNCIOS_REHECHOS", `Campaña ${c.name}: ${active.length} anuncios rehechos con botón ${b.metaCta}; los anteriores quedan en pausa.`);
 }
 
 // Aprobación: crea en Meta campaña EN PAUSA + conjunto con presupuesto total (freno nativo) + un anuncio por creatividad.
@@ -141,8 +164,8 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   const image = c.ads.find((a) => a.mediaType === "image")!;
   const res = await meta.createCampaign(b.metaAdAccountId!, {
     name: c.name, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
-    pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: image.mediaRef!, advertiser: b.metaAdvertiser!,
-    ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, ...copy })),
+    pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: image.mediaRef!, advertiser: b.metaAdvertiser!, cta: b.metaCta,
+    ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, ...copy })),
   });
   await db.$transaction([
     db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, metaCampaignId: res.campaignId, metaAdSetId: res.adSetId } }),

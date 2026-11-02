@@ -173,6 +173,14 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 - [ ] 9.4 Referencias de vídeo: casilla "Es un vídeo" y campo obligatorio "Música y audio" (la IA no oye el vídeo; lo describe María). Secuencia: María pone el enlace → Claude dice lo que ve (fotogramas) → María añade la música → se guarda → verificar: guardar un vídeo sin música da error; con música se guarda y la IA lo recibe como "(vídeo) … Música y audio: …"
 - [ ] 9.3 (Opcional, más adelante) Leer solos los anuncios activos de una página de la competencia con la API de la Biblioteca. Requiere que María complete la autorización en facebook.com/ads/library/api; útil solo para competidores que anuncian en la UE
 
+## 10. Botón "Comprar" y enlace al cuadro en Meta
+
+**Por qué:** AdEngine pone siempre "Más información" y manda todo a la portada. Christian Modern usa "Comprar" y cada anuncio lleva a la página de su cuadro (titular = nombre del producto).
+
+- [ ] 10.1 Botón de Meta en la ficha (Comprar / Más información / Registrarte; por defecto Comprar). Equipo Tierra y ChatSalsa se quedan en "Más información" → verificar: la ficha guarda el botón y los anuncios nuevos lo usan
+- [ ] 10.2 Enlace por anuncio: al proponer, cada imagen puede llevar su enlace (`imagen | enlace`, una por línea); sin enlace, la web de la ficha → verificar: la propuesta guarda el enlace de cada anuncio
+- [ ] 10.3 Rehacer los anuncios de una campaña de Meta viva con el botón y los enlaces actuales (en Meta el botón no se edita: se crea un anuncio nuevo y se pausa el viejo). Enlace editable por anuncio en el panel → verificar: Cuadros con Alma pasa a "Comprar" y cada anuncio a la página de su cuadro; los viejos quedan en pausa
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)

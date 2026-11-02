@@ -40,6 +40,7 @@ model Business {
   metaAdvertiser     String?
   ageMin             Int         @default(18)
   ageMax             Int         @default(65)
+  metaCta            String      @default("SHOP_NOW")
   notes              String?
   createdAt          DateTime    @default(now())
   campaigns          Campaign[]
