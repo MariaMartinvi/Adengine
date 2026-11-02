@@ -63,6 +63,20 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
   const user = `Negocio: ${ficha.name} — ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nOferta de entrada: ${ficha.saleEvent} (${ficha.price})\nURL: ${ficha.url}\nNotas: ${ficha.notes || ""}\nBúsquedas objetivo: ${keywords.slice(0, 20).join(", ")}`;
   const raw = await ask(sys, withRefs(user, refs), 8000);
   const j = json<{ ads: { ref?: number; headlines: string[]; descriptions: string[]; basedOn?: string }[] }>(raw);
+  // Los textos que se pasan de largo se mandan a acortar en una sola llamada, en vez de tirarlos.
+  const long: { text: string; max: number }[] = [];
+  for (const a of j.ads || []) {
+    for (const h of a.headlines || []) if (h.trim().length > 30) long.push({ text: h.trim(), max: 30 });
+    for (const d of a.descriptions || []) if (d.trim().length > 90) long.push({ text: d.trim(), max: 90 });
+  }
+  if (long.length) {
+    const short = await shorten(long, ficha.language);
+    const map = new Map(long.map((l, i) => [l.text, short[i]]));
+    for (const a of j.ads || []) {
+      a.headlines = (a.headlines || []).map((h) => map.get(h.trim()) ?? h);
+      a.descriptions = (a.descriptions || []).map((d) => map.get(d.trim()) ?? d);
+    }
+  }
   // Recorta por seguridad: Google rechaza el anuncio entero si un texto se pasa.
   const ok = (j.ads || []).map((a, i) => ({
     ref: Number(a.ref) || i + 1,
@@ -76,6 +90,14 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
     throw new Error(`La IA no devolvió anuncios válidos: ${j.ads?.length ?? 0} recibidos${a ? `; el primero con ${a.headlines?.length ?? 0} títulos (largos: ${(a.headlines || []).map((h) => String(h).length).join(",")}) y ${a.descriptions?.length ?? 0} descripciones (largos: ${(a.descriptions || []).map((d) => String(d).length).join(",")})` : `; respuesta: ${raw.slice(0, 200)}`}.`);
   }
   return ok;
+}
+
+// Reescribe cada texto para que quepa en su límite, sin cambiar el sentido ni los datos.
+async function shorten(items: { text: string; max: number }[], language: string): Promise<string[]> {
+  const sys = `Acortas textos de anuncios en el idioma indicado. Devuelves SOLO JSON: {"texts":[…]} en el mismo orden. Cada texto debe caber en su máximo de caracteres CONTADOS (espacios incluidos), conservar el sentido, los datos y las cifras, y sonar natural; nada de puntos suspensivos ni palabras cortadas.`;
+  const user = `Idioma: ${language}\n` + items.map((x, i) => `${i + 1}. (máx. ${x.max}) ${x.text}`).join("\n");
+  const j = json<{ texts: string[] }>(await ask(sys, user, 2000));
+  return items.map((x, i) => String(j.texts?.[i] ?? x.text).trim());
 }
 
 export type MetaCopy = { message: string; headline: string; description: string; basedOn: string };
