@@ -80,7 +80,7 @@ export async function approveCampaign(campaignId: string) {
     await db.business.update({ where: { id: b.id }, data: { conversionActionId: id } });
   }
   const res = await ads.createSearchCampaign(b.googleCustomerId!, {
-    name: c.name, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url,
+    name: c.name, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url, path1: b.googlePath1, path2: b.googlePath2,
     keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc })),
     ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl })),
     negatives: c.proposals.filter((p) => p.kind === "ADD_NEGATIVE" && p.status === "APPROVED").map((p) => p.target),

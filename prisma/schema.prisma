@@ -41,6 +41,8 @@ model Business {
   ageMin             Int         @default(18)
   ageMax             Int         @default(65)
   metaCta            String      @default("SHOP_NOW")
+  googlePath1        String?
+  googlePath2        String?
   notes              String?
   createdAt          DateTime    @default(now())
   campaigns          Campaign[]

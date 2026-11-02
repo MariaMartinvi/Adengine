@@ -210,6 +210,12 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 - [x] 13.2 En la propuesta de Meta, cada anuncio con "Cambiar por mi vídeo o imagen": el navegador sube el archivo directo al almacén (sin el límite de 4,5 MB) y AdEngine lo pasa a Meta; el vídeo guarda como miniatura la imagen del anuncio → verificar: subir el vídeo de prueba a un anuncio de Cuadros con Alma, se ve en la tarjeta y Meta lo procesa. Hecho (02/11/2026): vídeo de prueba subido al almacén y puesto en el anuncio 1 de Cuadros con Alma; Meta lo da por listo (8,3 s) con la foto del cuadro de miniatura. La subida desde el navegador (botón del panel) la prueba María
 - [ ] 13.3 Vídeos de Claude para los anuncios de vídeo (La oveja que faltaba, Calvario al alba) con la música que elija María de la Sound Collection de Meta, subidos por la misma vía
 
+## 14. "Comprar" en la ruta del enlace de Google
+
+**Decisión (María, 02/11/2026):** en búsqueda no hay botón; se pone "comprar" en la ruta visible del enlace (cuadrosconalma.com/comprar/cuadros). Campo en la ficha, se aplica a todos los anuncios de búsqueda al crearlos.
+
+- [ ] 14.1 Campo "Ruta del enlace en Google" (2 partes, 15 caracteres, sin espacios) → `path1`/`path2` del anuncio adaptable → verificar: Cuadros con Alma guardado como comprar / cuadros; al crear la campaña de Google los anuncios lo llevan
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)

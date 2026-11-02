@@ -7,7 +7,7 @@ type Metric = { date: string; cost: number; clicks: number; conversions: number;
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; metaCta: string; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -291,6 +291,9 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             </select>
           ) : <input value={b.googleCustomerId || ""} onChange={(e) => set("googleCustomerId", e.target.value)} placeholder="9148745988" />}
         </label>
+        {b.googleCustomerId && <label className="field">Ruta del enlace en Google (texto visible, 15 car. por parte)
+          <span className="row" style={{ gap: 4 }}>/<input value={b.googlePath1 || ""} maxLength={15} onChange={(e) => set("googlePath1", e.target.value)} placeholder="comprar" style={{ width: 110 }} />/<input value={b.googlePath2 || ""} maxLength={15} onChange={(e) => set("googlePath2", e.target.value)} placeholder="cuadros" style={{ width: 110 }} /></span>
+        </label>}
         <label className="field">Cuenta de Meta
           {metaAccounts.length ? (
             <select value={b.metaAdAccountId || ""} onChange={(e) => setB({ ...b, metaAdAccountId: e.target.value, metaPixelId: "" })}>

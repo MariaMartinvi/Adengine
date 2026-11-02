@@ -64,7 +64,7 @@ export async function keywordIdeas(cid: string, seeds: string[], country: string
 }
 
 export type CampaignSpec = {
-  name: string; dailyBudget: number; country: string; language: string; finalUrl: string;
+  name: string; dailyBudget: number; country: string; language: string; finalUrl: string; path1?: string | null; path2?: string | null;
   keywords: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number }[];
   ads: { headlines: string[]; descriptions: string[]; finalUrl?: string }[];
   negatives: string[];
@@ -103,7 +103,7 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
   for (const a of s.ads) {
     ops.push({ adGroupAdOperation: { create: { adGroup: G, status: "ENABLED", ad: {
       finalUrls: [a.finalUrl || s.finalUrl],
-      responsiveSearchAd: { headlines: a.headlines.map((t) => ({ text: t })), descriptions: a.descriptions.map((t) => ({ text: t })) },
+      responsiveSearchAd: { headlines: a.headlines.map((t) => ({ text: t })), descriptions: a.descriptions.map((t) => ({ text: t })), ...(s.path1 ? { path1: s.path1, ...(s.path2 ? { path2: s.path2 } : {}) } : {}) },
     } } } });
   }
   const j = await call(`/customers/${cid}/googleAds:mutate`, { mutateOperations: ops, partialFailure: false });
