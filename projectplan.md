@@ -249,7 +249,7 @@ Nota: el píxel se instaló el 02/11/2026; Meta necesita ~100 personas en el pú
 - [x] 18.3 Al crear: un grupo de anuncios de Google por tema, con sus palabras, su anuncio (a la página del grupo) y sus fotos (AD_IMAGE a nivel de grupo); las pausas y cambios de puja usan el grupo de cada palabra
 - [x] 18.4 Panel: columna "Grupo" en las palabras y el grupo en cada anuncio de la propuesta
 - [x] 18.5 Botón "Importar desde la web" en la ficha: lee /sitemap.xml y carga cada página de producto y colección con su título y su foto (og:image o la del sitemap) → verificar con caricaturea.com. Código de 18.1-18.5 hecho, `tsc` y build OK; falta probar en producción
-- [ ] 18.6 Volver a proponer Google de Cuadros con Alma → verificar: grupos Virgen María, Buen Pastor, versículos… cada uno con su anuncio, su página y sus fotos
+- [x] 18.6 Volver a proponer Google de Cuadros con Alma → verificar: grupos Virgen María, Buen Pastor, versículos… cada uno con su anuncio, su página y sus fotos. Hecho (02/11/2026): 6 grupos (Religiosos modernos, Virgen María, Buen Pastor, Versículos, Jesús y Sagrado Corazón, Regalos), 32 palabras, 6 anuncios, 2 fotos por grupo. Importar probado con Caricaturea: 14 colecciones + 150 diseños con foto (los productos están en /p/: se saltan páginas por palabras, no por ruta). Pendiente: comprobar al crear que Google acepta grupos e imágenes
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
