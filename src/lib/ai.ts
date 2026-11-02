@@ -61,14 +61,21 @@ Reglas: elige 25-45 palabras de la lista de ideas (solo textos que estén en la 
 export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string; notes?: string | null }, keywords: string[], refs: Ref[]): Promise<{ ref: number; headlines: string[]; descriptions: string[]; basedOn: string }[]> {
   const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"ref":número de la referencia,"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres],"basedOn":"…"}]}. Un anuncio por referencia, en el mismo orden. En las referencias de Google, un título como «A - B» son dos títulos distintos que Google une: cálcalos como títulos separados, cada uno de 30 caracteres como máximo. ${COPY_RULE} Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
   const user = `Negocio: ${ficha.name} — ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nOferta de entrada: ${ficha.saleEvent} (${ficha.price})\nURL: ${ficha.url}\nNotas: ${ficha.notes || ""}\nBúsquedas objetivo: ${keywords.slice(0, 20).join(", ")}`;
-  const j = json<{ ads: { ref?: number; headlines: string[]; descriptions: string[]; basedOn?: string }[] }>(await ask(sys, withRefs(user, refs), 8000));
+  const raw = await ask(sys, withRefs(user, refs), 8000);
+  const j = json<{ ads: { ref?: number; headlines: string[]; descriptions: string[]; basedOn?: string }[] }>(raw);
   // Recorta por seguridad: Google rechaza el anuncio entero si un texto se pasa.
-  return j.ads.map((a, i) => ({
+  const ok = (j.ads || []).map((a, i) => ({
     ref: Number(a.ref) || i + 1,
     headlines: Array.from(new Set(a.headlines.map((h) => h.trim()).filter((h) => h.length <= 30 && h.length > 0))).slice(0, 15),
     descriptions: Array.from(new Set(a.descriptions.map((d) => d.trim()).filter((d) => d.length <= 90 && d.length > 0))).slice(0, 4),
     basedOn: (a.basedOn || "").trim().slice(0, 160),
   })).filter((a) => a.headlines.length >= 3 && a.descriptions.length >= 2);
+  // Si no queda ninguno, decir qué llegó para poder corregir el encargo.
+  if (!ok.length) {
+    const a = j.ads?.[0];
+    throw new Error(`La IA no devolvió anuncios válidos: ${j.ads?.length ?? 0} recibidos${a ? `; el primero con ${a.headlines?.length ?? 0} títulos (largos: ${(a.headlines || []).map((h) => String(h).length).join(",")}) y ${a.descriptions?.length ?? 0} descripciones (largos: ${(a.descriptions || []).map((d) => String(d).length).join(",")})` : `; respuesta: ${raw.slice(0, 200)}`}.`);
+  }
+  return ok;
 }
 
 export type MetaCopy = { message: string; headline: string; description: string; basedOn: string };
