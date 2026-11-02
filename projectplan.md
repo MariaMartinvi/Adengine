@@ -237,8 +237,8 @@ Nota: el píxel se instaló el 02/11/2026; Meta necesita ~100 personas en el pú
 **Petición (María, 02/11/2026):** las búsquedas de cuadros concretos o temas (Buen Pastor, Virgen María, versículos…) deben aterrizar en esa página, no en la portada. La web ya tiene una página por cuadro y 36 colecciones (/coleccion/…, p. ej. buen-pastor, virgen-maria, versiculos).
 
 - [x] 17.1 Enlace por palabra clave: la IA que elige las palabras asigna a cada una la página más específica de la ficha (cuadro, colección o tienda); se guarda en la palabra y, al crear, va como `finalUrls` de la palabra en Google; desplegable "Lleva a" en la tabla de la propuesta → `tsc` y build OK
-- [ ] 17.2 Colecciones de la web cargadas como páginas en la ficha de Cuadros con Alma → verificar: aparecen en "Nuestros productos" y en el desplegable
-- [ ] 17.3 Volver a proponer Google de Cuadros con Alma → verificar: cada palabra con su página (Buen Pastor → /coleccion/buen-pastor, versículos → /coleccion/versiculos…)
+- [x] 17.2 Colecciones de la web cargadas como páginas en la ficha de Cuadros con Alma → verificar: aparecen en "Nuestros productos" y en el desplegable. Hecho: 39 colecciones; la sección de productos es plegable
+- [x] 17.3 Volver a proponer Google de Cuadros con Alma → verificar: cada palabra con su página (Buen Pastor → /coleccion/buen-pastor, versículos → /coleccion/versiculos…). Hecho: 6 anuncios, 27 palabras, las 27 con página. Arreglado de paso: descripciones de las referencias = dos de 90; acortado en dos rondas sin cortar frases; filtro de rankings/reseñas/cifras ("más regalado", "nº 1", "estrellas"…)
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
