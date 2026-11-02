@@ -207,7 +207,7 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 **Petición (María, 02/11/2026):** que Claude cree los vídeos (con las fotos de cada cuadro, estilo de la prueba de La oveja que faltaba), pero que AdEngine deje editar cada anuncio y subir su propio vídeo o imagen.
 
 - [x] 13.1 Almacén de archivos: Vercel Blob `adengine-media` (público, enlazado al proyecto; `BLOB_READ_WRITE_TOKEN`). Público porque Meta descarga el vídeo por su enlace
-- [ ] 13.2 En la propuesta de Meta, cada anuncio con "Cambiar por mi vídeo o imagen": el navegador sube el archivo directo al almacén (sin el límite de 4,5 MB) y AdEngine lo pasa a Meta; el vídeo guarda como miniatura la imagen del anuncio → verificar: subir el vídeo de prueba a un anuncio de Cuadros con Alma, se ve en la tarjeta y Meta lo procesa
+- [x] 13.2 En la propuesta de Meta, cada anuncio con "Cambiar por mi vídeo o imagen": el navegador sube el archivo directo al almacén (sin el límite de 4,5 MB) y AdEngine lo pasa a Meta; el vídeo guarda como miniatura la imagen del anuncio → verificar: subir el vídeo de prueba a un anuncio de Cuadros con Alma, se ve en la tarjeta y Meta lo procesa. Hecho (02/11/2026): vídeo de prueba subido al almacén y puesto en el anuncio 1 de Cuadros con Alma; Meta lo da por listo (8,3 s) con la foto del cuadro de miniatura. La subida desde el navegador (botón del panel) la prueba María
 - [ ] 13.3 Vídeos de Claude para los anuncios de vídeo (La oveja que faltaba, Calvario al alba) con la música que elija María de la Sound Collection de Meta, subidos por la misma vía
 
 ## Pendiente (después)
