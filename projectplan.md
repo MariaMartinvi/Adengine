@@ -186,11 +186,21 @@ La IA ve las capturas (bloques de imagen en la llamada a Claude), como máximo l
 
 **Decisión (María, 02/11/2026):** parar todo lo de Cuadros con Alma y hacerlo bien desde cero. Hecho: campaña de Meta pausada desde AdEngine (Meta: 0 € gastados), Google ya en pausa. Se mantienen ficha y referencias.
 
-- [ ] 11.1 Botón "Archivar campaña" (solo en pausa o detenida): queda en pausa en Meta/Google con su historial, estado ARCHIVED en AdEngine, el cron no la toca, y la pestaña vuelve a permitir proponer → verificar: archivar las dos de Cuadros con Alma; las pestañas muestran "Proponer"; siguen en pausa en Meta/Google
+- [x] 11.1 Botón "Archivar campaña" (solo en pausa o detenida): queda en pausa en Meta/Google con su historial, estado ARCHIVED en AdEngine, el cron no la toca, y la pestaña vuelve a permitir proponer → verificar: archivar las dos de Cuadros con Alma; las pestañas muestran "Proponer"; siguen en pausa en Meta/Google. Hecho (02/11/2026): las dos archivadas; Meta sigue PAUSED; la pestaña Meta muestra el campo «imagen | enlace»
 - [ ] 11.2 Referencias de Cuadros con Alma: Meta (vídeo de Christian Modern ya guardado + sus 2 anuncios de imagen) y Google (Centro de transparencia), con la secuencia enlace → lo que veo → música → guardar
 - [ ] 11.3 Propuesta de Meta: botón Comprar, cada imagen con el enlace a su cuadro, textos que copian la fórmula de las referencias
 - [ ] 11.4 Propuesta de Google con referencias: oferta del 15 % y detalles reales, sin reseñas inventadas
 - [ ] 11.5 María revisa, se crean en pausa y las activa ella
+
+## 12. Anuncios casi iguales a las referencias, con nuestros productos y en castellano
+
+**Petición (María, 02/11/2026):** que AdEngine proponga anuncios casi al 100 % iguales a las referencias, pero con nuestros productos y en castellano.
+**Límite:** testimonios, reseñas y cifras ("#1", "4,9 estrellas", "el más regalado") no se copian: serían falsos. Todo lo demás sí (formato, estructura, longitud, tono, gancho, botón). Si falta una frase real, AdEngine avisa o usa una nuestra.
+
+- [ ] 12.1 Productos en la ficha (nombre, enlace, imagen), comunes a Meta y Google; carga inicial desde la web de Cuadros con Alma → verificar: lista de 21 cuadros en la ficha, se pueden quitar y añadir
+- [ ] 12.2 "Nuestro cuadro" de cada referencia = desplegable de productos → verificar: las referencias existentes quedan enlazadas a su producto
+- [ ] 12.3 Propuesta de Meta: un anuncio por referencia con imagen y enlace del producto y textos calcados en estructura; para vídeos, además, guion para grabar → verificar: propuesta de Cuadros con Alma con 3 anuncios y "Imita" de cada uno
+- [ ] 12.4 Propuesta de Google: un anuncio por referencia, calcado en estructura, con el enlace de su producto o la tienda → verificar: propuesta de Cuadros con Alma con un anuncio por referencia de Google
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
