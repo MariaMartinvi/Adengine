@@ -46,6 +46,7 @@ export async function proposeCampaign(businessId: string) {
   const picked = await pickKeywords(b, ideas);
   const byText = new Map(ideas.map((i) => [i.text.toLowerCase(), i]));
   const adsCopy = await writeAds(b, picked.keywords.map((k) => k.text), refs);
+  if (!adsCopy.length) throw new Error("La IA no devolvió anuncios válidos (títulos de 30 caracteres como máximo, descripciones de 90). Vuelve a proponer.");
 
   // Borra borradores anteriores: la propuesta es siempre la última.
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "google" } });
