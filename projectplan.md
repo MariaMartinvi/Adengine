@@ -152,3 +152,4 @@ Sin cambios de código. Todo es configuración:
 - [x] Next.js 14.2.15 → 14.2.35 (01/10/2026). Verificado en local: build OK, login 401/200, snippet y track 200, cabecera de bypass del middleware → 401 (también 401 en producción antes del cambio). Quedan avisos que solo se arreglan en Next 15.5+/16 (salto de versión mayor, tarea aparte); casi todos afectan a funciones que no usamos (next/image, Server Actions, rewrites)
 - Consent Mode en el banner de Rankcoworker (RGPD)
 - Cron: `0 6 * * *` es 08:00 solo en horario de verano
+- [x] Google Ads API v22 → v26 (02/11/2026): v22 ya rechazada por Google (400) y el permiso OAuth estaba revocado (`invalid_grant`, reconectado). Desde entonces el cron no leía Google: RankCoworker sin métricas ni frenos. Verificado: campos y enums usados existen en el discovery de v26

@@ -1,7 +1,7 @@
 // Adaptador de Google Ads sobre la API REST. No hay nada de Google fuera de esta carpeta.
 import { accessToken } from "./auth";
 
-const V = () => process.env.GOOGLE_ADS_API_VERSION || "v22";
+const V = () => process.env.GOOGLE_ADS_API_VERSION || "v26";
 const BASE = () => `https://googleads.googleapis.com/${V()}`;
 
 export const GEO: Record<string, string> = { ES: "2724", MX: "2484", FR: "2250", GB: "2826", US: "2840", CO: "2170", CL: "2152", AR: "2032", PE: "2604", PT: "2620", IT: "2380", DE: "2276" };
