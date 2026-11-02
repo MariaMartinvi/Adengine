@@ -25,7 +25,7 @@ export default async function Home({ searchParams }: { searchParams: { connected
       ) : (
         <div className="grid">
           {businesses.map((b) => {
-            const live = b.campaigns.find((c) => c.status !== "DRAFT");
+            const live = b.campaigns.find((c) => c.status !== "DRAFT" && c.status !== "ARCHIVED");
             const m = live?.metrics || [];
             const spent = m.reduce((s, x) => s + x.cost, 0);
             const conv = m.reduce((s, x) => s + x.conversions, 0);

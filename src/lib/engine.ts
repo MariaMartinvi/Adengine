@@ -187,6 +187,15 @@ export async function setStatus(campaignId: string, status: "ENABLED" | "PAUSED"
   await log(c.businessId, status === "ENABLED" ? "ACTIVADA" : status === "STOPPED" ? "DETENIDA" : "PAUSADA", `Campaña ${c.name}`);
 }
 
+// Archivar: la campaña ya parada queda en pausa en Meta/Google con su historial, el cron deja de vigilarla
+// y el canal vuelve a admitir una propuesta nueva. No borra nada.
+export async function archiveCampaign(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId } });
+  if (!["PAUSED", "STOPPED"].includes(c.status)) throw new Error("Pausa la campaña antes de archivarla.");
+  await db.campaign.update({ where: { id: c.id }, data: { status: "ARCHIVED" } });
+  await log(c.businessId, "ARCHIVADA", `Campaña ${c.name}: queda en pausa en ${c.channel === "meta" ? "Meta" : "Google"} con su historial.`);
+}
+
 // Presupuesto de una campaña viva. Meta: total del conjunto y fecha de fin al ritmo diario pedido. Google: importe diario; el tope total lo vigila el cron.
 export async function setBudget(campaignId: string, dailyBudget: number, totalCap: number) {
   if (!(dailyBudget > 0) || !(totalCap >= dailyBudget)) throw new Error("El gasto total debe ser al menos el presupuesto diario.");

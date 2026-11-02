@@ -37,8 +37,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const isMeta = (c: Campaign) => c.channel === "meta";
   const gDraft = data.campaigns.find((c) => c.status === "DRAFT" && !isMeta(c));
   const mDraft = data.campaigns.find((c) => c.status === "DRAFT" && isMeta(c));
-  const gLive = data.campaigns.find((c) => c.status !== "DRAFT" && !isMeta(c));
-  const mLive = data.campaigns.find((c) => c.status !== "DRAFT" && isMeta(c));
+  // Las archivadas no cuentan: el canal vuelve a admitir una propuesta nueva.
+  const isLive = (c: Campaign) => c.status !== "DRAFT" && c.status !== "ARCHIVED";
+  const gLive = data.campaigns.find((c) => isLive(c) && !isMeta(c));
+  const mLive = data.campaigns.find((c) => isLive(c) && isMeta(c));
   const [kws, setKws] = useState<Keyword[]>(gDraft?.keywords || []);
   const [budget, setBudget] = useState(gDraft?.dailyBudget ?? b.dailyBudget);
   const [cap, setCap] = useState(gDraft?.totalCap ?? b.totalCap);
@@ -88,6 +90,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   }
   async function delRef(id: string) { setBusy("ref"); await api(`/api/referencias/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
   async function rebuild(c: Campaign) { setBusy("rehacer"); const j = await api(`/api/campanas/${c.id}/rehacer`, { links: adLinks }); setBusy(""); if (j) { setAdLinks({}); r.refresh(); } }
+  async function archive(c: Campaign) {
+    if (!confirm(`¿Archivar «${c.name}»? Queda en pausa en ${isMeta(c) ? "Meta" : "Google"} con su historial y podrás proponer una nueva.`)) return;
+    setBusy("archivar"); await api(`/api/campanas/${c.id}/archivar`); setBusy(""); r.refresh();
+  }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
   const inc = kws.filter((k) => k.included);
@@ -134,6 +140,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           <h2>Campaña · {live.name} <span className={`status ${live.status}`}>{({ ENABLED: "activa", PAUSED: "en pausa", STOPPED: "detenida" } as any)[live.status]}</span></h2>
           <div className="row" style={{ marginBottom: 14 }}>
             {live.status !== "ENABLED" && <button className="btn-ok" onClick={() => status(live, "ENABLED")} disabled={!!busy}>Activar</button>}
+            {live.status !== "ENABLED" && <button className="btn-secondary" onClick={() => archive(live)} disabled={!!busy}>{busy === "archivar" ? "Archivando…" : "Archivar campaña"}</button>}
             {live.status === "ENABLED" && <button className="btn-secondary" onClick={() => status(live, "PAUSED")} disabled={!!busy}>Pausar</button>}
             <span className="small">{money(live.dailyBudget, b.currency)}/día · tope {money(live.totalCap, b.currency)} · gastado {money(sum(live.metrics, "cost"), b.currency)} · {sum(live.metrics, "conversions")} ventas</span>
           </div>
