@@ -74,7 +74,7 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
     for (const d of a.descriptions || []) if (d.trim().length > 90) long.push({ text: d.trim(), max: 90 });
   }
   if (long.length) {
-    const short = (await shorten(long, ficha.language)).map((t, i) => fit(t, long[i].max));
+    const short = await shorten(long, ficha.language);
     const map = new Map(long.map((l, i) => [l.text, short[i]]));
     for (const a of j.ads || []) {
       a.headlines = (a.headlines || []).map((h) => map.get(h.trim()) ?? h);
@@ -84,8 +84,8 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
   // Recorta por seguridad: Google rechaza el anuncio entero si un texto se pasa.
   const ok = (j.ads || []).map((a, i) => ({
     ref: Number(a.ref) || i + 1,
-    headlines: Array.from(new Set(a.headlines.map((h) => h.trim()).filter((h) => h.length <= 30 && h.length > 0))).slice(0, 15),
-    descriptions: Array.from(new Set(a.descriptions.map((d) => d.trim()).filter((d) => d.length <= 90 && d.length > 0))).slice(0, 4),
+    headlines: Array.from(new Set(a.headlines.map((h) => h.trim()).filter((h) => h.length <= 30 && h.length > 0 && allowedText(h)))).slice(0, 15),
+    descriptions: Array.from(new Set(a.descriptions.map((d) => d.trim()).filter((d) => d.length <= 90 && d.length > 0 && allowedText(d)))).slice(0, 4),
     basedOn: (a.basedOn || "").trim().slice(0, 160),
   })).filter((a) => a.headlines.length >= 3 && a.descriptions.length >= 2);
   // Si no queda ninguno, decir qué llegó para poder corregir el encargo.
@@ -96,21 +96,24 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
   return ok;
 }
 
-// Último recurso si el modelo no acierta con la longitud: cortar en la última palabra completa que quepa.
-function fit(text: string, max: number) {
-  const t = text.trim();
-  if (t.length <= max) return t;
-  const cut = t.slice(0, max + 1);
-  return cut.slice(0, Math.max(cut.lastIndexOf(" "), 1)).replace(/[\s,;:·–—-]+$/, "").trim();
+// Reescribe cada texto para que quepa en su límite, sin cambiar el sentido ni los datos. Hasta dos rondas:
+// a los que sigan largos se les dice cuántos caracteres tienen. Lo que no quepa se queda largo y se descarta después (nunca se corta a medias).
+async function shorten(items: { text: string; max: number }[], language: string): Promise<string[]> {
+  const out = items.map((x) => x.text);
+  for (let round = 0; round < 2; round++) {
+    const todo = out.map((t, i) => ({ i, t, max: items[i].max })).filter((x) => x.t.length > x.max);
+    if (!todo.length) break;
+    const sys = `Acortas textos de anuncios en el idioma indicado. Devuelves SOLO JSON: {"texts":[…]} en el mismo orden. Cada texto debe quedar por DEBAJO de su máximo de caracteres (cuenta espacios y signos): quita palabras de relleno o reformula más corto. Conserva el sentido, los datos y las cifras; frase completa y natural, sin puntos suspensivos.`;
+    const user = `Idioma: ${language}\n` + todo.map((x, n) => `${n + 1}. (tiene ${x.t.length}, máximo ${x.max - 3}) ${x.t}`).join("\n");
+    const j = json<{ texts: string[] }>(await ask(sys, user, 3000));
+    todo.forEach((x, n) => { const t = String(j.texts?.[n] ?? "").trim(); if (t && t.length < x.t.length) out[x.i] = t; });
+  }
+  return out;
 }
 
-// Reescribe cada texto para que quepa en su límite, sin cambiar el sentido ni los datos.
-async function shorten(items: { text: string; max: number }[], language: string): Promise<string[]> {
-  const sys = `Acortas textos de anuncios en el idioma indicado. Devuelves SOLO JSON: {"texts":[…]} en el mismo orden. Cada texto debe caber en su máximo de caracteres CONTADOS (espacios incluidos), conservar el sentido, los datos y las cifras, y sonar natural; nada de puntos suspensivos ni palabras cortadas.`;
-  const user = `Idioma: ${language}\n` + items.map((x, i) => `${i + 1}. (máx. ${x.max}) ${x.text}`).join("\n");
-  const j = json<{ texts: string[] }>(await ask(sys, user, 2000));
-  return items.map((x, i) => String(j.texts?.[i] ?? x.text).trim());
-}
+// Afirmaciones que no podemos hacer (rankings, reseñas, cifras de clientes): el texto que las lleve no pasa.
+const BANNED = /m[aá]s regalad|n[º°o]\.? ?1\b|#1|n[uú]mero uno|estrellas|rese[ñn]as|valoraci|miles de|clientes satisfech|hogares (decorados|felices)/i;
+export const allowedText = (t: string) => !BANNED.test(t);
 
 export type MetaCopy = { message: string; headline: string; description: string; basedOn: string };
 
