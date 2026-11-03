@@ -187,8 +187,8 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
     const f = refForm[ch] || { note: "", image: "", video: false, audio: "", product: "" };
     const list = refsOf(ch);
     return (
-      <div className="card" style={{ margin: "16px 0" }}>
-        <h3>Referencias que funcionan en {ch === "meta" ? "Meta" : "Google"}</h3>
+      <details className="card" style={{ margin: "16px 0" }} open={!list.length}>
+        <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Referencias que funcionan en {ch === "meta" ? "Meta" : "Google"}</strong> <span className="small">· {list.length}{list.some((x) => x.video) ? ` (${list.filter((x) => x.video).length} en vídeo)` : ""} · pulsa para abrir</span></summary>
         <p className="small">Antes de generar, copiamos lo que funciona: la IA replica la estructura de estos anuncios (gancho, formato, oferta, botón) con los datos de este negocio. Nunca calca frases, imágenes ni cifras ajenas. Vídeos: sube una captura y describe en la nota qué pasa.</p>
         {list.length > 0 && (
           <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", margin: "10px 0" }}>
@@ -225,7 +225,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
           {f.video && <label className="field">Música y audio (la IA no oye el vídeo: estilo, instrumentos, si hay voz y qué dice)<input value={f.audio} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, audio: e.target.value } })} placeholder="Clásica relajada, cuerda + piano, sin voz" style={{ width: 340 }} /></label>}
           <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRef(ch)} disabled={!!busy || (!f.note.trim() && !f.image) || (f.video && !f.audio.trim())}>{busy === "ref" ? "Guardando…" : "Añadir referencia"}</button>
         </div>
-      </div>
+      </details>
     );
   };
 
