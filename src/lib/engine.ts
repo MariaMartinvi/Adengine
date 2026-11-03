@@ -6,6 +6,8 @@ import { fetchSiteText } from "./fetchSite";
 import { pickKeywords, writeAds, writeMetaAdFromRef, writeGoogleExtras, type GoogleExtras } from "./ai";
 import * as meta from "./meta/ads";
 import sharp from "sharp";
+import { put } from "@vercel/blob";
+import { renderVideo, type VideoPlan } from "./video";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -268,6 +270,21 @@ export async function replaceDraftMedia(adId: string, url: string, kind: "image"
     await db.ad.update({ where: { id: a.id }, data: { mediaType: "video", mediaUrl: url, mediaRef: videoId, thumbRef } });
   }
   await log(b.id, "MEDIO", `Propuesta de Meta: ${kind === "video" ? "vídeo" : "imagen"} nuevo en un anuncio.`);
+}
+
+// Monta el vídeo de un anuncio de la propuesta de Meta con su guion (fotos del producto, textos y música de la ficha),
+// lo deja en el almacén y lo pone en el anuncio; la imagen que tenía queda de miniatura.
+export async function makeDraftVideo(adId: string, plan?: VideoPlan) {
+  const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { business: true } } } });
+  const b = a.campaign.business;
+  const p = plan || (a.videoPlan as VideoPlan | null);
+  if (!p?.scenes?.length) throw new Error("Este anuncio no tiene guion de vídeo.");
+  if (plan) await db.ad.update({ where: { id: a.id }, data: { videoPlan: plan as any } });
+  const mp4 = await renderVideo(p, b.musicUrl);
+  const blob = await put(`anuncios/${b.name}-video.mp4`, mp4, { access: "public", addRandomSuffix: true, contentType: "video/mp4" });
+  await replaceDraftMedia(a.id, blob.url, "video");
+  if (!b.musicUrl) await log(b.id, "MUSICA", "Vídeo montado sin música: sube una en la ficha («Música de los vídeos»).");
+  return blob.url;
 }
 
 // Añade remarketing a una campaña de Meta viva que nació sin él (p. ej. Meta rechazó los públicos al crearla):

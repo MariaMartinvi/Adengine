@@ -123,6 +123,7 @@ model Ad {
   path2        String?
   included     Boolean  @default(true)
   refId        String?
+  videoPlan    Json?
   status       String   @default("ENABLED")
 }
 
