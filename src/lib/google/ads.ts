@@ -37,8 +37,8 @@ export async function search(cid: string, query: string): Promise<any[]> {
 export async function listAccessibleCustomers(): Promise<{ id: string; name: string }[]> {
   const mcc = process.env.GOOGLE_LOGIN_CUSTOMER_ID!.replace(/-/g, "");
   // Todas las cuentas de anuncios bajo el MCC, también las que cuelgan de un administrador intermedio (p. ej. RegaloparaBesbes).
-  const rows = await search(mcc, `SELECT customer_client.id, customer_client.descriptive_name, customer_client.manager FROM customer_client WHERE customer_client.level >= 1`);
-  return rows.filter((r) => !r.customerClient.manager).map((r) => ({ id: String(r.customerClient.id), name: r.customerClient.descriptiveName }));
+  const rows = await search(mcc, `SELECT customer_client.id, customer_client.descriptive_name, customer_client.manager, customer_client.level FROM customer_client`);
+  return rows.filter((r) => !r.customerClient.manager && Number(r.customerClient.level) >= 1).map((r) => ({ id: String(r.customerClient.id), name: r.customerClient.descriptiveName }));
 }
 
 export type KeywordIdea = { text: string; volume: number; cpcLow: number; cpcHigh: number; competition: string };
