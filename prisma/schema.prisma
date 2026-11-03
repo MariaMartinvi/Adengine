@@ -39,6 +39,7 @@ model Business {
   metaPageId         String?
   metaAdvertiser     String?
   metaInstagramId    String?
+  metaRtShare        Int         @default(20)
   ageMin             Int         @default(18)
   ageMax             Int         @default(65)
   metaCta            String      @default("SHOP_NOW")

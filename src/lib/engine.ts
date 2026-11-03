@@ -200,8 +200,8 @@ export async function addMetaImageAd(campaignId: string, imageUrl: string) {
   await log(b.id, "ANUNCIO_AÑADIDO", `Nueva portada en Meta (anuncio ${n}): ${imageUrl}`);
 }
 
-// Remarketing en Meta: parte del tope para quien visitó la web y no compró (acordado con María: 20 %).
-const RT_SHARE = 0.2;
+// Remarketing en Meta: % del tope (campo de la ficha, 20 por defecto) para quien visitó la web y no compró. 0 = sin remarketing.
+const rtShare = (b: { metaRtShare: number }) => Math.min(50, Math.max(0, b.metaRtShare)) / 100;
 
 // Públicos de la web (visitantes y compradores) del negocio: se crean una vez desde el píxel y se reutilizan.
 async function websiteAudiences(b: { id: string; name: string; metaAdAccountId: string | null; metaPixelId: string | null; metaVisitorsAudienceId: string | null; metaBuyersAudienceId: string | null }) {
@@ -296,7 +296,7 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
   let remarketing: { visitors: string; buyers: string; share: number } | undefined;
   let audError: string | null = null;
-  try { remarketing = { ...(await websiteAudiences(b)), share: RT_SHARE }; } catch (e: any) { audError = e.message; }
+  if (rtShare(b) > 0) { try { remarketing = { ...(await websiteAudiences(b)), share: rtShare(b) }; } catch (e: any) { audError = e.message; } }
   const res = await meta.createCampaign(b.metaAdAccountId!, {
     name: `${c.name} · ${stamp()}`, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
     pageId: b.metaPageId!, instagramId: b.metaInstagramId, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta, remarketing,
@@ -308,7 +308,7 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Meta en pausa (id ${res.campaignId}): ${c.ads.length} anuncios, ${edits.totalCap} ${b.currency} en total hasta agotar (~${edits.dailyBudget}/día).`);
   const rtWhy = audError || res.rtError;
-  await log(b.id, "REMARKETING", rtWhy ? `Sin remarketing: ${rtWhy}` : `Remarketing: ${Math.round(RT_SHARE * 100)} % del tope para visitantes de la web de los últimos 30 días que no han comprado.`);
+  if (rtShare(b) > 0) await log(b.id, "REMARKETING", rtWhy ? `Sin remarketing: ${rtWhy}` : `Remarketing: ${b.metaRtShare} % del tope para visitantes de la web de los últimos 30 días que no han comprado.`);
 }
 
 export async function setStatus(campaignId: string, status: "ENABLED" | "PAUSED" | "STOPPED") {
@@ -352,8 +352,9 @@ export async function setBudget(campaignId: string, dailyBudget: number, totalCa
     if (!c.metaAdSetId) throw new Error("La campaña aún no existe en Meta.");
     const days = Math.max(1, Math.ceil((totalCap - spent) / dailyBudget));
     const end = new Date(Date.now() + days * 86400000);
-    await meta.setAdSetBudget(c.metaAdSetId, c.metaRtAdSetId ? totalCap * (1 - RT_SHARE) : totalCap, end);
-    if (c.metaRtAdSetId) await meta.setAdSetBudget(c.metaRtAdSetId, totalCap * RT_SHARE, end);
+    const share = rtShare(c.business);
+    await meta.setAdSetBudget(c.metaAdSetId, c.metaRtAdSetId ? totalCap * (1 - share) : totalCap, end);
+    if (c.metaRtAdSetId) await meta.setAdSetBudget(c.metaRtAdSetId, totalCap * share, end);
   } else {
     if (!c.googleBudgetId) throw new Error("La campaña aún no existe en Google Ads.");
     await ads.setDailyBudget(c.business.googleCustomerId!, c.googleBudgetId, dailyBudget);
