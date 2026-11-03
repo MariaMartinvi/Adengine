@@ -17,10 +17,10 @@ export default async function Page({ params }: { params: { id: string } }) {
     },
   });
   if (!b) notFound();
-  let accounts: { id: string; name: string }[] = [];
-  try { accounts = await listAccessibleCustomers(); } catch { /* sin conexión aún */ }
+  let accounts: { id: string; name: string }[] = [], accountsError = "";
+  try { accounts = await listAccessibleCustomers(); } catch (e: any) { accountsError = e.message; /* p. ej. sin conexión aún */ }
   let metaAccounts: { id: string; name: string }[] = [], metaPixels: { id: string; name: string }[] = [];
   try { metaAccounts = await listAdAccounts(); if (b.metaAdAccountId) metaPixels = await listPixels(b.metaAdAccountId); } catch { /* sin token de Meta aún */ }
   // key: al cambiar la campaña (nueva propuesta) se remonta el panel y descarta el estado antiguo
-  return <BusinessPanel key={b.campaigns[0]?.id ?? b.id} data={JSON.parse(JSON.stringify(b))} accounts={accounts} metaAccounts={metaAccounts} metaPixels={metaPixels} />;
+  return <BusinessPanel key={b.campaigns[0]?.id ?? b.id} data={JSON.parse(JSON.stringify(b))} accounts={accounts} accountsError={accountsError} metaAccounts={metaAccounts} metaPixels={metaPixels} />;
 }

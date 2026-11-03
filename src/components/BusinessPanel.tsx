@@ -31,7 +31,7 @@ function shrink(file: File): Promise<string> {
     img.src = URL.createObjectURL(file);
   });
 }
-export default function BusinessPanel({ data, accounts, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; metaAccounts?: Option[]; metaPixels?: Option[] }) {
+export default function BusinessPanel({ data, accounts, accountsError, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; accountsError?: string; metaAccounts?: Option[]; metaPixels?: Option[] }) {
   const r = useRouter();
   const [b, setB] = useState(data);
   const [busy, setBusy] = useState(""); const [err, setErr] = useState("");
@@ -348,6 +348,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.id}</option>)}
             </select>
           ) : <input value={b.googleCustomerId || ""} onChange={(e) => set("googleCustomerId", e.target.value)} placeholder="9148745988" />}
+          {accountsError && <span className="small" style={{ color: "#b45309" }}>No se pudo leer la lista de cuentas: {accountsError}</span>}
         </label>
         {b.googleCustomerId && <label className="row small" style={{ gap: 6, alignSelf: "end" }}><input type="checkbox" checked={b.googleWeekdaysOnly} onChange={(e) => set("googleWeekdaysOnly", e.target.checked)} /> Google: solo laborables de 8 a 20 h (B2B)</label>}
         {b.googleCustomerId && <label className="field">Ruta del enlace en Google (texto visible, 15 car. por parte)
