@@ -2,12 +2,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
+import { validate } from "@/lib/validation";
 
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; purchases?: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; extras?: any; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; videoPlan?: unknown; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; orderId?: string | null; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string | null; orderId?: string | null; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -353,6 +354,27 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
       <h1>{b.name}</h1>
       <div className="small"><a href={b.url} target="_blank" rel="noreferrer">{b.url}</a></div>
       {err && <div className="notice error" style={{ marginTop: 16 }}>{err}</div>}
+      {(() => {
+        // ¿Vende? Todo lo gastado en anuncios (también campañas archivadas) frente a las ventas reales que avisa la web.
+        const v = validate({ cacCap: data.cacCap, campaigns: data.campaigns, sales: data.sales });
+        const m = (n: number | null) => (n == null ? "—" : money(n, b.currency));
+        return (
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <strong style={{ fontWeight: 500 }}>¿Vende este MVP?</strong>
+              <span className={`status ${v.verdict.code}`}>{v.verdict.label}</span>
+            </div>
+            <p className="small" style={{ margin: "6px 0 10px" }}>{v.verdict.reason}</p>
+            <dl className="kv">
+              <dt>Gasto en anuncios</dt><dd>{m(v.spend)} <span className="small">· Google {m(v.byChannel.google.spend)} · Meta {m(v.byChannel.meta.spend)}</span></dd>
+              <dt>Ventas</dt><dd>{v.sales.ads} de anuncios{v.sales.organic ? ` + ${v.sales.organic} sin anuncio` : ""} · ingresos {m(v.revenue)}</dd>
+              <dt>CAC real</dt><dd className={v.cac != null && v.cac > data.cacCap ? "over" : ""}>{m(v.cac)} <span className="small">/ tope {m(data.cacCap)} · Google {m(v.byChannel.google.cac)} · Meta {m(v.byChannel.meta.cac)}</span></dd>
+              <dt>Embudo</dt><dd>{v.funnel.impressions} impresiones → {v.funnel.clicks} clics → {v.funnel.checkouts} clics a compra → {v.funnel.sales} ventas</dd>
+            </dl>
+            <p className="small" style={{ marginTop: 8 }}>Reglas: menos de 1 CAC tope gastado = aún pronto · 3+ ventas con CAC ≤ tope = escalar · 3 CAC tope gastados sin ventas = parar · lo demás, iterar. Las ventas sin anuncio no cuentan para el CAC.</p>
+          </div>
+        );
+      })()}
       {stuck && <div className="notice error" style={{ marginTop: 16 }}>«{stuck.name}» se quedó a medias al crearse en {isMeta(stuck) ? "Meta" : "Google"} y AdEngine no la controla. <button className="btn-secondary" onClick={() => unlock(stuck)} disabled={!!busy}>Volver a propuesta</button></div>}
 
       {/* Abierta mientras el negocio no tiene campañas; luego, cerrada para que se vea lo que está en marcha. */}

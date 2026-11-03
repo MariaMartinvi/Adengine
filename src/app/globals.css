@@ -39,6 +39,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .status.ENABLED { color: var(--ok); border-color: var(--ok); }
 .status.PAUSED { color: var(--warn); border-color: var(--warn); }
 .status.STOPPED { color: var(--bad); border-color: var(--bad); }
+/* Veredicto de validación del MVP */
+.status.escalar { color: var(--ok); border-color: var(--ok); }
+.status.iterar { color: var(--warn); border-color: var(--warn); }
+.status.parar { color: var(--bad); border-color: var(--bad); }
 .notice { padding: 12px 14px; border-radius: 6px; background: var(--bg-2); border: 1px solid var(--line); margin-bottom: 18px; }
 .notice.error { border-color: var(--bad); color: var(--bad); }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
