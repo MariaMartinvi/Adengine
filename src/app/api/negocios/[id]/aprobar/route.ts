@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { approveCampaign, approveMetaCampaign } from "@/lib/engine";
 import { cleanPath } from "@/lib/ai";
-export const maxDuration = 60;
+// Meta: cada anuncio se crea dos veces (captación y remarketing); con 7 anuncios no cabe en 60 s.
+export const maxDuration = 300;
 // Recibe las ediciones de la pantalla de aprobación y crea la campaña en pausa
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {

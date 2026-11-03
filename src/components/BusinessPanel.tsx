@@ -39,6 +39,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
   const isMeta = (c: Campaign) => c.channel === "meta";
   const gDraft = data.campaigns.find((c) => c.status === "DRAFT" && !isMeta(c));
   const mDraft = data.campaigns.find((c) => c.status === "DRAFT" && isMeta(c));
+  const stuck = data.campaigns.find((c) => c.status === "CREATING");
   // Las archivadas no cuentan: el canal vuelve a admitir una propuesta nueva.
   const isLive = (c: Campaign) => c.status !== "DRAFT" && c.status !== "ARCHIVED";
   const gLive = data.campaigns.find((c) => isLive(c) && !isMeta(c));
@@ -72,7 +73,8 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
     if (!res.ok) { setErr(j.error || "Error"); return null; }
     return j;
   }
-  async function saveFicha() { setBusy("ficha"); await api(`/api/negocios/${b.id}`, b, "PATCH"); setBusy(""); r.refresh(); }
+  // La música se guarda al subirla: aquí no se manda, para no pisarla con el valor viejo del formulario.
+  async function saveFicha() { setBusy("ficha"); await api(`/api/negocios/${b.id}`, { ...b, musicUrl: undefined }, "PATCH"); setBusy(""); r.refresh(); }
   async function propose() { setBusy("proponer"); await api(`/api/negocios/${b.id}/proponer`); setBusy(""); r.refresh(); }
   async function proposeMeta() { setBusy("meta"); await api(`/api/negocios/${b.id}/proponer`, { channel: "meta" }); setBusy(""); r.refresh(); }
   async function importSite() { setBusy("importar"); const j = await api(`/api/negocios/${b.id}/importar`); setBusy(""); if (j) { if (j.message) setErr(j.message); r.refresh(); } }
@@ -151,6 +153,10 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
     const next = mDraft?.ads.find((a) => a.videoPlan && a.mediaType !== "video" && !tried.current.has(a.id));
     if (next) { tried.current.add(next.id); mountVideo(next.id); }
   });
+  async function unlock(c: Campaign) {
+    if (!confirm(`«${c.name}» se quedó a medias al crearse. ¿Volver a dejarla como propuesta? Mira antes en ${isMeta(c) ? "Meta" : "Google"} si quedó una campaña en pausa con ese nombre y archívala allí.`)) return;
+    setBusy("desbloquear"); await api(`/api/campanas/${c.id}/desbloquear`); setBusy(""); r.refresh();
+  }
   async function rewrite(adId: string) {
     setBusy(`rehacer-${adId}`);
     const j = await api(`/api/anuncios/${adId}/reescribir`, { feedback: mFeedback[adId] || "" });
@@ -327,6 +333,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
       <h1>{b.name}</h1>
       <div className="small"><a href={b.url} target="_blank" rel="noreferrer">{b.url}</a></div>
       {err && <div className="notice error" style={{ marginTop: 16 }}>{err}</div>}
+      {stuck && <div className="notice error" style={{ marginTop: 16 }}>«{stuck.name}» se quedó a medias al crearse en {isMeta(stuck) ? "Meta" : "Google"} y AdEngine no la controla. <button className="btn-secondary" onClick={() => unlock(stuck)} disabled={!!busy}>Volver a propuesta</button></div>}
 
       <h2>Ficha</h2>
       <p className="muted">Es la única entrada del motor. Los cuatro topes de abajo son tu freno de mano: la herramienta nunca los supera.</p>
