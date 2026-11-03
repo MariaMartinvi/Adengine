@@ -161,7 +161,7 @@ export type VideoPlanAI = { transition: "cut" | "fade"; scenes: { photo: number;
 export async function writeVideoPlan(ficha: { name: string; sells: string; language: string; notes?: string | null }, ref: Ref, photos: string[], revise?: string) {
   const sys = `Montas un vídeo vertical 9:16 para Facebook e Instagram calcando el vídeo de la referencia, con las fotos de NUESTRO producto que te enseño numeradas. Devuelves SOLO JSON:
 {"transition":"cut"|"fade","scenes":[{"photo":n,"seconds":s,"zoom":bool,"scale":k,"focusY":y}],"captions":[{"text","from","to"}]}
-- Misma duración total que la referencia, mismo número de cortes y mismo ritmo (segundos por escena). transition: "cut" si cambia de golpe, "fade" si funde.
+- Misma duración total que la referencia, mismo número de cortes y mismo ritmo (segundos por escena). Las escenas suman esa duración; si en la referencia cambia cada X segundos durante todo el vídeo, mantén ese ritmo hasta el final (no dejes una escena larga al final). transition: "cut" si cambia de golpe, "fade" si funde.
 - zoom: true solo si en la referencia la cámara se acerca despacio. Si la referencia tiene la cámara fija, false.
 - scale (1 a 2,5) y focusY (0 arriba, 0,5 centro, 1 abajo): encuadra cada foto para que el producto ocupe en pantalla lo mismo que en la referencia (si en la referencia el cuadro llena la pantalla, acércate). Mismo encuadre en todas si en la referencia la cámara no se mueve.
 - Si hay menos fotos que escenas, repite fotos cambiando el encuadre; si hay más, elige las que más se parezcan a lo que se ve en la referencia.

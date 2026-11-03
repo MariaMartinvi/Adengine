@@ -4,6 +4,7 @@ import { mkdtemp, writeFile, readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 import ffmpegPath from "ffmpeg-static";
+import sharp from "sharp";
 
 // Montador de vídeos de anuncio (9:16, 1080x1920) a partir de fotos de nuestro producto, copiando la forma de un vídeo
 // de referencia: escenas con su duración, corte seco o fundido, zoom lento opcional, textos encima con sus tiempos y música.
@@ -16,7 +17,7 @@ const W = 1080, H = 1920, FPS = 30, FADE = 0.4;
 const FONT = path.join(process.cwd(), "src/fonts/Montserrat-Bold.ttf");
 const run = promisify(execFile);
 
-// ffmpeg no pinta emojis de color: se quitan del texto.
+// La fuente solo tiene letras: los emojis se quitan del texto.
 const noEmoji = (s: string) => s.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, "").replace(/\s+/g, " ").trim();
 // Partir en líneas de ~22 caracteres para que quepa en el ancho del vídeo.
 function wrap(s: string, max = 22) {
@@ -26,6 +27,16 @@ function wrap(s: string, max = 22) {
     if (last && (last + " " + w).length <= max) lines[lines.length - 1] = last + " " + w; else lines.push(w);
   }
   return lines.join("\n");
+}
+
+// Texto sobreimpreso como imagen (el ffmpeg de Vercel no trae el filtro de texto): letra negra en etiqueta blanca redondeada.
+async function captionPng(text: string): Promise<Buffer> {
+  const esc = wrap(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const t = sharp({ text: { text: `<span foreground="black">${esc}</span>`, font: "Montserrat Bold 46", fontfile: FONT, align: "center", rgba: true, dpi: 100 } });
+  const { width = 600, height = 80 } = await t.metadata();
+  const pad = 30, w = width + pad * 2, h = height + pad * 1.4;
+  const box = Buffer.from(`<svg width="${w}" height="${h}"><rect width="${w}" height="${h}" rx="18" fill="white"/></svg>`);
+  return sharp(box).composite([{ input: await t.png().toBuffer(), left: pad, top: Math.round(pad * 0.7) }]).png().toBuffer();
 }
 
 async function fetchTo(url: string, file: string) {
@@ -72,15 +83,16 @@ export async function renderVideo(plan: VideoPlan, musicUrl?: string | null): Pr
       f.push(`[${prev}]null[base]`);
     } else f.push(`${plan.scenes.map((_, i) => `[v${i}]`).join("")}concat=n=${n}:v=1[base]`);
 
-    // Textos: etiqueta blanca con letra negra, arriba, cada uno en su tramo de tiempo.
-    let last = "base";
+    // Textos: etiqueta arriba, centrada, cada una en su tramo de tiempo.
+    let last = "base", input = n + (musicUrl ? 1 : 0);
     for (const [i, c] of plan.captions.entries()) {
       const text = noEmoji(c.text);
       if (!text) continue;
-      const tf = path.join(dir, `t${i}.txt`);
-      await writeFile(tf, wrap(text));
-      f.push(`[${last}]drawtext=fontfile='${FONT}':textfile='${tf}':fontsize=64:fontcolor=black:line_spacing=12:box=1:boxcolor=white:boxborderw=28:x=(w-text_w)/2:y=110:enable='between(t,${c.from},${c.to})'[c${i}]`);
-      last = `c${i}`;
+      const cf = path.join(dir, `t${i}.png`);
+      await writeFile(cf, await captionPng(text));
+      args.push("-i", cf);
+      f.push(`[${last}][${input}]overlay=x=(W-w)/2:y=110:enable='between(t,${c.from},${c.to})'[c${i}]`);
+      last = `c${i}`; input++;
     }
     f.push(`[${last}]format=yuv420p[out]`);
     if (musicUrl) f.push(`[${n}:a]atrim=0:${total},afade=t=in:d=0.5,afade=t=out:st=${Math.max(0, total - 1)}:d=1,loudnorm=I=-16[aout]`);
