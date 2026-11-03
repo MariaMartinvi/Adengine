@@ -13,7 +13,8 @@ export async function POST(req: Request) {
     const id = String(orderId || "").trim().slice(0, 100), value = Number(amount);
     if (!id || !(value > 0)) return NextResponse.json({ error: "Faltan orderId o amount (> 0)" }, { status: 400 });
     if (test) return NextResponse.json({ ok: true, test: true, channel: gclid ? "google" : fbc ? "meta" : "organic" });
-    if (await db.sale.findUnique({ where: { businessId_orderId: { businessId, orderId: id } } })) return NextResponse.json({ ok: true, duplicate: true });
+    // Stripe reintenta el webhook: un pedido que ya llegó no se vuelve a apuntar.
+    if (await db.sale.findFirst({ where: { businessId, orderId: id } })) return NextResponse.json({ ok: true, duplicate: true });
     const str = (v: unknown, n = 300) => (v ? String(v).trim().slice(0, n) : null);
     const sale = await db.sale.create({ data: {
       businessId, orderId: id, amount: value, currency: String(currency || "EUR").toUpperCase().slice(0, 3),

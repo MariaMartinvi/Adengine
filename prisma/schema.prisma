@@ -193,7 +193,7 @@ model Sale {
   uploaded   Boolean  @default(false)
   metaSent   Boolean  @default(false)
   createdAt  DateTime @default(now())
-  @@unique([businessId, orderId])
+  @@index([businessId, orderId])
 }
 
 // Anuncios que funcionan (de la competencia o propios), por canal. La IA replica su estructura al escribir.
