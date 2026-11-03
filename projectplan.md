@@ -320,7 +320,7 @@ Orden acordado (03/11/2026): primero aprender rápido copiando lo probado; repar
 | 2 | CAC real, embudo y veredicto por negocio | Hecho (sección 21) |
 | 3 | **Copiar lo probado, pocos anuncios** (hecho, sección 22): fecha de inicio en cada referencia (aviso si < 1 mes) y propuesta de Meta con 4 anuncios marcados como máximo (las referencias más antiguas, vídeo primero) | Siguiente |
 | 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | Hecho (sección 23) |
-| 5 | **CAC de validación vs CAC de escalado** en la ficha (el veredicto usa el de validación para no parar demasiado pronto). El presupuesto de experimento queda apuntado | Pendiente |
+| 5 | **CAC de validación vs CAC de escalado** (hecho, sección 24) en la ficha (el veredicto usa el de validación para no parar demasiado pronto). El presupuesto de experimento queda apuntado | Pendiente |
 | 6 | ~~Camino a 10.000 €~~ | Descartado por ahora (María, 03/11/2026) |
 | 7 | **Reparto del dinero** entre canales y negocios por margen por euro invertido (propuesta semanal, María aprueba) | Pendiente |
 | 8 | **Escalado progresivo** (+20-30 % cada 3-4 días) y optimizar a compra / CPA objetivo cuando haya datos | Apuntado |
@@ -380,8 +380,8 @@ TODOs:
 - **CAC de validación** (nuevo, en la ficha; vacío = 2 × CAC de escalado): para «Aún pronto» (< 1×), «Parar» (≥ 3× sin ventas) y para las pausas automáticas (anuncio de Meta o palabra de Google que gasta 1 CAC de validación sin conversiones; antes 2 × CAC tope, mismo importe con el valor por defecto).
 
 TODOs:
-- [ ] 24.1 Campo en la ficha + veredicto con los dos CAC (tests) → verificar: tests; en la ficha se ve y se guarda
-- [ ] 24.2 Pausas automáticas con el CAC de validación → verificar: con el valor por defecto, mismo umbral que antes; con un valor puesto, cambia el umbral (tests)
+- [x] 24.1 Campo en la ficha + veredicto con los dos CAC (tests) → verificar: tests; en la ficha se ve y se guarda. Hecho (03/11/2026): en producción Bebés enseña «escalado 6 € · validación 12 €»; guardar vacío → valor por defecto
+- [x] 24.2 Pausas automáticas con el CAC de validación → verificar: con el valor por defecto, mismo umbral que antes; con un valor puesto, cambia el umbral (tests). Hecho (03/11/2026): 22 tests en verde
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
