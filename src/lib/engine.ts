@@ -76,7 +76,7 @@ export async function proposeCampaign(businessId: string) {
     // Con grupos, cada anuncio es de su tema y lleva a la página del grupo; sin grupos, al producto de su referencia.
     ads: { create: adsCopy.map((a) => {
       const g = groups[a.group - 1];
-      return { headlines: a.headlines, descriptions: a.descriptions, finalUrl: g?.url || refs[a.ref - 1]?.item?.url || b.url, basedOn: a.basedOn, adGroup: g?.name || null };
+      return { headlines: a.headlines, descriptions: a.descriptions, finalUrl: g?.url || refs[a.ref - 1]?.item?.url || b.url, basedOn: a.basedOn, adGroup: g?.name || null, path1: a.path[0] || null, path2: a.path[1] || null };
     }) },
     proposals: { create: picked.negatives.map((n) => ({ kind: "ADD_NEGATIVE", target: n, payload: { text: n }, reason: "Excluir búsquedas sin intención de compra", status: "APPROVED" })) },
   } });
@@ -142,7 +142,7 @@ export async function approveCampaign(campaignId: string) {
   const res = await ads.createSearchCampaign(b.googleCustomerId!, {
     name: `${c.name} · ${stamp()}`, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url, path1: b.googlePath1, path2: b.googlePath2,
     keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc, finalUrl: k.finalUrl, group: k.adGroup })),
-    ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl, group: a.adGroup })),
+    ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl, group: a.adGroup, path1: a.path1 || b.googlePath1, path2: a.path1 ? a.path2 : b.googlePath2 })),
     negatives: c.proposals.filter((p) => p.kind === "ADD_NEGATIVE" && p.status === "APPROVED").map((p) => p.target),
     schedule: true,
   });

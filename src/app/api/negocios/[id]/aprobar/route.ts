@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { approveCampaign, approveMetaCampaign } from "@/lib/engine";
+import { cleanPath } from "@/lib/ai";
 export const maxDuration = 60;
 // Recibe las ediciones de la pantalla de aprobación y crea la campaña en pausa
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -20,6 +21,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       db.campaign.update({ where: { id: c.id }, data: { dailyBudget: Number(dailyBudget), totalCap: Number(totalCap) } }),
       ...keywords.map((k) => db.keyword.update({ where: { id: k.id }, data: { maxCpc: Number(k.maxCpc), included: !!k.included, matchType: k.matchType, ...(k.finalUrl !== undefined ? { finalUrl: k.finalUrl || null } : {}) } })),
     ]);
+    // Ruta visible de cada anuncio, editada en la propuesta.
+    if (Array.isArray(body.ads)) await db.$transaction(body.ads.map((a: { id: string; path1?: string; path2?: string }) => db.ad.update({ where: { id: a.id }, data: { path1: cleanPath(a.path1) || null, path2: cleanPath(a.path2) || null } })));
     await approveCampaign(c.id);
     return NextResponse.json({ ok: true });
     } catch (e) {

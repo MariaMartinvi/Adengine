@@ -6,7 +6,7 @@ import { upload } from "@vercel/blob/client";
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null }[]; metrics: Metric[]; proposals: Proposal[] };
+type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null }[]; metrics: Metric[]; proposals: Proposal[] };
 type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
@@ -50,6 +50,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [mCap, setMCap] = useState(mDraft?.totalCap ?? b.totalCap);
   // Texto de cada anuncio de Meta propuesto (uno por referencia), editable antes de crear.
   const [mCopy, setMCopy] = useState<Record<string, { message: string; headline: string; description: string }>>(Object.fromEntries((mDraft?.ads || []).map((a) => [a.id, { message: a.descriptions[0] || "", headline: a.headlines[0] || "", description: a.descriptions[1] || "" }])));
+  // Ruta visible de cada anuncio de Google (tienda.com/parte1/parte2), editable antes de crear.
+  const [gPaths, setGPaths] = useState<Record<string, { path1: string; path2: string }>>(Object.fromEntries((gDraft?.ads || []).map((a) => [a.id, { path1: a.path1 || "", path2: a.path2 || "" }])));
   const [prodForm, setProdForm] = useState({ name: "", url: "", image: "" });
   const [newCover, setNewCover] = useState("");
   const [adLinks, setAdLinks] = useState<Record<string, string>>({});
@@ -79,7 +81,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     setBusy("aprobar");
     const body = isMeta(d)
       ? { campaignId: d.id, dailyBudget: mBudget, totalCap: mCap, ads: d.ads.map((a) => ({ id: a.id, ...mCopy[a.id] })), keywords: [] }
-      : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType, finalUrl: k.finalUrl || null })) };
+      : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType, finalUrl: k.finalUrl || null })), ads: d.ads.map((a) => ({ id: a.id, ...gPaths[a.id] })) };
     const j = await api(`/api/negocios/${b.id}/aprobar`, body);
     setBusy(""); if (j) r.refresh();
   }
@@ -462,6 +464,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                 <div className="small">Anuncio {i + 1}{a.adGroup ? ` · grupo «${a.adGroup}»` : ""} · Google combina estos textos</div>
                 {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
                 <div className="small"><a href={a.finalUrl} target="_blank" rel="noreferrer">{a.finalUrl.replace(/^https?:\/\//, "")}</a></div>
+                <div className="row small" style={{ gap: 4, marginTop: 6 }}>Ruta que se ve: {b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "")}/
+                  <input value={gPaths[a.id]?.path1 ?? ""} maxLength={15} placeholder={b.googlePath1 || "parte1"} onChange={(e) => setGPaths({ ...gPaths, [a.id]: { path1: e.target.value, path2: gPaths[a.id]?.path2 ?? "" } })} style={{ width: 110 }} />/
+                  <input value={gPaths[a.id]?.path2 ?? ""} maxLength={15} placeholder={b.googlePath2 || "parte2"} onChange={(e) => setGPaths({ ...gPaths, [a.id]: { path1: gPaths[a.id]?.path1 ?? "", path2: e.target.value } })} style={{ width: 110 }} />
+                </div>
                 <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{a.headlines.map((h, j) => <li key={j}>{h}</li>)}</ul>
                 <p className="muted" style={{ marginTop: 8 }}>{a.descriptions.join(" · ")}</p>
               </div>

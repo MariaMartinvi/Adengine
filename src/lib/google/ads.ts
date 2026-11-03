@@ -66,7 +66,7 @@ export async function keywordIdeas(cid: string, seeds: string[], country: string
 export type CampaignSpec = {
   name: string; dailyBudget: number; country: string; language: string; finalUrl: string; path1?: string | null; path2?: string | null;
   keywords: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number; finalUrl?: string | null; group?: string | null }[];
-  ads: { headlines: string[]; descriptions: string[]; finalUrl?: string; group?: string | null }[];
+  ads: { headlines: string[]; descriptions: string[]; finalUrl?: string; group?: string | null; path1?: string | null; path2?: string | null }[];
   negatives: string[];
   schedule: boolean; // lunes-viernes 8-20
 };
@@ -106,7 +106,7 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
   for (const a of s.ads) {
     ops.push({ adGroupAdOperation: { create: { adGroup: G(a.group), status: "ENABLED", ad: {
       finalUrls: [a.finalUrl || s.finalUrl],
-      responsiveSearchAd: { headlines: a.headlines.map((t) => ({ text: t })), descriptions: a.descriptions.map((t) => ({ text: t })), ...(s.path1 ? { path1: s.path1, ...(s.path2 ? { path2: s.path2 } : {}) } : {}) },
+      responsiveSearchAd: { headlines: a.headlines.map((t) => ({ text: t })), descriptions: a.descriptions.map((t) => ({ text: t })), ...(a.path1 ? { path1: a.path1, ...(a.path2 ? { path2: a.path2 } : {}) } : {}) },
     } } } });
   }
   const j = await call(`/customers/${cid}/googleAds:mutate`, { mutateOperations: ops, partialFailure: false });

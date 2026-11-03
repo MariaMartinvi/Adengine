@@ -68,11 +68,11 @@ Grupos por tema: agrupa las palabras en 3 a 7 temas (Virgen María, Buen Pastor,
   return { keywords: j.keywords, negatives: j.negatives, groups };
 }
 
-export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string; notes?: string | null }, keywords: string[], refs: Ref[], groups: { name: string; keywords: string[] }[] = []): Promise<{ ref: number; group: number; headlines: string[]; descriptions: string[]; basedOn: string }[]> {
-  const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"group":número del grupo,"ref":número de la referencia que calca,"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres],"basedOn":"…"}]}. ${groups.length ? "Un anuncio por grupo, en el orden de la lista de grupos: habla del tema del grupo (sus palabras) y calca la referencia que mejor le encaje; reparte las referencias entre los grupos." : "Un anuncio por referencia, en el mismo orden."} En las referencias de Google, un título como «A - B» son dos títulos distintos que Google une: cálcalos como títulos separados, cada uno de 30 caracteres como máximo. Igual con la descripción: lo que ves suele ser dos descripciones unidas; cada una, 90 caracteres como máximo. ${COPY_RULE} Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
+export async function writeAds(ficha: { name: string; sells: string; audience: string; language: string; price: number; saleEvent: string; url: string; notes?: string | null }, keywords: string[], refs: Ref[], groups: { name: string; keywords: string[] }[] = []): Promise<{ ref: number; group: number; headlines: string[]; descriptions: string[]; basedOn: string; path: string[] }[]> {
+  const sys = `Escribes anuncios de búsqueda adaptables de Google en el idioma indicado. Devuelves SOLO JSON: {"ads":[{"group":número del grupo,"ref":número de la referencia que calca,"headlines":[15 títulos ≤30 caracteres],"descriptions":[4 descripciones ≤90 caracteres],"path":["parte1","parte2"],"basedOn":"…"}]}. path: la ruta que se ve en el enlace (tienda.com/parte1/parte2), dos palabras del tema del anuncio, minúsculas, sin espacios ni tildes, máximo 15 caracteres cada una (p. ej. ["caricatura","boda"]). ${groups.length ? "Un anuncio por grupo, en el orden de la lista de grupos: habla del tema del grupo (sus palabras) y calca la referencia que mejor le encaje; reparte las referencias entre los grupos." : "Un anuncio por referencia, en el mismo orden."} En las referencias de Google, un título como «A - B» son dos títulos distintos que Google une: cálcalos como títulos separados, cada uno de 30 caracteres como máximo. Igual con la descripción: lo que ves suele ser dos descripciones unidas; cada una, 90 caracteres como máximo. ${COPY_RULE} Reglas: lenguaje de cliente, beneficio concreto, sin mayúsculas gritadas, sin exclamaciones dobles, sin promesas absolutas, sin "haz clic". Incluye el precio o la oferta de entrada cuando ayude. Cada título debe caber en 30 caracteres CONTADOS; cada descripción en 90. Varía: algunos títulos con la búsqueda del cliente, otros con la propuesta, otros con la prueba.`;
   const user = `Negocio: ${ficha.name} — ${ficha.sells}\nCliente: ${ficha.audience}\nIdioma: ${ficha.language}\nOferta de entrada: ${ficha.saleEvent} (${ficha.price})\nURL: ${ficha.url}\nNotas: ${ficha.notes || ""}\nBúsquedas objetivo: ${keywords.slice(0, 20).join(", ")}${groups.length ? `\nGrupos:\n${groups.map((g, i) => `${i + 1}. ${g.name}: ${g.keywords.slice(0, 8).join(", ")}`).join("\n")}` : ""}`;
   const raw = await ask(sys, withRefs(user, refs), 8000);
-  const j = json<{ ads: { ref?: number; group?: number; headlines: string[]; descriptions: string[]; basedOn?: string }[] }>(raw);
+  const j = json<{ ads: { ref?: number; group?: number; headlines: string[]; descriptions: string[]; basedOn?: string; path?: string[] }[] }>(raw);
   // Los textos que se pasan de largo se mandan a acortar en una sola llamada, en vez de tirarlos.
   const long: { text: string; max: number }[] = [];
   for (const a of j.ads || []) {
@@ -94,6 +94,7 @@ export async function writeAds(ficha: { name: string; sells: string; audience: s
     headlines: Array.from(new Set(a.headlines.map((h) => h.trim()).filter((h) => h.length <= 30 && h.length > 0 && allowedText(h)))).slice(0, 15),
     descriptions: Array.from(new Set(a.descriptions.map((d) => d.trim()).filter((d) => d.length <= 90 && d.length > 0 && allowedText(d)))).slice(0, 4),
     basedOn: (a.basedOn || "").trim().slice(0, 160),
+    path: (a.path || []).map(cleanPath).filter(Boolean).slice(0, 2),
   })).filter((a) => a.headlines.length >= 3 && a.descriptions.length >= 2);
   // Si no queda ninguno, decir qué llegó para poder corregir el encargo.
   if (!ok.length) {
@@ -117,6 +118,9 @@ async function shorten(items: { text: string; max: number }[], language: string)
   }
   return out;
 }
+
+// Parte de la ruta visible de Google: minúsculas, sin tildes ni espacios, 15 caracteres.
+export const cleanPath = (p: unknown) => String(p || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 15);
 
 // Afirmaciones que no podemos hacer (rankings, reseñas, cifras de clientes): el texto que las lleve no pasa.
 const BANNED = /m[aá]s regalad|n[º°o]\.? ?1\b|#1|n[uú]mero uno|estrellas|rese[ñn]as|valoraci|miles de|clientes satisfech|hogares (decorados|felices)/i;

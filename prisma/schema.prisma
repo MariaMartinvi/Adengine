@@ -114,6 +114,8 @@ model Ad {
   brief        String?
   thumbRef     String?
   adGroup      String?
+  path1        String?
+  path2        String?
   status       String   @default("ENABLED")
 }
 
