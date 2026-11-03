@@ -75,10 +75,7 @@ export default async function Home({ searchParams }: { searchParams: { connected
             </div>
           )}
 
-          <div className="row" style={{ justifyContent: "space-between", margin: "8px 0" }}>
-            <h2 style={{ margin: 0 }}>Cartera</h2>
-            <Link href="/negocios/nuevo" className="btn btn-secondary">Añadir negocio</Link>
-          </div>
+          <h2>Cartera</h2>
           <div className="tablewrap">
             <table>
               <thead><tr><th>Negocio</th><th>Veredicto</th><th>Canales</th><th className="num">7 días</th><th className="num">Total</th><th className="num">Ventas</th><th className="num">CAC real</th><th>Siguiente paso</th></tr></thead>
@@ -87,7 +84,7 @@ export default async function Home({ searchParams }: { searchParams: { connected
                   <tr key={b.id}>
                     <td><Link href={`/negocios/${b.id}`}><strong style={{ fontWeight: 500 }}>{b.name}</strong></Link><div className="small">{b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}</div></td>
                     <td>{live.length ? <span className={`status ${v.verdict.code}`}>{ICON[v.verdict.code]} {v.verdict.label}</span> : <span className="small">sin campaña</span>}</td>
-                    <td className="small">{live.length ? live.map((c) => <div key={c.id}>{c.channel === "meta" ? "Meta" : "Google"} <span className={`status ${c.status}`}>{({ ENABLED: "activa", PAUSED: "en pausa", STOPPED: "detenida" } as any)[c.status]}</span> {c.dailyBudget} €/día</div>) : "—"}</td>
+                    <td className="small">{live.length ? live.map((c) => <div key={c.id} style={{ whiteSpace: "nowrap" }}>{c.channel === "meta" ? "Meta" : "Google"} <span className={`status ${c.status}`}>{({ ENABLED: "activa", PAUSED: "en pausa", STOPPED: "detenida" } as any)[c.status]}</span> {c.dailyBudget} €/día</div>) : "—"}</td>
                     <td className="num">{eur(spent7, b.currency)}</td>
                     <td className="num">{eur(v.spend, b.currency)}</td>
                     <td className="num">{v.sales.ads}{v.sales.organic ? <span className="small"> +{v.sales.organic}</span> : null}</td>
