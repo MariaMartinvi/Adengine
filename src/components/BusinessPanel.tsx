@@ -243,11 +243,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
             <label className="field">{live.channel === "meta" ? "€/día (aprox.)" : "€/día"}<input type="number" step="1" value={lb(live).d} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), d: +e.target.value } })} style={{ width: 100 }} /></label>
             <label className="field">Tope total<input type="number" step="10" value={lb(live).t} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), t: +e.target.value } })} style={{ width: 100 }} /></label>
             <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => saveBudget(live)} disabled={!!busy || !(lb(live).d > 0) || !(lb(live).t >= lb(live).d)}>{busy === "presupuesto" ? "Guardando…" : "Guardar presupuesto"}</button>
-            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => extras(live)} disabled={!!busy}>{busy === "recursos" ? "Añadiendo recursos…" : "Añadir recursos (enlaces, destacados, promoción…)"}</button>}
-            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => photos(live)} disabled={!!busy}>{busy === "fotos" ? "Subiendo fotos…" : "Añadir fotos"}</button>}
-            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => schedule(live)} disabled={!!busy}>{busy === "horario" ? "Aplicando…" : `Aplicar horario de la ficha (${data.googleWeekdaysOnly ? "laborables 8-20" : "todos los días"})`}</button>}
-            {live.channel === "meta" && !live.metaRtAdSetId && data.metaRtShare > 0 && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRt(live)} disabled={!!busy}>{busy === "remarketing" ? "Creando remarketing…" : `Añadir remarketing (${data.metaRtShare} %)`}</button>}
-            {live.channel === "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => applyAudience(live)} disabled={!!busy}>{busy === "publico" ? "Aplicando…" : `Aplicar público de la ficha (${data.country}, ${data.ageMin}–${data.ageMax} años)`}</button>}
+            <span className="small" style={{ alignSelf: "end" }}>Presupuesto de esta campaña (el de la ficha es para las propuestas nuevas).</span>
           </div>
           {live.proposals.length > 0 && (
             <div className="card" style={{ marginBottom: 16 }}>
@@ -264,9 +260,20 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
               ))}
             </div>
           )}
+          {/* Ajustes que se usan poco: pasar a la campaña creada lo cambiado en la ficha, añadir piezas… */}
+          <details className="card" style={{ marginBottom: 14 }}>
+          <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Más ajustes de la campaña</strong> <span className="small">· aplicar cambios de la ficha, añadir {live.channel === "meta" ? "portadas, remarketing" : "recursos, fotos"}… · pulsa para abrir</span></summary>
+          <p className="small">Lo que cambias en la ficha (público, horario…) solo vale para las propuestas nuevas; estos botones lo pasan a esta campaña ya creada.</p>
+          <div className="row" style={{ marginBottom: 12 }}>
+            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => extras(live)} disabled={!!busy}>{busy === "recursos" ? "Añadiendo recursos…" : "Añadir recursos (enlaces, destacados, promoción…)"}</button>}
+            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => photos(live)} disabled={!!busy}>{busy === "fotos" ? "Subiendo fotos…" : "Añadir fotos"}</button>}
+            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => schedule(live)} disabled={!!busy}>{busy === "horario" ? "Aplicando…" : `Aplicar horario de la ficha (${data.googleWeekdaysOnly ? "laborables 8-20" : "todos los días"})`}</button>}
+            {live.channel === "meta" && !live.metaRtAdSetId && data.metaRtShare > 0 && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRt(live)} disabled={!!busy}>{busy === "remarketing" ? "Creando remarketing…" : `Añadir remarketing (${data.metaRtShare} %)`}</button>}
+            {live.channel === "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => applyAudience(live)} disabled={!!busy}>{busy === "publico" ? "Aplicando…" : `Aplicar público de la ficha (${data.country}, ${data.ageMin}–${data.ageMax} años)`}</button>}
+          </div>
           {live.channel === "meta" && (
             <div className="row" style={{ marginBottom: 12 }}>
-              <label className="field">Añadir portada (URL de imagen)<input value={newCover} onChange={(e) => setNewCover(e.target.value.trim())} placeholder="https://…/portada-2.jpg" style={{ width: 340 }} /></label>
+              <label className="field">Añadir un anuncio de imagen (URL de la imagen)<input value={newCover} onChange={(e) => setNewCover(e.target.value.trim())} placeholder="https://…/portada-2.jpg" style={{ width: 340 }} /></label>
               <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={addCover} disabled={!!busy || !newCover}>{busy === "portada" ? "Subiendo a Meta…" : "Añadir portada"}</button>
               <span className="small" style={{ alignSelf: "end" }}>Mismos textos y mismo presupuesto; Meta reparte entre todas.</span>
             </div>
@@ -283,6 +290,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
               <button className="btn-secondary" style={{ marginTop: 10 }} onClick={() => rebuild(live)} disabled={!!busy}>{busy === "rehacer" ? "Rehaciendo en Meta…" : "Rehacer anuncios"}</button>
             </details>
           )}
+          </details>
           {live.channel === "meta" && (
             <div className="tablewrap">
               <table>
