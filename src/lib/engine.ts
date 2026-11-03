@@ -194,8 +194,8 @@ export async function addMetaImageAd(campaignId: string, imageUrl: string) {
   const [message, description] = base.descriptions as string[];
   const hash = await meta.uploadImage(b.metaAdAccountId!, imageUrl);
   const n = c.ads.length + 1;
-  const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · image ${n}`, { pageId: b.metaPageId!, link: b.url, thumbHash: hash, cta: b.metaCta }, { mediaType: "image", mediaRef: hash, message, headline, description });
-  const metaRtAdId = c.metaRtAdSetId ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · image ${n}`, { pageId: b.metaPageId!, link: b.url, thumbHash: hash, cta: b.metaCta }, { mediaType: "image", mediaRef: hash, message, headline, description }) : null;
+  const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · image ${n}`, { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link: b.url, thumbHash: hash, cta: b.metaCta }, { mediaType: "image", mediaRef: hash, message, headline, description });
+  const metaRtAdId = c.metaRtAdSetId ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · image ${n}`, { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link: b.url, thumbHash: hash, cta: b.metaCta }, { mediaType: "image", mediaRef: hash, message, headline, description }) : null;
   await db.ad.create({ data: { campaignId: c.id, mediaType: "image", mediaUrl: imageUrl, mediaRef: hash, metaAdId, metaRtAdId, finalUrl: b.url, headlines: [headline], descriptions: [message, description] } });
   await log(b.id, "ANUNCIO_AÑADIDO", `Nueva portada en Meta (anuncio ${n}): ${imageUrl}`);
 }
@@ -226,9 +226,9 @@ export async function rebuildMetaAds(campaignId: string, links: Record<string, s
     const link = (links[a.id] || a.finalUrl || b.url).trim();
     const [headline] = a.headlines as string[];
     const [message, description] = a.descriptions as string[];
-    const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · ${a.mediaType} ${c.ads.length + i + 1}`, { pageId: b.metaPageId!, link, thumbHash: thumb, cta: b.metaCta }, { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description, link });
+    const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · ${a.mediaType} ${c.ads.length + i + 1}`, { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link, thumbHash: thumb, cta: b.metaCta }, { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description, link });
     const rtSpec = { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description, link, thumbHash: a.thumbRef || undefined };
-    const metaRtAdId = c.metaRtAdSetId ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · ${a.mediaType} ${c.ads.length + i + 1}`, { pageId: b.metaPageId!, link, thumbHash: thumb, cta: b.metaCta }, rtSpec) : null;
+    const metaRtAdId = c.metaRtAdSetId ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · ${a.mediaType} ${c.ads.length + i + 1}`, { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link, thumbHash: thumb, cta: b.metaCta }, rtSpec) : null;
     if (a.metaRtAdId) await meta.setAdStatus(a.metaRtAdId, "PAUSED");
     await meta.setAdStatus(a.metaAdId!, "PAUSED");
     await db.$transaction([
@@ -278,7 +278,7 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   try { remarketing = { ...(await websiteAudiences(b)), share: RT_SHARE }; } catch (e: any) { audError = e.message; }
   const res = await meta.createCampaign(b.metaAdAccountId!, {
     name: `${c.name} · ${stamp()}`, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
-    pageId: b.metaPageId!, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta, remarketing,
+    pageId: b.metaPageId!, instagramId: b.metaInstagramId, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta, remarketing,
     ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, thumbHash: a.thumbRef || undefined, ...copyOf(a) })),
   });
   await db.$transaction([

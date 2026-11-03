@@ -56,7 +56,7 @@ export async function createWebsiteAudiences(adAccountId: string, pixelId: strin
 
 export type MetaCampaignSpec = {
   name: string; dailyBudget: number; totalCap: number; country: string; ageMin: number; ageMax: number;
-  pageId: string; pixelId: string; link: string; thumbHash: string; cta: string; ads: MetaAdSpec[];
+  pageId: string; pixelId: string; link: string; thumbHash: string; cta: string; instagramId?: string | null; ads: MetaAdSpec[];
   advertiser: string; // UE (DSA): quién se anuncia y quién paga; sale en la Biblioteca de anuncios
   remarketing?: { visitors: string; buyers: string; share: number }; // conjunto aparte para quien visitó la web y no compró
 };
@@ -107,13 +107,15 @@ export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
 
 // Un anuncio (creatividad + anuncio) dentro de un conjunto existente. Sirve al crear, para añadir portadas y para rehacer anuncios.
 // El enlace es el del anuncio (p. ej. la página del cuadro) o, si no tiene, el de la ficha.
-export async function createAd(adAccountId: string, adSetId: string, name: string, s: { pageId: string; link: string; thumbHash: string; cta: string }, ad: MetaAdSpec) {
+export async function createAd(adAccountId: string, adSetId: string, name: string, s: { pageId: string; link: string; thumbHash: string; cta: string; instagramId?: string | null }, ad: MetaAdSpec) {
   const a = act(adAccountId);
   const link = ad.link || s.link;
+  // Con la cuenta de Instagram del negocio, en Instagram el anuncio sale con su @ en vez del nombre de la página.
+  const ig = s.instagramId ? { instagram_user_id: s.instagramId } : {};
   const cta = { type: s.cta, value: { link } };
   const story = ad.mediaType === "video"
-    ? { page_id: s.pageId, video_data: { video_id: ad.mediaRef, image_hash: ad.thumbHash || s.thumbHash, message: ad.message, title: ad.headline, link_description: ad.description, call_to_action: cta } }
-    : { page_id: s.pageId, link_data: { link, message: ad.message, name: ad.headline, description: ad.description, image_hash: ad.mediaRef, call_to_action: cta } };
+    ? { page_id: s.pageId, ...ig, video_data: { video_id: ad.mediaRef, image_hash: ad.thumbHash || s.thumbHash, message: ad.message, title: ad.headline, link_description: ad.description, call_to_action: cta } }
+    : { page_id: s.pageId, ...ig, link_data: { link, message: ad.message, name: ad.headline, description: ad.description, image_hash: ad.mediaRef, call_to_action: cta } };
   const creativeId = (await call(`/${a}/adcreatives`, { name, object_story_spec: story }, "POST")).id;
   return (await call(`/${a}/ads`, { name, adset_id: adSetId, creative: { creative_id: creativeId }, status: "ACTIVE" }, "POST")).id as string;
 }
