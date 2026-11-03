@@ -272,8 +272,8 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
             </div>
           )}
           {live.channel === "meta" && (
-            <div className="card" style={{ marginBottom: 12 }}>
-              <h3>Botón y enlaces</h3>
+            <details className="card" style={{ marginBottom: 12 }}>
+              <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Cambiar botón o enlaces de los anuncios</strong> <span className="small">· solo si hace falta · pulsa para abrir</span></summary>
               <p className="small">En Meta el botón no se edita: «Rehacer» crea anuncios nuevos con el botón de la ficha ({({ SHOP_NOW: "Comprar", LEARN_MORE: "Más información", SIGN_UP: "Registrarte" } as any)[data.metaCta]}) y estos enlaces, y deja los anteriores en pausa con su historial.</p>
               {live.ads.filter((a) => a.status === "ENABLED").map((a, i) => (
                 <label key={a.id} className="field" style={{ marginTop: 8 }}>Anuncio {i + 1} · {a.mediaType === "video" ? "vídeo" : "imagen"}
@@ -281,7 +281,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
                 </label>
               ))}
               <button className="btn-secondary" style={{ marginTop: 10 }} onClick={() => rebuild(live)} disabled={!!busy}>{busy === "rehacer" ? "Rehaciendo en Meta…" : "Rehacer anuncios"}</button>
-            </div>
+            </details>
           )}
           {live.channel === "meta" && (
             <div className="tablewrap">
