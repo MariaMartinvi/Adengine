@@ -322,7 +322,7 @@ Orden acordado (03/11/2026): primero aprender rápido copiando lo probado; repar
 | 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | Hecho (sección 23) |
 | 5 | **CAC de validación vs CAC de escalado** (hecho, sección 24) en la ficha (el veredicto usa el de validación para no parar demasiado pronto). El presupuesto de experimento queda apuntado | Pendiente |
 | 6 | ~~Camino a 10.000 €~~ | Descartado por ahora (María, 03/11/2026) |
-| 7 | **Reparto del dinero** entre canales y negocios por margen por euro invertido (propuesta semanal, María aprueba) | Plan escrito (sección 25) |
+| 7 | **Reparto del dinero** entre canales y negocios (propuesta semanal, María aprueba) | Hecho (sección 25) |
 | 8 | **Escalado progresivo** (+20-30 % cada 3-4 días) y optimizar a compra / CPA objetivo cuando haya datos | Apuntado |
 | 9 | **Alertas** (primera venta, anuncio rechazado, gasto sin ventas, tope) | Apuntado |
 | 10 | **Diagnóstico de la web** (clics a compra sin ventas → qué cambiar) | Apuntado |
@@ -397,9 +397,9 @@ TODOs:
 **Suposición:** sin presupuesto global de cartera; «mover entre negocios» = cortar los que paran y subir los que escalan. Si María quiere un total fijo al mes, se añade después.
 
 TODOs:
-- [ ] 25.1 Cálculo `budgetMoves` (función pura) con tests: mover entre canales, pausar si Parar, +25 % si Escalar, nada sin datos → verificar: tests
-- [ ] 25.2 Propuestas semanales en la actualización diaria (máx. 1 por campaña cada 7 días) y aplicarlas al aprobar (mover, subir, pausar) → verificar: propuesta de prueba aprobada cambia el presupuesto en Google/Meta y en AdEngine
-- [ ] 25.3 La página principal avisa de las propuestas de dinero pendientes de cada negocio → verificar: se ve el aviso
+- [x] 25.1 Cálculo `budgetMoves` (función pura) con tests: mover entre canales, pausar si Parar, +25 % si Escalar, nada sin datos → verificar: tests. Hecho (03/11/2026): 6 tests (28 en total)
+- [x] 25.2 Propuestas semanales en la actualización diaria (máx. 1 por campaña cada 7 días) y aplicarlas al aprobar (mover, subir, pausar) → verificar: propuesta de prueba aprobada cambia el presupuesto en Google/Meta y en AdEngine. Hecho en código (03/11/2026): se generan tras la actualización diaria; aplicar usa `setBudget`/`setStatus` (los mismos que los botones). Verificación real con la 1.ª propuesta
+- [x] 25.3 La página principal avisa de las propuestas de dinero pendientes de cada negocio → verificar: se ve el aviso. Hecho (03/11/2026): «Para decidir» y «Hecho solo (7 días)» en la principal; arriba de cada negocio, las propuestas con Aplicar/Descartar y lo hecho solo esta semana (María: las pausas automáticas siguen solas pero a la vista)
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
