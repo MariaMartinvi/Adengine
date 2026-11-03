@@ -335,7 +335,9 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
       {err && <div className="notice error" style={{ marginTop: 16 }}>{err}</div>}
       {stuck && <div className="notice error" style={{ marginTop: 16 }}>«{stuck.name}» se quedó a medias al crearse en {isMeta(stuck) ? "Meta" : "Google"} y AdEngine no la controla. <button className="btn-secondary" onClick={() => unlock(stuck)} disabled={!!busy}>Volver a propuesta</button></div>}
 
-      <h2>Ficha</h2>
+      {/* Abierta mientras el negocio no tiene campañas; luego, cerrada para que se vea lo que está en marcha. */}
+      <details className="card" style={{ marginTop: 16 }} open={!data.campaigns.length}>
+      <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Ficha</strong> <span className="small">· {b.dailyBudget} {b.currency}/día · tope {b.totalCap} · pulsa para abrir</span></summary>
       <p className="muted">Es la única entrada del motor. Los cuatro topes de abajo son tu freno de mano: la herramienta nunca los supera.</p>
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
         <label className="field">Qué vende<input value={b.sells} onChange={(e) => set("sells", e.target.value)} /></label>
@@ -400,6 +402,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
         <button onClick={saveFicha} disabled={!!busy}>{busy === "ficha" ? "Guardando…" : "Guardar ficha"}</button>
       </div>
       {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
+      </details>
 
       <details className="card" style={{ marginTop: 16 }}>
         <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Nuestros productos y páginas</strong> <span className="small">· {data.products.length} · pulsa para abrir</span></summary>
@@ -600,13 +603,15 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
         </>
       )}
 
-      <h2>Historial</h2>
+      <details className="card" style={{ marginTop: 16 }}>
+      <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Historial</strong> <span className="small">· {b.actions.length} · pulsa para abrir</span></summary>
       <ul className="log">
         {b.actions.map((a) => (
           <li key={a.id}><time suppressHydrationWarning>{new Date(a.createdAt).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time><span><strong style={{ fontWeight: 500 }}>{a.kind.toLowerCase().replace(/_/g, " ")}</strong> · {a.detail}{a.auto && <span className="auto">automático</span>}</span></li>
         ))}
         {!b.actions.length && <li className="small">Sin actividad todavía.</li>}
       </ul>
+      </details>
 
       <div style={{ marginTop: 32 }}>
         <button className="btn-danger" onClick={remove} disabled={!!busy}>{busy === "borrar" ? "Borrando…" : "Borrar ficha"}</button>
