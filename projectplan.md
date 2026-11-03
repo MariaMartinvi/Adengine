@@ -318,7 +318,7 @@ Orden acordado (03/11/2026): primero aprender rápido copiando lo probado; repar
 |---|---|---|
 | 1 | Medir la compra de verdad (webs → AdEngine → Google y Meta) | Hecho (sección 20) |
 | 2 | CAC real, embudo y veredicto por negocio | Hecho (sección 21) |
-| 3 | **Copiar lo probado, pocos anuncios**: fecha de inicio en cada referencia (aviso si < 1 mes) y propuesta de Meta con 4 anuncios marcados como máximo (las referencias más antiguas, vídeo primero) | Siguiente |
+| 3 | **Copiar lo probado, pocos anuncios** (hecho, sección 22): fecha de inicio en cada referencia (aviso si < 1 mes) y propuesta de Meta con 4 anuncios marcados como máximo (las referencias más antiguas, vídeo primero) | Siguiente |
 | 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | Pendiente |
 | 5 | **CAC de validación vs CAC de escalado** en la ficha (el veredicto usa el de validación para no parar demasiado pronto). El presupuesto de experimento queda apuntado | Pendiente |
 | 6 | ~~Camino a 10.000 €~~ | Descartado por ahora (María, 03/11/2026) |
@@ -355,9 +355,9 @@ TODOs:
 **Por qué:** un anuncio que lleva más de 1 mes activo en la Biblioteca casi seguro le es rentable a su dueño. Y con 5 €/día, Meta no aprende con 7 anuncios (Bebés salió con 7, 14 con remarketing).
 
 TODOs:
-- [ ] 22.1 Campo «En circulación desde» en cada referencia (fecha; aviso si tiene menos de 1 mes) → verificar: guardar la fecha en una referencia de Bebés y ver el aviso en una de prueba de menos de 1 mes
-- [ ] 22.2 Propuesta de Meta: como mucho 4 anuncios marcados (referencias más antiguas primero, vídeo antes que imagen); el resto sale desmarcado → verificar: con las 7 referencias de Bebés salen 4 marcadas (los 3 vídeos y la imagen más antigua)
-- [ ] 22.3 Poner la fecha a las referencias que ya hay (las anoté en las notas) → verificar: todas las de Meta de los 3 negocios con fecha
+- [x] 22.1 Campo «En circulación desde» en cada referencia (solo la fecha, sin aviso: María, 03/11/2026) → verificar: guardar la fecha en una referencia de Bebés y verla en la tarjeta. Hecho (03/11/2026): campo en el alta y en cada tarjeta; fecha mal escrita → 400
+- [x] 22.2 Propuesta de Meta: como mucho 4 anuncios marcados (referencias más antiguas primero, vídeo antes que imagen); el resto sale desmarcado → verificar: con las 7 referencias de Bebés salen 4 marcadas (los 3 vídeos y la imagen más antigua). Hecho (03/11/2026): `pickMetaAds` con 3 tests (caso Bebés incluido); se verá en la próxima propuesta real
+- [x] 22.3 Poner la fecha a las referencias que ya hay (las anoté en las notas) → verificar: todas las de Meta de los 3 negocios con fecha. Hecho (03/11/2026): 14 referencias. Menos de 1 mes: Caricaturea 2 oct, Cuadros 11 oct y 23 oct
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
