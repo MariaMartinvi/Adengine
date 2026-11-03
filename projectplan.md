@@ -343,7 +343,7 @@ Objetivo: que AdEngine no solo lance campañas, sino que diga rápido y con dato
 TODOs:
 - [x] 21.1 Cálculo en `src/lib/validation.ts` (función pura: gasto, ventas, CAC por canal, embudo, veredicto) con tests (`node --test`) para cada veredicto → verificar: los tests pasan. Hecho (03/11/2026): 9 tests (`npm test`, tsx + node:test) en verde
 - [x] 21.2 Tarjeta de validación arriba en la página del negocio → verificar: en los 3 negocios sale «Aún pronto» con su gasto y 0 ventas. Hecho (03/11/2026): Bebés, Caricaturea y Cuadros en «Aún pronto», 0 € gastados (Meta aún en preparación)
-- [x] 21.3 Página principal: cambiar «Coste por venta» (engañoso en Meta) por CAC real + veredicto → verificar: la principal enseña el veredicto de cada negocio. Hecho (03/11/2026). Ojo: RankCoworker sale «Parar» porque su web no avisa de ventas a AdEngine
+- [x] 21.3 Página principal: cambiar «Coste por venta» (engañoso en Meta) por CAC real + veredicto → verificar: la principal enseña el veredicto de cada negocio. Hecho (03/11/2026). Ojo: Equipo Tierra sale «Parar» (gastó sin ventas registradas; su web no avisa de ventas a AdEngine, así que puede tener ventas que AdEngine no ve)
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
