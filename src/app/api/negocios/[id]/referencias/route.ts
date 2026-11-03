@@ -4,7 +4,7 @@ import { log } from "@/lib/engine";
 // Añadir una referencia (anuncio que funciona) a un canal. La captura llega ya reducida a JPEG desde el navegador.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { channel, note, image, video, audio, product, productId } = await req.json();
+    const { channel, note, image, video, audio, product, productId, runningSince } = await req.json();
     if (!["meta", "google"].includes(channel)) return NextResponse.json({ error: "Canal no válido" }, { status: 400 });
     const text = String(note || "").trim().slice(0, 2000);
     const img = image ? String(image) : null;
@@ -13,7 +13,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // La IA no oye los vídeos: la música y el audio los describe María.
     const sound = String(audio || "").trim().slice(0, 500);
     if (video && !sound) return NextResponse.json({ error: "Es un vídeo: describe la música y el audio" }, { status: 400 });
-    await db.reference.create({ data: { businessId: params.id, channel, note: text, image: img, video: !!video, audio: video ? sound : null, product: String(product || "").trim().slice(0, 300) || null, productId: productId || null } });
+    await db.reference.create({ data: { businessId: params.id, channel, note: text, image: img, video: !!video, audio: video ? sound : null, product: String(product || "").trim().slice(0, 300) || null, productId: productId || null, runningSince: /^\d{4}-\d{2}-\d{2}$/.test(String(runningSince || "")) ? new Date(runningSince) : null } });
     await log(params.id, "REFERENCIA", `${channel === "meta" ? "Meta" : "Google"}: ${text.slice(0, 80) || "captura"}`);
     return NextResponse.json({ ok: true });
   } catch (e: any) { return NextResponse.json({ error: e.message }, { status: 500 }); }

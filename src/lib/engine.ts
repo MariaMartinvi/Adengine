@@ -8,6 +8,7 @@ import * as meta from "./meta/ads";
 import sharp from "sharp";
 import { put } from "@vercel/blob";
 import { renderVideo, type VideoPlan } from "./video";
+import { pickMetaAds } from "./metaPick";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -177,6 +178,7 @@ export async function approveCampaign(campaignId: string) {
 // ---------- Meta (Facebook + Instagram) ----------
 // Propuesta: un anuncio por referencia de Meta, con la imagen y el enlace de su producto y los textos calcados de la referencia.
 // Las referencias de vídeo traen además el guion para grabar el nuestro. No crea ni gasta nada.
+const MAX_META_ADS = 4;
 export async function proposeMetaCampaign(businessId: string) {
   const b = await db.business.findUniqueOrThrow({ where: { id: businessId } });
   const missing = [["cuenta de Meta", b.metaAdAccountId], ["píxel", b.metaPixelId], ["página de Facebook", b.metaPageId], ["anunciante", b.metaAdvertiser]].filter(([, v]) => !v).map(([k]) => k);
@@ -192,13 +194,16 @@ export async function proposeMetaCampaign(businessId: string) {
     const videoPlan = r.video ? await writeVideoPlan(b, r, r.item!.photos.length ? r.item!.photos : [r.item!.image!]) : undefined;
     ads.push({ mediaType: "image", mediaUrl: r.item!.image!, mediaRef: hash, finalUrl: r.item!.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn, brief: copy.script || null, refId: r.id, videoPlan });
   }
+  // Pocos anuncios para que Meta aprenda con poco presupuesto: el resto sale desmarcado.
+  const since = new Map(refs.map((r) => [r.id, r.runningSince]));
+  const keep = pickMetaAds(ads.map((x) => ({ refId: x.refId, video: !!x.videoPlan, since: since.get(x.refId) })), MAX_META_ADS);
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "meta" } });
   const c = await db.campaign.create({ data: {
     businessId, channel: "meta", name: `${b.name} · Meta ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
-    ads: { create: ads },
+    ads: { create: ads.map((x) => ({ ...x, included: keep.has(x.refId) })) },
   } });
   const videos = ads.filter((a) => a.videoPlan).length;
-  await log(businessId, "PROPUESTA", `Meta: ${ads.length} anuncios, uno por referencia${videos ? ` (${videos} en vídeo${b.musicUrl ? "" : ", SIN MÚSICA: sube una en la ficha"})` : ""}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
+  await log(businessId, "PROPUESTA", `Meta: ${ads.length} anuncios, uno por referencia (${Math.min(ads.length, MAX_META_ADS)} marcados)${videos ? ` (${videos} en vídeo${b.musicUrl ? "" : ", SIN MÚSICA: sube una en la ficha"})` : ""}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
   return c.id;
 }
 

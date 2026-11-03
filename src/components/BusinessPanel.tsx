@@ -14,7 +14,7 @@ const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: 
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
 
 type Option = { id: string; name: string };
-type Ref = { id: string; channel: string; note: string; image?: string | null; video: boolean; audio?: string | null; product?: string | null; productId?: string | null; createdAt: string };
+type Ref = { id: string; channel: string; note: string; image?: string | null; video: boolean; audio?: string | null; product?: string | null; productId?: string | null; runningSince?: string | null; createdAt: string };
 type Product = { id: string; name: string; url: string; image?: string | null; photos: string[] };
 
 // Reduce la captura en el navegador (≤1280 px, JPEG) para que quepa en la BD y en la llamada a la IA.
@@ -60,7 +60,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   const [prodForm, setProdForm] = useState({ name: "", url: "", image: "" });
   const [newCover, setNewCover] = useState("");
   const [adLinks, setAdLinks] = useState<Record<string, string>>({});
-  const [refForm, setRefForm] = useState<Record<string, { note: string; image: string; video: boolean; audio: string; product: string }>>({});
+  const [refForm, setRefForm] = useState<Record<string, { note: string; image: string; video: boolean; audio: string; product: string; since?: string }>>({});
   const refsOf = (ch: string) => data.references.filter((x) => x.channel === ch);
   // Una pestaña por canal; se abre la que ya tiene algo.
   const [tab, setTab] = useState<"meta" | "google">(mLive || mDraft || (!gLive && !gDraft && data.metaAdAccountId) ? "meta" : "google");
@@ -107,6 +107,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   }
   async function delProduct(id: string) { setBusy("producto"); await api(`/api/productos/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
   async function setRefProduct(id: string, productId: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { productId }, "PATCH"); setBusy(""); r.refresh(); }
+  async function setRefSince(id: string, runningSince: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { runningSince }, "PATCH"); setBusy(""); r.refresh(); }
   async function addCover() { setBusy("portada"); const j = await api(`/api/campanas/${mLive!.id}/anuncios`, { imageUrl: newCover }); setBusy(""); if (j) { setNewCover(""); r.refresh(); } }
   async function approve(d: Campaign) {
     setBusy("aprobar");
@@ -126,7 +127,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   async function applyAudience(c: Campaign) { setBusy("publico"); await api(`/api/campanas/${c.id}/publico`); setBusy(""); r.refresh(); }
   async function addRef(ch: string) {
     const f = refForm[ch];
-    setBusy("ref"); const j = await api(`/api/negocios/${b.id}/referencias`, { channel: ch, note: f.note, image: f.image, video: f.video, audio: f.audio, productId: f.product || null }); setBusy("");
+    setBusy("ref"); const j = await api(`/api/negocios/${b.id}/referencias`, { channel: ch, note: f.note, image: f.image, video: f.video, audio: f.audio, productId: f.product || null, runningSince: f.since || null }); setBusy("");
     if (j) { setRefForm({ ...refForm, [ch]: { note: "", image: "", video: false, audio: "", product: "" } }); r.refresh(); }
   }
   async function delRef(id: string) { setBusy("ref"); await api(`/api/referencias/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
@@ -202,6 +203,9 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
                   ? <details style={{ margin: "6px 0" }}><summary className="small" style={{ cursor: "pointer" }}>{x.note.slice(0, 180)}… <u>ver todo</u></summary><p className="small" style={{ whiteSpace: "pre-wrap" }}>{x.note}</p></details>
                   : <p className="small" style={{ whiteSpace: "pre-wrap", margin: "6px 0" }}>{x.note}</p>)}
                 {x.video && <p className="small" style={{ margin: "6px 0" }}>Vídeo · música y audio: {x.audio}</p>}
+                <label className="field" style={{ margin: "6px 0" }}>En circulación desde
+                  <input type="date" defaultValue={x.runningSince?.slice(0, 10) || ""} onBlur={(e) => { if (e.target.value !== (x.runningSince?.slice(0, 10) || "")) setRefSince(x.id, e.target.value); }} disabled={!!busy} />
+                </label>
                 <label className="field" style={{ margin: "6px 0" }}>Nuestro cuadro
                   <select value={x.productId || ""} onChange={(e) => setRefProduct(x.id, e.target.value)} disabled={!!busy}>
                     <option value="">{x.product ? `Sin elegir (antes: ${x.product.split(" · ")[0]})` : "Sin elegir"}</option>
@@ -223,6 +227,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
               {data.products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </label>
+          <label className="field">En circulación desde<input type="date" value={f.since || ""} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, since: e.target.value } })} /></label>
           <label className="row small" style={{ alignSelf: "end" }}><input type="checkbox" checked={f.video} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, video: e.target.checked } })} /> Es un vídeo</label>
           {f.video && <label className="field">Música y audio (la IA no oye el vídeo: estilo, instrumentos, si hay voz y qué dice)<input value={f.audio} onChange={(e) => setRefForm({ ...refForm, [ch]: { ...f, audio: e.target.value } })} placeholder="Clásica relajada, cuerda + piano, sin voz" style={{ width: 340 }} /></label>}
           <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRef(ch)} disabled={!!busy || (!f.note.trim() && !f.image) || (f.video && !f.audio.trim())}>{busy === "ref" ? "Guardando…" : "Añadir referencia"}</button>
