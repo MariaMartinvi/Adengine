@@ -41,7 +41,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
   const mDraft = data.campaigns.find((c) => c.status === "DRAFT" && isMeta(c));
   const stuck = data.campaigns.find((c) => c.status === "CREATING");
   // Las archivadas no cuentan: el canal vuelve a admitir una propuesta nueva.
-  const isLive = (c: Campaign) => c.status !== "DRAFT" && c.status !== "ARCHIVED";
+  const isLive = (c: Campaign) => !["DRAFT", "ARCHIVED", "CREATING"].includes(c.status);
   const gLive = data.campaigns.find((c) => isLive(c) && !isMeta(c));
   const mLive = data.campaigns.find((c) => isLive(c) && isMeta(c));
   const [kws, setKws] = useState<Keyword[]>(gDraft?.keywords || []);
@@ -191,7 +191,9 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
               <div key={x.id} className="card" style={{ padding: 10 }}>
                 <div className="small">Referencia {list.length - i}</div>
                 {x.image && <img src={x.image} alt="" style={{ width: "100%", marginTop: 6 }} />}
-                {x.note && <p className="small" style={{ whiteSpace: "pre-wrap", margin: "6px 0" }}>{x.note}</p>}
+                {x.note && (x.note.length > 180
+                  ? <details style={{ margin: "6px 0" }}><summary className="small" style={{ cursor: "pointer" }}>{x.note.slice(0, 180)}… <u>ver todo</u></summary><p className="small" style={{ whiteSpace: "pre-wrap" }}>{x.note}</p></details>
+                  : <p className="small" style={{ whiteSpace: "pre-wrap", margin: "6px 0" }}>{x.note}</p>)}
                 {x.video && <p className="small" style={{ margin: "6px 0" }}>Vídeo · música y audio: {x.audio}</p>}
                 <label className="field" style={{ margin: "6px 0" }}>Nuestro cuadro
                   <select value={x.productId || ""} onChange={(e) => setRefProduct(x.id, e.target.value)} disabled={!!busy}>
