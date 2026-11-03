@@ -319,7 +319,7 @@ Orden acordado (03/11/2026): primero aprender rápido copiando lo probado; repar
 | 1 | Medir la compra de verdad (webs → AdEngine → Google y Meta) | Hecho (sección 20) |
 | 2 | CAC real, embudo y veredicto por negocio | Hecho (sección 21) |
 | 3 | **Copiar lo probado, pocos anuncios** (hecho, sección 22): fecha de inicio en cada referencia (aviso si < 1 mes) y propuesta de Meta con 4 anuncios marcados como máximo (las referencias más antiguas, vídeo primero) | Siguiente |
-| 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | Pendiente |
+| 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | En curso (sección 23) |
 | 5 | **CAC de validación vs CAC de escalado** en la ficha (el veredicto usa el de validación para no parar demasiado pronto). El presupuesto de experimento queda apuntado | Pendiente |
 | 6 | ~~Camino a 10.000 €~~ | Descartado por ahora (María, 03/11/2026) |
 | 7 | **Reparto del dinero** entre canales y negocios por margen por euro invertido (propuesta semanal, María aprueba) | Pendiente |
@@ -358,6 +358,19 @@ TODOs:
 - [x] 22.1 Campo «En circulación desde» en cada referencia (solo la fecha, sin aviso: María, 03/11/2026) → verificar: guardar la fecha en una referencia de Bebés y verla en la tarjeta. Hecho (03/11/2026): campo en el alta y en cada tarjeta; fecha mal escrita → 400
 - [x] 22.2 Propuesta de Meta: como mucho 4 anuncios marcados (referencias más antiguas primero, vídeo antes que imagen); el resto sale desmarcado → verificar: con las 7 referencias de Bebés salen 4 marcadas (los 3 vídeos y la imagen más antigua). Hecho (03/11/2026): `pickMetaAds` con 3 tests (caso Bebés incluido); se verá en la próxima propuesta real
 - [x] 22.3 Poner la fecha a las referencias que ya hay (las anoté en las notas) → verificar: todas las de Meta de los 3 negocios con fecha. Hecho (03/11/2026): 14 referencias. Menos de 1 mes: Caricaturea 2 oct, Cuadros 11 oct y 23 oct
+
+## 23. Rotación de ganadores en Meta (punto 4)
+
+**Cómo está hoy:** regla automática por anuncio: 2 × CAC tope gastados sin clics a compra → se pausa solo. No se compara un anuncio con otro: uno que vende el doble de caro que el mejor sigue gastando.
+
+**Regla nueva (propuesta, María aprueba con un clic en «Propuestas pendientes»):**
+- Se mira cuando la campaña lleva 3 días o más.
+- Resultado de cada anuncio = compras; si la campaña aún no tiene compras, clics a compra.
+- Si el mejor anuncio tiene resultados, se propone pausar los que hayan gastado al menos 1 CAC tope y cuesten más del doble por resultado que el mejor (o no tengan ninguno). Siempre queda activo el mejor. Al pausar, se pausa también su copia de remarketing. El dinero lo reparte Meta solo entre los que quedan.
+
+TODOs:
+- [ ] 23.1 Cálculo `metaRotation` (función pura) con tests → verificar: tests (ganador claro, sin datos suficientes, nunca pausa el mejor, compras mandan sobre clics a compra)
+- [ ] 23.2 En la actualización diaria crea la propuesta «Pausar anuncio» (una por anuncio, sin repetir) y al aprobarla lo pausa con su remarketing → verificar: propuesta de prueba aprobada pausa el anuncio en Meta y en AdEngine
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)

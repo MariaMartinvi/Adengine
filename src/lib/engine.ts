@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { put } from "@vercel/blob";
 import { renderVideo, type VideoPlan } from "./video";
 import { pickMetaAds } from "./metaPick";
+import { metaRotation } from "./metaRotation";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -556,13 +557,24 @@ export async function syncMetaCampaign(campaignId: string) {
   }
 
   // Regla 2 · por anuncio: 2× CAC tope sin conversiones -> pausa automática.
-  const sums = await db.dailyMetric.groupBy({ by: ["adId"], where: { campaignId: c.id, adId: { not: null } }, _sum: { cost: true, conversions: true } });
+  const sums = await db.dailyMetric.groupBy({ by: ["adId"], where: { campaignId: c.id, adId: { not: null } }, _sum: { cost: true, conversions: true, purchases: true } });
   const totals = new Map(sums.map((s) => [s.adId!, { cost: s._sum.cost || 0, conversions: s._sum.conversions || 0 }]));
   for (const ad of metaAdsToPause(c.ads, totals, b.cacCap)) {
     await meta.setAdStatus(ad.metaAdId!, "PAUSED");
     if (ad.metaRtAdId) await meta.setAdStatus(ad.metaRtAdId, "PAUSED");
     await db.ad.update({ where: { id: ad.id }, data: { status: "PAUSED" } });
     await log(b.id, "REGLA", `Anuncio de ${ad.mediaType === "video" ? "vídeo" : "imagen"} pausado: ${totals.get(ad.id)!.cost.toFixed(2)} gastados sin conversiones (2× CAC tope ${b.cacCap}).`, true);
+  }
+
+  // Regla 3 · rotación de ganadores: propone pausar los anuncios que venden mucho más caro que el mejor (tú apruebas).
+  const live = (await db.ad.findMany({ where: { campaignId: c.id, status: "ENABLED", metaAdId: { not: null } } }));
+  const purch = new Map(sums.map((s) => [s.adId!, s._sum.purchases || 0]));
+  const days = (Date.now() - c.createdAt.getTime()) / 86400000;
+  const rot = metaRotation(live.map((a) => ({ id: a.id, ...(totals.get(a.id) || { cost: 0, conversions: 0 }), purchases: purch.get(a.id) || 0 })), { cacCap: b.cacCap, days });
+  for (const r of rot) {
+    const exists = await db.proposal.findFirst({ where: { campaignId: c.id, kind: "PAUSE_AD", target: r.id, status: "PENDING" } });
+    const a = live.find((x) => x.id === r.id)!;
+    if (!exists) await db.proposal.create({ data: { campaignId: c.id, kind: "PAUSE_AD", target: r.id, payload: {}, reason: `Pausar el anuncio de ${a.mediaType === "video" ? "vídeo" : "imagen"} «${(a.headlines as string[])[0] || ""}»: ${r.reason}` } });
   }
 }
 
@@ -638,7 +650,8 @@ export async function syncCampaign(campaignId: string) {
 export async function applyProposal(proposalId: string, decision: "APPROVED" | "DISMISSED") {
   const p = await db.proposal.findUniqueOrThrow({ where: { id: proposalId }, include: { campaign: { include: { business: true } } } });
   const c = p.campaign, b = c.business, cid = b.googleCustomerId!;
-  if (decision === "APPROVED" && c.googleCampaignId) {
+  if (decision === "APPROVED" && p.kind === "PAUSE_AD") await setMetaAdStatus(p.target, "PAUSED");
+  else if (decision === "APPROVED" && c.googleCampaignId) {
     const payload = p.payload as any;
     if (p.kind === "RAISE_BID" || p.kind === "LOWER_BID") {
       const k = await db.keyword.findUniqueOrThrow({ where: { id: p.target } });
