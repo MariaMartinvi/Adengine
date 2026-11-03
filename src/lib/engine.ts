@@ -256,6 +256,41 @@ export async function replaceDraftMedia(adId: string, url: string, kind: "image"
   await log(b.id, "MEDIO", `Propuesta de Meta: ${kind === "video" ? "vídeo" : "imagen"} nuevo en un anuncio.`);
 }
 
+// Añade remarketing a una campaña de Meta viva que nació sin él (p. ej. Meta rechazó los públicos al crearla):
+// públicos de la web, conjunto con el % de la ficha y los mismos anuncios activos. La suma de los dos conjuntos sigue siendo el tope.
+export async function addRemarketing(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: { orderBy: { id: "asc" } }, metrics: true } });
+  const b = c.business;
+  if (c.channel !== "meta" || !c.metaCampaignId || !c.metaAdSetId) throw new Error("Solo para campañas de Meta ya creadas.");
+  if (c.metaRtAdSetId) throw new Error("Esta campaña ya tiene remarketing.");
+  const share = rtShare(b);
+  if (!share) throw new Error("Pon un % de remarketing en la ficha.");
+  const active = c.ads.filter((a) => a.status === "ENABLED" && a.metaAdId);
+  if (!active.length) throw new Error("No hay anuncios activos que copiar al remarketing.");
+  const thumb = c.ads.find((a) => a.mediaType === "image")?.mediaRef || c.ads.find((a) => a.thumbRef)?.thumbRef;
+  if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
+  const aud = await websiteAudiences(b);
+  const spent = c.metrics.reduce((s, m) => s + m.cost, 0);
+  const mainTotal = Math.max(Math.round(c.totalCap * (1 - share) * 100) / 100, Math.ceil(spent) + 1);
+  const days = Math.max(1, Math.ceil((c.totalCap - spent) / c.dailyBudget));
+  const end = new Date(Date.now() + days * 86400000);
+  // Primero se baja la captación, para que la suma nunca pase del tope; si algo falla, se le devuelve el tope entero.
+  await meta.setAdSetBudget(c.metaAdSetId, mainTotal, end);
+  try {
+    const rtAdSetId = await meta.addRemarketingAdSet(b.metaAdAccountId!, c.metaCampaignId, { name: `${c.name} · remarketing`, total: c.totalCap - mainTotal, endTime: end.toISOString(), pixelId: b.metaPixelId!, advertiser: b.metaAdvertiser!, country: b.country, ...aud });
+    await db.campaign.update({ where: { id: c.id }, data: { metaRtAdSetId: rtAdSetId } });
+    for (const [i, a] of active.entries()) {
+      const [headline] = a.headlines as string[]; const [message, description] = a.descriptions as string[];
+      const id = await meta.createAd(b.metaAdAccountId!, rtAdSetId, `${c.name} · remarketing · ${a.mediaType} ${i + 1}`, { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link: a.finalUrl, thumbHash: thumb, cta: b.metaCta }, { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description: description || "", link: a.finalUrl, thumbHash: a.thumbRef || undefined });
+      await db.ad.update({ where: { id: a.id }, data: { metaRtAdId: id } });
+    }
+  } catch (e) {
+    await meta.setAdSetBudget(c.metaAdSetId, c.totalCap, end).catch(() => {});
+    throw e;
+  }
+  await log(b.id, "REMARKETING", `Campaña ${c.name}: remarketing añadido (${b.metaRtShare} % del tope, ${active.length} anuncios) para visitantes de la web de los últimos 30 días que no han comprado.`);
+}
+
 // Rehace el texto de UN anuncio de una propuesta de Meta con los comentarios de María: misma referencia y misma imagen.
 export async function rewriteDraftMetaAd(adId: string, feedback: string) {
   const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { business: true } } } });

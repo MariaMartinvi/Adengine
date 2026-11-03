@@ -62,6 +62,25 @@ export type MetaCampaignSpec = {
 };
 const cents = (eur: number) => Math.round(eur * 100);
 
+// Conjunto con presupuesto TOTAL hasta una fecha de fin (freno nativo) y optimizado al clic de compra del píxel.
+async function createAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; targeting: Record<string, unknown> }) {
+  return (await call(`/${act(adAccountId)}/adsets`, {
+    name: o.name, campaign_id: campaignId, status: "ACTIVE",
+    lifetime_budget: cents(o.total), end_time: o.endTime, billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+    optimization_goal: "OFFSITE_CONVERSIONS", promoted_object: { pixel_id: o.pixelId, custom_event_type: "INITIATED_CHECKOUT" },
+    dsa_beneficiary: o.advertiser, dsa_payor: o.advertiser,
+    targeting: { geo_locations: { countries: [o.country] }, ...o.targeting, targeting_automation: { advantage_audience: 0 } },
+  }, "POST")).id as string;
+}
+
+// Remarketing: visitantes de la web, sin los que ya compraron.
+const rtTargeting = (r: { visitors: string; buyers: string }) => ({ age_min: 18, custom_audiences: [{ id: r.visitors }], excluded_custom_audiences: [{ id: r.buyers }] });
+
+// Añade el conjunto de remarketing a una campaña ya creada (si al crearla Meta no lo dejó, p. ej. por condiciones sin aceptar).
+export async function addRemarketingAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; visitors: string; buyers: string }) {
+  return createAdSet(adAccountId, campaignId, { ...o, targeting: rtTargeting(o) });
+}
+
 // Campaña EN PAUSA, un conjunto y un anuncio por creatividad.
 // Freno nativo: el conjunto lleva presupuesto TOTAL (= gasto total máximo) repartido hasta una fecha de fin;
 // Meta nunca gasta más y para sola. (El spend_cap de campaña exige un mínimo de 100 €, por eso no se usa.)
@@ -77,13 +96,7 @@ export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
   const days = Math.max(1, Math.ceil(s.totalCap / s.dailyBudget));
   const endTime = new Date(Date.now() + days * 86400000).toISOString();
   const share = s.remarketing ? s.remarketing.share : 0;
-  const adSet = (name: string, total: number, targeting: Record<string, unknown>) => call(`/${a}/adsets`, {
-    name, campaign_id: campaignId, status: "ACTIVE",
-    lifetime_budget: cents(total), end_time: endTime, billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-    optimization_goal: "OFFSITE_CONVERSIONS", promoted_object: { pixel_id: s.pixelId, custom_event_type: "INITIATED_CHECKOUT" },
-    dsa_beneficiary: s.advertiser, dsa_payor: s.advertiser,
-    targeting: { geo_locations: { countries: [s.country] }, ...targeting, targeting_automation: { advantage_audience: 0 } },
-  }, "POST").then((r) => r.id as string);
+  const adSet = (name: string, total: number, targeting: Record<string, unknown>) => createAdSet(adAccountId, campaignId, { name, total, endTime, pixelId: s.pixelId, advertiser: s.advertiser, country: s.country, targeting });
   const adSetId = await adSet(`${s.name} · conjunto 1`, s.totalCap * (1 - share), { age_min: s.ageMin, age_max: s.ageMax });
   const adIds: string[] = [];
   for (const [i, ad] of s.ads.entries()) adIds.push(await createAd(adAccountId, adSetId, `${s.name} · ${ad.mediaType} ${i + 1}`, s, ad));
@@ -91,7 +104,7 @@ export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
   let rtAdSetId: string | null = null; const rtAdIds: string[] = []; let rtError: string | null = null;
   if (s.remarketing) {
     try {
-      rtAdSetId = await adSet(`${s.name} · remarketing`, s.totalCap * share, { age_min: 18, custom_audiences: [{ id: s.remarketing.visitors }], excluded_custom_audiences: [{ id: s.remarketing.buyers }] });
+      rtAdSetId = await adSet(`${s.name} · remarketing`, s.totalCap * share, rtTargeting(s.remarketing));
       for (const [i, ad] of s.ads.entries()) rtAdIds.push(await createAd(adAccountId, rtAdSetId, `${s.name} · remarketing · ${ad.mediaType} ${i + 1}`, s, ad));
     } catch (e: any) {
       if (rtAdSetId) await call(`/${rtAdSetId}`, {}, "DELETE").catch(() => {});

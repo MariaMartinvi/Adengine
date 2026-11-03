@@ -6,7 +6,7 @@ import { upload } from "@vercel/blob/client";
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
+type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
 type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
@@ -123,6 +123,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     setBusy("");
     if (j) { setMCopy({ ...mCopy, [adId]: { message: j.message, headline: j.headline, description: j.description } }); setMFeedback({ ...mFeedback, [adId]: "" }); r.refresh(); }
   }
+  async function addRt(c: Campaign) { setBusy("remarketing"); await api(`/api/campanas/${c.id}/remarketing`); setBusy(""); r.refresh(); }
   async function discard(c: Campaign) {
     if (!confirm("¿Descartar esta propuesta? No existe aún en Meta ni en Google; se borra de AdEngine.")) return;
     setBusy("descartar"); await api(`/api/campanas/${c.id}`, undefined, "DELETE"); setBusy(""); r.refresh();
@@ -191,6 +192,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             <label className="field">{live.channel === "meta" ? "€/día (aprox.)" : "€/día"}<input type="number" step="1" value={lb(live).d} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), d: +e.target.value } })} style={{ width: 100 }} /></label>
             <label className="field">Tope total<input type="number" step="10" value={lb(live).t} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), t: +e.target.value } })} style={{ width: 100 }} /></label>
             <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => saveBudget(live)} disabled={!!busy || !(lb(live).d > 0) || !(lb(live).t >= lb(live).d)}>{busy === "presupuesto" ? "Guardando…" : "Guardar presupuesto"}</button>
+            {live.channel === "meta" && !live.metaRtAdSetId && data.metaRtShare > 0 && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRt(live)} disabled={!!busy}>{busy === "remarketing" ? "Creando remarketing…" : `Añadir remarketing (${data.metaRtShare} %)`}</button>}
             {live.channel === "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => applyAudience(live)} disabled={!!busy}>{busy === "publico" ? "Aplicando…" : `Aplicar público de la ficha (${data.country}, ${data.ageMin}–${data.ageMax} años)`}</button>}
           </div>
           {live.proposals.length > 0 && (
