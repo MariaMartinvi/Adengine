@@ -310,6 +310,8 @@ TODOs (uno a uno, cada uno probado antes de pasar al siguiente):
 
 Objetivo: que AdEngine no solo lance campañas, sino que diga rápido y con datos si un MVP vende a un coste que deja margen (escalar, iterar o parar).
 
+**Meta de negocio (María, 03/11/2026):** el CAC más bajo posible con el volumen de ventas que lleve la cartera a **10.000 € de EBITDA al mes**. Cada mejora se mide por cuánto acerca a esa cifra: margen por venta (precio × margen − CAC) × ventas − costes fijos.
+
 | # | Qué | Estado |
 |---|---|---|
 | 1.1 | Medir la compra de verdad (webs → AdEngine → Google y Meta) | Hecho (sección 20) |
