@@ -306,6 +306,45 @@ TODOs (uno a uno, cada uno probado antes de pasar al siguiente):
 
 **Lo que necesito de María:** confirmar que puedo tocar los 3 repos de las webs (despliegan solos en Render al subir) y cómo probamos 20.5/20.6 (evento de prueba de Stripe o compra real pequeña).
 
+## Plan de validación de MVPs (María, 03/11/2026)
+
+Objetivo: que AdEngine no solo lance campañas, sino que diga rápido y con datos si un MVP vende a un coste que deja margen (escalar, iterar o parar).
+
+| # | Qué | Estado |
+|---|---|---|
+| 1.1 | Medir la compra de verdad (webs → AdEngine → Google y Meta) | Hecho (sección 20) |
+| 1.2 | CAC real y veredicto por negocio | Hecho (sección 21) |
+| 1.3 | Presupuesto de experimento: «gasto como máximo X € para saber si funciona», con fecha de fin e informe al acabar | Pendiente |
+| 2.1 | Pocos anuncios pero distintos: proponer 3 ángulos (emoción, regalo, precio/oferta) en vez de N variantes | Pendiente |
+| 2.2 | Rotación de ganadores: a los 3-4 días proponer pausar los flojos y pasar el dinero al mejor | Pendiente |
+| 2.3 | Diagnóstico de la web: clics sin compras → «el anuncio funciona, la página no» + sugerencias | Pendiente |
+| 2.4 | Test de demanda sin producto (lista de espera / reserva) | Pendiente |
+| 3.1 | Panel de cartera: todos los negocios con gasto, ventas, CAC y veredicto | Pendiente |
+| 3.2 | Alertas (anuncio rechazado, gasto sin ventas, primera venta, tope) | Pendiente |
+| 3.3 | Alta exprés: URL → ficha, productos, referencias y campañas en <30 min | Pendiente |
+| 3.4 | Aprendizaje entre negocios (qué ángulos y referencias vendieron) | Pendiente |
+
+## 21. CAC real y veredicto por negocio (1.2)
+
+**Cómo está hoy:** la página principal enseña «Coste por venta» con las conversiones de las plataformas; en Meta esas conversiones son clics a compra (InitiateCheckout), no compras, así que el número engaña. La ficha tiene el CAC tope (coste máximo por venta). Las ventas reales ya llegan a AdEngine (tabla `Sale`, con canal google/meta/organic).
+
+**Qué se enseña (tarjeta arriba en la página del negocio y resumen en la principal):**
+- Gasto total (todas las campañas, Google + Meta), ventas reales (las que avisa la web) e ingresos.
+- **CAC real = gasto / ventas que vienen de anuncios** (canal google o meta), comparado con el CAC tope. Por canal: Google y Meta por separado.
+- Embudo: impresiones → clics → clics a compra → ventas.
+- **Veredicto**, con reglas fijas y explicadas en la tarjeta:
+  - ⚪ **Aún pronto**: gastado menos que 1 CAC tope.
+  - 🟢 **Escalar**: 3 o más ventas y CAC real ≤ CAC tope.
+  - 🟡 **Iterar**: hay ventas pero CAC real > tope, o hay clics a compra sin ventas (el problema está en la web o el precio), o menos de 3 ventas con CAC bueno (falta muestra).
+  - 🔴 **Parar o pivotar**: gastado 3 × CAC tope o más y 0 ventas.
+
+**Suposiciones:** las ventas «orgánicas» (sin clic de anuncio) no cuentan para el CAC, pero se enseñan aparte. Los umbrales (1×, 3×, 3 ventas) son fijos de momento; si hace falta, luego van a la ficha.
+
+TODOs:
+- [x] 21.1 Cálculo en `src/lib/validation.ts` (función pura: gasto, ventas, CAC por canal, embudo, veredicto) con tests (`node --test`) para cada veredicto → verificar: los tests pasan. Hecho (03/11/2026): 9 tests (`npm test`, tsx + node:test) en verde
+- [x] 21.2 Tarjeta de validación arriba en la página del negocio → verificar: en los 3 negocios sale «Aún pronto» con su gasto y 0 ventas. Hecho (03/11/2026): Bebés, Caricaturea y Cuadros en «Aún pronto», 0 € gastados (Meta aún en preparación)
+- [x] 21.3 Página principal: cambiar «Coste por venta» (engañoso en Meta) por CAC real + veredicto → verificar: la principal enseña el veredicto de cada negocio. Hecho (03/11/2026). Ojo: RankCoworker sale «Parar» porque su web no avisa de ventas a AdEngine
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
