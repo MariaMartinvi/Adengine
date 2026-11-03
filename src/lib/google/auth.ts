@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 
-const SCOPE = "https://www.googleapis.com/auth/adwords";
+// Google Ads + Data Manager (desde 2026 las ventas importadas se suben por Data Manager, no por la API de Google Ads).
+const SCOPE = "https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/datamanager";
 const redirect = () => `${process.env.APP_URL}/api/google/callback`;
 
 export function authUrl(state: string) {
