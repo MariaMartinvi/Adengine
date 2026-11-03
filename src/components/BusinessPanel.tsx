@@ -8,7 +8,7 @@ type Metric = { date: string; cost: number; clicks: number; conversions: number;
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; extras?: any; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; videoPlan?: unknown; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string | null; orderId?: string | null; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; cacTest?: number | null; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string | null; orderId?: string | null; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -361,7 +361,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
       {err && <div className="notice error" style={{ marginTop: 16 }}>{err}</div>}
       {(() => {
         // ¿Vende? Todo lo gastado en anuncios (también campañas archivadas) frente a las ventas reales que avisa la web.
-        const v = validate({ cacCap: data.cacCap, campaigns: data.campaigns, sales: data.sales });
+        const v = validate({ cacCap: data.cacCap, cacTest: data.cacTest, campaigns: data.campaigns, sales: data.sales });
         const m = (n: number | null) => (n == null ? "—" : money(n, b.currency));
         return (
           <div className="card" style={{ marginTop: 16 }}>
@@ -373,10 +373,10 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
             <dl className="kv">
               <dt>Gasto en anuncios</dt><dd>{m(v.spend)} <span className="small">· Google {m(v.byChannel.google.spend)} · Meta {m(v.byChannel.meta.spend)}</span></dd>
               <dt>Ventas</dt><dd>{v.sales.ads} de anuncios{v.sales.organic ? ` + ${v.sales.organic} sin anuncio` : ""} · ingresos {m(v.revenue)}</dd>
-              <dt>CAC real</dt><dd className={v.cac != null && v.cac > data.cacCap ? "over" : ""}>{m(v.cac)} <span className="small">/ tope {m(data.cacCap)} · Google {m(v.byChannel.google.cac)} · Meta {m(v.byChannel.meta.cac)}</span></dd>
+              <dt>CAC real</dt><dd className={v.cac != null && v.cac > data.cacCap ? "over" : ""}>{m(v.cac)} <span className="small">/ escalado {m(data.cacCap)} · validación {m(v.cacTest)} · Google {m(v.byChannel.google.cac)} · Meta {m(v.byChannel.meta.cac)}</span></dd>
               <dt>Embudo</dt><dd>{v.funnel.impressions} impresiones → {v.funnel.clicks} clics → {v.funnel.checkouts} clics a compra → {v.funnel.sales} ventas</dd>
             </dl>
-            <p className="small" style={{ marginTop: 8 }}>Reglas: menos de 1 CAC tope gastado = aún pronto · 3+ ventas con CAC ≤ tope = escalar · 3 CAC tope gastados sin ventas = parar · lo demás, iterar. Las ventas sin anuncio no cuentan para el CAC.</p>
+            <p className="small" style={{ marginTop: 8 }}>Reglas: menos de 1 CAC de validación gastado = aún pronto · 3+ ventas con CAC ≤ escalado = escalar · 3 CAC de validación gastados sin ventas = parar · lo demás, iterar. Las ventas sin anuncio no cuentan para el CAC.</p>
           </div>
         );
       })()}
@@ -393,7 +393,8 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
         <label className="field">Idioma<input value={b.language} onChange={(e) => set("language", e.target.value.toLowerCase())} maxLength={2} /></label>
         <label className="field">Venta que optimizamos<input value={b.saleEvent} onChange={(e) => set("saleEvent", e.target.value)} /></label>
         <label className="field">Precio de esa venta<input type="number" step="0.01" value={b.price} onChange={(e) => set("price", +e.target.value)} /></label>
-        <label className="field">CAC tope (coste máx. por venta)<input type="number" step="1" value={b.cacCap} onChange={(e) => set("cacCap", +e.target.value)} /></label>
+        <label className="field">CAC de escalado (coste máx. por venta para crecer con margen)<input type="number" step="1" value={b.cacCap} onChange={(e) => set("cacCap", +e.target.value)} /></label>
+        <label className="field">CAC de validación (lo que aceptas pagar por venta mientras pruebas; vacío = 2 × escalado)<input type="number" step="1" value={b.cacTest ?? ""} placeholder={String(2 * b.cacCap)} onChange={(e) => set("cacTest", e.target.value === "" ? null : +e.target.value)} /></label>
         <label className="field">CPC máximo (techo por clic)<input type="number" step="0.05" value={b.maxCpc} onChange={(e) => set("maxCpc", +e.target.value)} /></label>
         <label className="field">Presupuesto diario<input type="number" step="1" value={b.dailyBudget} onChange={(e) => set("dailyBudget", +e.target.value)} /></label>
         <label className="field">Gasto total máximo<input type="number" step="10" value={b.totalCap} onChange={(e) => set("totalCap", +e.target.value)} /></label>

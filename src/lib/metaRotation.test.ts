@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { metaRotation } from "./metaRotation";
+import { metaAdsToPause, metaRotation } from "./metaRotation";
 
 const ad = (id: string, cost: number, conversions: number, purchases = 0) => ({ id, cost, conversions, purchases });
 
@@ -31,4 +31,13 @@ test("si hay compras, mandan las compras y no los clics a compra", () => {
   const r = metaRotation([ad("a", 10, 1, 2), ad("b", 10, 6, 0)], { cacCap: 6, days: 5 });
   assert.deepEqual(r.map((x) => x.id), ["b"]);
   assert.match(r[0].reason, /sin compras/);
+});
+
+test("pausa automática: 1 CAC de validación gastado sin clics a compra", () => {
+  const ads = [{ id: "a", status: "ENABLED" }, { id: "b", status: "ENABLED" }, { id: "c", status: "PAUSED" }];
+  const totals = new Map([["a", { cost: 12, conversions: 0 }], ["b", { cost: 11, conversions: 0 }], ["c", { cost: 50, conversions: 0 }]]);
+  // Con el valor por defecto (2 × 6 = 12) solo «a»; es el mismo umbral que el antiguo 2 × CAC tope.
+  assert.deepEqual(metaAdsToPause(ads, totals, 12).map((x) => x.id), ["a"]);
+  // Con un CAC de validación de 20, ninguno todavía.
+  assert.deepEqual(metaAdsToPause(ads, totals, 20), []);
 });

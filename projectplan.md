@@ -372,6 +372,17 @@ TODOs:
 - [x] 23.1 Cálculo `metaRotation` (función pura) con tests → verificar: tests (ganador claro, sin datos suficientes, nunca pausa el mejor, compras mandan sobre clics a compra). Hecho (03/11/2026): 6 tests en verde (18 en total)
 - [x] 23.2 En la actualización diaria crea la propuesta «Pausar anuncio» (una por anuncio, sin repetir) y al aprobarla lo pausa con su remarketing → verificar: propuesta de prueba aprobada pausa el anuncio en Meta y en AdEngine. Hecho en código (03/11/2026); la pausa usa la misma función que el botón «Pausar». Verificación real: cuando Meta empiece a entregar (mañana se pausan 3 imágenes de Bebés con el botón) y con la 1.ª propuesta tras 3 días de datos
 
+## 24. CAC de validación frente a CAC de escalado (punto 5)
+
+**Por qué:** el CAC tope de la ficha (precio × margen × 0,5: 4-10 €) es el de crecer con margen. Mientras se prueba un MVP se acepta pagar más por venta para aprender; con un solo tope, el veredicto y las pausas automáticas cortan demasiado pronto.
+
+- **CAC de escalado** = el CAC tope de siempre: para «Escalar» y para proponer subir pujas.
+- **CAC de validación** (nuevo, en la ficha; vacío = 2 × CAC de escalado): para «Aún pronto» (< 1×), «Parar» (≥ 3× sin ventas) y para las pausas automáticas (anuncio de Meta o palabra de Google que gasta 1 CAC de validación sin conversiones; antes 2 × CAC tope, mismo importe con el valor por defecto).
+
+TODOs:
+- [ ] 24.1 Campo en la ficha + veredicto con los dos CAC (tests) → verificar: tests; en la ficha se ve y se guarda
+- [ ] 24.2 Pausas automáticas con el CAC de validación → verificar: con el valor por defecto, mismo umbral que antes; con un valor puesto, cambia el umbral (tests)
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)

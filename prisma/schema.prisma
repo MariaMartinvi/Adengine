@@ -29,6 +29,7 @@ model Business {
   marginPct          Float       @default(70)
   saleEvent          String      @default("Primer pago")
   cacCap             Float
+  cacTest            Float?
   maxCpc             Float       @default(0.7)
   dailyBudget        Float       @default(10)
   totalCap           Float       @default(300)

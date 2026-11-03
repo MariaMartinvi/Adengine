@@ -32,7 +32,7 @@ export default async function Home({ searchParams }: { searchParams: { connected
             const last7 = m.filter((x) => x.date >= since);
             const spent7 = last7.reduce((s, x) => s + x.cost, 0);
             // CAC real con las ventas que avisa la web (en Meta, las "conversiones" de la plataforma son clics a compra).
-            const v = validate({ cacCap: b.cacCap, campaigns: b.campaigns, sales: b.sales });
+            const v = validate({ cacCap: b.cacCap, cacTest: b.cacTest, campaigns: b.campaigns, sales: b.sales });
             const pct = live ? Math.min(100, (spent / live.totalCap) * 100) : 0;
             const pending = b.campaigns.reduce((s, c) => s + c.proposals.length, 0);
             return (
@@ -50,14 +50,14 @@ export default async function Home({ searchParams }: { searchParams: { connected
                       <dt>Veredicto</dt><dd><span className={`status ${v.verdict.code}`}>{v.verdict.label}</span></dd>
                       <dt>Últimos 7 días</dt><dd>{eur(spent7, b.currency)} gastados</dd>
                       <dt>Ventas</dt><dd>{v.sales.ads} de anuncios{v.sales.organic ? ` + ${v.sales.organic} sin anuncio` : ""}</dd>
-                      <dt>CAC real</dt><dd className={v.cac != null && v.cac > b.cacCap ? "over" : ""}>{v.cac != null ? eur(v.cac, b.currency) : "—"} <span className="small">/ tope {eur(b.cacCap, b.currency)}</span></dd>
+                      <dt>CAC real</dt><dd className={v.cac != null && v.cac > b.cacCap ? "over" : ""}>{v.cac != null ? eur(v.cac, b.currency) : "—"} <span className="small">/ escalado {eur(b.cacCap, b.currency)}</span></dd>
                       <dt>Pendiente</dt><dd>{pending ? `${pending} propuestas` : "nada"}</dd>
                     </dl>
                   </>
                 ) : (
                   <dl className="kv" style={{ marginTop: 10 }}>
                     <dt>Venta</dt><dd>{b.saleEvent} · {eur(b.price, b.currency)}</dd>
-                    <dt>CAC tope</dt><dd>{eur(b.cacCap, b.currency)}</dd>
+                    <dt>CAC escalado</dt><dd>{eur(b.cacCap, b.currency)}</dd>
                     <dt>CPC máximo</dt><dd>{eur(b.maxCpc, b.currency)}</dd>
                   </dl>
                 )}

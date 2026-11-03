@@ -9,7 +9,8 @@ import sharp from "sharp";
 import { put } from "@vercel/blob";
 import { renderVideo, type VideoPlan } from "./video";
 import { pickMetaAds } from "./metaPick";
-import { metaRotation } from "./metaRotation";
+import { metaAdsToPause, metaRotation } from "./metaRotation";
+import { cacTestOf } from "./validation";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -512,12 +513,6 @@ export async function applyMetaAudience(campaignId: string) {
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 // Meta · regla de anuncio: gasta 2× el CAC tope sin ninguna conversión -> se pausa. Pura, para poder probarla.
-export function metaAdsToPause<T extends { id: string; status: string }>(ads: T[], totals: Map<string, { cost: number; conversions: number }>, cacCap: number) {
-  return ads.filter((a) => {
-    const t = totals.get(a.id);
-    return a.status === "ENABLED" && !!t && t.conversions === 0 && t.cost >= 2 * cacCap;
-  });
-}
 
 // Meta: métricas por anuncio y día + frenos. La campaña dura poco, así que se mira desde su creación.
 export async function syncMetaCampaign(campaignId: string) {
@@ -556,14 +551,14 @@ export async function syncMetaCampaign(campaignId: string) {
     return;
   }
 
-  // Regla 2 · por anuncio: 2× CAC tope sin conversiones -> pausa automática.
+  // Regla 2 · por anuncio: 1 CAC de validación gastado sin conversiones -> pausa automática.
   const sums = await db.dailyMetric.groupBy({ by: ["adId"], where: { campaignId: c.id, adId: { not: null } }, _sum: { cost: true, conversions: true, purchases: true } });
   const totals = new Map(sums.map((s) => [s.adId!, { cost: s._sum.cost || 0, conversions: s._sum.conversions || 0 }]));
-  for (const ad of metaAdsToPause(c.ads, totals, b.cacCap)) {
+  for (const ad of metaAdsToPause(c.ads, totals, cacTestOf(b))) {
     await meta.setAdStatus(ad.metaAdId!, "PAUSED");
     if (ad.metaRtAdId) await meta.setAdStatus(ad.metaRtAdId, "PAUSED");
     await db.ad.update({ where: { id: ad.id }, data: { status: "PAUSED" } });
-    await log(b.id, "REGLA", `Anuncio de ${ad.mediaType === "video" ? "vídeo" : "imagen"} pausado: ${totals.get(ad.id)!.cost.toFixed(2)} gastados sin conversiones (2× CAC tope ${b.cacCap}).`, true);
+    await log(b.id, "REGLA", `Anuncio de ${ad.mediaType === "video" ? "vídeo" : "imagen"} pausado: ${totals.get(ad.id)!.cost.toFixed(2)} gastados sin conversiones (1 CAC de validación, ${cacTestOf(b)}).`, true);
   }
 
   // Regla 3 · rotación de ganadores: propone pausar los anuncios que venden mucho más caro que el mejor (tú apruebas).
@@ -615,10 +610,10 @@ export async function syncCampaign(campaignId: string) {
     const m = await db.dailyMetric.aggregate({ where: { keywordId: k.id, date: { gte: from } }, _sum: { cost: true, clicks: true, conversions: true } });
     const cost = m._sum.cost || 0, clicks = m._sum.clicks || 0, conv = m._sum.conversions || 0;
     // Regla 2 · gasta 2× el CAC tope sin vender -> pausa automática.
-    if (conv === 0 && cost >= 2 * b.cacCap) {
+    if (conv === 0 && cost >= cacTestOf(b)) {
       await ads.updateKeyword(cid, k.googleAdGroupId || c.googleAdGroupId!, k.googleCriterionId, { status: "PAUSED" });
       await db.keyword.update({ where: { id: k.id }, data: { status: "PAUSED" } });
-      await log(b.id, "REGLA", `Palabra «${k.text}» pausada: ${cost.toFixed(2)} gastados sin ventas (2× CAC tope ${b.cacCap}).`, true);
+      await log(b.id, "REGLA", `Palabra «${k.text}» pausada: ${cost.toFixed(2)} gastados sin ventas (1 CAC de validación, ${cacTestOf(b)}).`, true);
       continue;
     }
     // Regla 3 · vende por debajo del 70 % del CAC tope -> propone subir puja (tú apruebas).
