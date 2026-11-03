@@ -168,3 +168,15 @@ export async function adInsights(campaignId: string, since: string, until: strin
 export async function setAdStatus(adId: string, status: "ACTIVE" | "PAUSED") {
   await call(`/${adId}`, { status }, "POST");
 }
+
+// Compra enviada desde el servidor (API de conversiones). event_id = id del pedido: Meta la empareja con la del píxel
+// del navegador y la cuenta una sola vez. El email va con hash, como pide Meta. testCode: código de «Probar eventos».
+export async function sendPurchase(pixelId: string, p: { orderId: string; value: number; currency: string; email?: string | null; fbc?: string | null; fbp?: string | null; url?: string | null; when: Date }, testCode?: string) {
+  const { createHash } = await import("crypto");
+  const user_data: Record<string, unknown> = {};
+  if (p.email) user_data.em = [createHash("sha256").update(p.email.trim().toLowerCase()).digest("hex")];
+  if (p.fbc) user_data.fbc = p.fbc;
+  if (p.fbp) user_data.fbp = p.fbp;
+  const data = [{ event_name: "Purchase", event_time: Math.floor(p.when.getTime() / 1000), event_id: p.orderId, action_source: "website", ...(p.url ? { event_source_url: p.url } : {}), user_data, custom_data: { value: p.value, currency: p.currency } }];
+  return call(`/${pixelId}/events`, { data, ...(testCode ? { test_event_code: testCode } : {}) }, "POST");
+}

@@ -223,12 +223,15 @@ export async function ensureConversionAction(cid: string, name: string, currency
   return j.results[0].resourceName.split("/").pop();
 }
 
-export async function uploadClickConversion(cid: string, conversionActionId: string, gclid: string, value: number, currency: string, when: Date) {
+// validateOnly: Google comprueba la venta (gclid, acción, fecha) sin apuntarla. Un rechazo parcial se convierte en error.
+export async function uploadClickConversion(cid: string, conversionActionId: string, gclid: string, value: number, currency: string, when: Date, validateOnly = false) {
   const pad = (n: number) => String(n).padStart(2, "0");
   const d = when;
   const conversionDateTime = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}+00:00`;
-  return call(`/customers/${cid}:uploadClickConversions`, {
+  const j = await call(`/customers/${cid}:uploadClickConversions`, {
     conversions: [{ gclid, conversionAction: `customers/${cid}/conversionActions/${conversionActionId}`, conversionDateTime, conversionValue: value, currencyCode: currency }],
-    partialFailure: true,
+    partialFailure: true, validateOnly,
   });
+  if (j.partialFailureError) throw new Error(`Google Ads: ${j.partialFailureError.details?.[0]?.errors?.map((e: any) => e.message).join("; ") || j.partialFailureError.message}`);
+  return j;
 }
