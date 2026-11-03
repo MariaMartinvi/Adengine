@@ -319,7 +319,7 @@ Orden acordado (03/11/2026): primero aprender rápido copiando lo probado; repar
 | 1 | Medir la compra de verdad (webs → AdEngine → Google y Meta) | Hecho (sección 20) |
 | 2 | CAC real, embudo y veredicto por negocio | Hecho (sección 21) |
 | 3 | **Copiar lo probado, pocos anuncios** (hecho, sección 22): fecha de inicio en cada referencia (aviso si < 1 mes) y propuesta de Meta con 4 anuncios marcados como máximo (las referencias más antiguas, vídeo primero) | Siguiente |
-| 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | En curso (sección 23) |
+| 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | Hecho (sección 23) |
 | 5 | **CAC de validación vs CAC de escalado** en la ficha (el veredicto usa el de validación para no parar demasiado pronto). El presupuesto de experimento queda apuntado | Pendiente |
 | 6 | ~~Camino a 10.000 €~~ | Descartado por ahora (María, 03/11/2026) |
 | 7 | **Reparto del dinero** entre canales y negocios por margen por euro invertido (propuesta semanal, María aprueba) | Pendiente |
@@ -369,8 +369,8 @@ TODOs:
 - Si el mejor anuncio tiene resultados, se propone pausar los que hayan gastado al menos 1 CAC tope y cuesten más del doble por resultado que el mejor (o no tengan ninguno). Siempre queda activo el mejor. Al pausar, se pausa también su copia de remarketing. El dinero lo reparte Meta solo entre los que quedan.
 
 TODOs:
-- [ ] 23.1 Cálculo `metaRotation` (función pura) con tests → verificar: tests (ganador claro, sin datos suficientes, nunca pausa el mejor, compras mandan sobre clics a compra)
-- [ ] 23.2 En la actualización diaria crea la propuesta «Pausar anuncio» (una por anuncio, sin repetir) y al aprobarla lo pausa con su remarketing → verificar: propuesta de prueba aprobada pausa el anuncio en Meta y en AdEngine
+- [x] 23.1 Cálculo `metaRotation` (función pura) con tests → verificar: tests (ganador claro, sin datos suficientes, nunca pausa el mejor, compras mandan sobre clics a compra). Hecho (03/11/2026): 6 tests en verde (18 en total)
+- [x] 23.2 En la actualización diaria crea la propuesta «Pausar anuncio» (una por anuncio, sin repetir) y al aprobarla lo pausa con su remarketing → verificar: propuesta de prueba aprobada pausa el anuncio en Meta y en AdEngine. Hecho en código (03/11/2026); la pausa usa la misma función que el botón «Pausar». Verificación real: cuando Meta empiece a entregar (mañana se pausan 3 imágenes de Bebés con el botón) y con la 1.ª propuesta tras 3 días de datos
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
