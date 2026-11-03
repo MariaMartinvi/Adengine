@@ -276,6 +276,36 @@ TODOs (uno a uno, cada uno se prueba antes de pasar al siguiente):
 - [x] 19.6 Propuesta de Meta: referencia de vídeo → anuncio de vídeo (obligatorio; aviso si faltan fotos); el panel monta los vídeos pendientes y los enseña en la tarjeta → verificar: proponer Bebés y que los anuncios de referencias de vídeo salgan con vídeo. Hecho (03/11/2026): propuesta de Bebés con 7 anuncios, el de la referencia de vídeo con guion; «Crear en pausa» se bloquea hasta que estén montados. Ojo: solo cuentan como vídeo las referencias marcadas como vídeo
 - [x] 19.7 "Rehacer vídeo con mis comentarios" en la tarjeta (cambiar textos, orden o duración) → verificar: pedir un cambio de texto y que el vídeo nuevo lo lleve. Hecho (03/11/2026): «que se vea el cuadro entero y cambie cada 1,7 s» → vídeo nuevo con el cuadro entero y el ritmo pedido
 
+## 20. Medir la compra de verdad, por negocio, campaña y anuncio (1.1 del plan de validación de MVPs)
+
+**Petición (María, 03/11/2026):** que AdEngine sepa qué campaña y qué anuncio trae cada venta, para decidir si un MVP vende a un coste que deja margen.
+
+**Cómo está hoy (revisado 03/11/2026):**
+- Cada web cobra con su Stripe y tiene su webhook (`checkout.session.completed`): Cuadros (`fe/main.py`), Caricaturea (`app/main.py`, en la cuenta Chatsalsa), Bebés (`bp/main.py`). AdEngine NO recibe esas ventas (su webhook `/api/webhooks/stripe` no está dado de alta en ninguna cuenta).
+- Las 3 webs ya lanzan en el navegador `track('purchase')` en la página de gracias → Meta recibe `Purchase` del píxel (sin `eventID`, así que no se puede emparejar con un aviso del servidor). Google solo recibe la conversión si `GADS_LABEL` está puesto, y no lo está en ninguna.
+- Meta optimiza y AdEngine cuenta "clic a compra" (`InitiateCheckout`), no compras.
+- AdEngine ya sabe subir ventas a Google por gclid (`uploadClickConversion`, acción "Venta · negocio" tipo subida), pero nunca le llegan.
+- Bebés usa la cuenta de Google de Caricaturea.
+
+**Enfoque (recomendado):** cada web, al cobrar, avisa a AdEngine; AdEngine apunta la venta y se la pasa a Google y a Meta. Un solo sitio que entiende de anuncios para todos los MVP; en cada web, un cambio pequeño y siempre el mismo.
+- En la web, al crear el pago de Stripe, se guardan en `metadata` los identificadores del clic: `gclid` (Google), `_fbc`/`_fbp` (Meta), y la página de entrada.
+- El webhook de la web, al cobrar, manda a AdEngine `POST /api/ventas` (con una clave por negocio): pedido, importe, email, gclid, fbc, fbp.
+- AdEngine: guarda la venta con su canal; si hay gclid la sube a Google (acción "Venta · negocio"); siempre manda `Purchase` a Meta por la API de conversiones (CAPI) con `event_id` = id del pedido. En el navegador, `fbq('track','Purchase', …, {eventID: id del pedido})` para que Meta no la cuente dos veces.
+- Google: solo subida desde AdEngine (sin etiqueta en el navegador), así no hay dobles.
+
+**Alternativa descartada:** poner la etiqueta de Google y la CAPI dentro de cada web. Más rápido para una web, pero hay que repetirlo (claves, código) en cada MVP nuevo y AdEngine seguiría sin ver las ventas.
+
+TODOs (uno a uno, cada uno probado antes de pasar al siguiente):
+- [x] 20.1 AdEngine: `POST /api/ventas?negocio=…` con clave por negocio (se ve y se copia en la ficha); guarda la venta (pedido único: si llega dos veces no se duplica) → verificar: mandar una venta de prueba con curl, sale en «Ventas registradas»; repetirla no la duplica; sin clave → 401. Hecho (03/11/2026): sin clave, clave mala o de otro negocio → 401; sin importe o texto raro → 400; modo `test: true` comprueba sin guardar. El índice único (negocio, pedido) pedía `--accept-data-loss` en el despliegue: el duplicado se controla en el código. El duplicado real se verá con la 1.ª venta
+- [x] 20.2 AdEngine sube a Google la venta con gclid → verificar: venta de prueba con un gclid real de un clic de hoy; Google la acepta (o explica por qué no). Hecho (03/11/2026): Google ya NO admite `uploadClickConversions` a integraciones nuevas → Data Manager API (`events:ingest`, permiso `datamanager`, API habilitada en el proyecto 149248140387, Google reconectado). Validación (`validateOnly`) OK
+- [x] 20.3 AdEngine manda `Purchase` a Meta por CAPI (email con hash, fbc, fbp, importe, event_id) → verificar: evento de prueba con el código de prueba del Administrador de eventos; aparece como «Servidor». Hecho (03/11/2026): Meta responde `events_received: 1` (el token del usuario del sistema puede escribir en el píxel de Bebés)
+- [ ] 20.4 Web de Bebés: identificadores del clic en el pago de Stripe + aviso a AdEngine en el webhook + `eventID` en el Purchase del navegador → verificar: compra en el entorno de prueba de Stripe de Bebés → venta en AdEngine con canal, y en Meta un único Purchase (navegador + servidor emparejados)
+- [ ] 20.5 Lo mismo en Caricaturea → verificar: igual que 20.4 (sin comprar de verdad: evento de prueba de Stripe o compra de 1 €, lo decide María)
+- [ ] 20.6 Lo mismo en Cuadros con Alma → verificar: igual
+- [ ] 20.7 AdEngine lee de Meta las compras (`purchase`) por anuncio además de los clics a compra, y enseña ventas y coste por venta por campaña y anuncio → verificar: tras 20.4–20.6, la tabla de anuncios muestra compras y coste por compra
+
+**Lo que necesito de María:** confirmar que puedo tocar los 3 repos de las webs (despliegan solos en Render al subir) y cómo probamos 20.5/20.6 (evento de prueba de Stripe o compra real pequeña).
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
