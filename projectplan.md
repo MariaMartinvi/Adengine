@@ -322,7 +322,7 @@ Orden acordado (03/11/2026): primero aprender rápido copiando lo probado; repar
 | 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | Hecho (sección 23) |
 | 5 | **CAC de validación vs CAC de escalado** (hecho, sección 24) en la ficha (el veredicto usa el de validación para no parar demasiado pronto). El presupuesto de experimento queda apuntado | Pendiente |
 | 6 | ~~Camino a 10.000 €~~ | Descartado por ahora (María, 03/11/2026) |
-| 7 | **Reparto del dinero** entre canales y negocios por margen por euro invertido (propuesta semanal, María aprueba) | Pendiente |
+| 7 | **Reparto del dinero** entre canales y negocios por margen por euro invertido (propuesta semanal, María aprueba) | Plan escrito (sección 25) |
 | 8 | **Escalado progresivo** (+20-30 % cada 3-4 días) y optimizar a compra / CPA objetivo cuando haya datos | Apuntado |
 | 9 | **Alertas** (primera venta, anuncio rechazado, gasto sin ventas, tope) | Apuntado |
 | 10 | **Diagnóstico de la web** (clics a compra sin ventas → qué cambiar) | Apuntado |
@@ -382,6 +382,24 @@ TODOs:
 TODOs:
 - [x] 24.1 Campo en la ficha + veredicto con los dos CAC (tests) → verificar: tests; en la ficha se ve y se guarda. Hecho (03/11/2026): en producción Bebés enseña «escalado 6 € · validación 12 €»; guardar vacío → valor por defecto
 - [x] 24.2 Pausas automáticas con el CAC de validación → verificar: con el valor por defecto, mismo umbral que antes; con un valor puesto, cambia el umbral (tests). Hecho (03/11/2026): 22 tests en verde
+
+## 25. Reparto del dinero entre canales y negocios (punto 7)
+
+**Idea:** el dinero va donde cada euro trae ventas más baratas. AdEngine **propone** una vez por semana y María aprueba con un clic (nada se mueve solo). Las cifras salen de las ventas reales que avisan las webs (canal google/meta), no de las conversiones de las plataformas.
+
+**Reglas:**
+- **A · Entre Google y Meta del mismo negocio** (si tiene las dos activas): con 3 o más ventas de anuncios en total, si un canal vende con CAC ≤ escalado y el otro cuesta más del doble por venta (o no vende tras gastar 1 CAC de validación) → mover el **30 %** del presupuesto diario del peor al mejor. El total del negocio no cambia.
+- **B · Entre negocios:**
+  - Veredicto **Parar** → proponer pausar sus campañas (libera ese dinero).
+  - Veredicto **Escalar** → proponer **+25 %** de presupuesto diario en su mejor canal (tope total proporcional).
+- Como mucho una propuesta de presupuesto por campaña cada 7 días (cambios grandes o seguidos hacen que Meta y Google vuelvan a aprender).
+
+**Suposición:** sin presupuesto global de cartera; «mover entre negocios» = cortar los que paran y subir los que escalan. Si María quiere un total fijo al mes, se añade después.
+
+TODOs:
+- [ ] 25.1 Cálculo `budgetMoves` (función pura) con tests: mover entre canales, pausar si Parar, +25 % si Escalar, nada sin datos → verificar: tests
+- [ ] 25.2 Propuestas semanales en la actualización diaria (máx. 1 por campaña cada 7 días) y aplicarlas al aprobar (mover, subir, pausar) → verificar: propuesta de prueba aprobada cambia el presupuesto en Google/Meta y en AdEngine
+- [ ] 25.3 La página principal avisa de las propuestas de dinero pendientes de cada negocio → verificar: se ve el aviso
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
