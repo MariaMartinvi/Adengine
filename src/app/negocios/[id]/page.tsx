@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { salesKey } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { listAccessibleCustomers } from "@/lib/google/ads";
 import { listAdAccounts, listPixels } from "@/lib/meta/ads";
@@ -22,5 +23,5 @@ export default async function Page({ params }: { params: { id: string } }) {
   let metaAccounts: { id: string; name: string }[] = [], metaPixels: { id: string; name: string }[] = [];
   try { metaAccounts = await listAdAccounts(); if (b.metaAdAccountId) metaPixels = await listPixels(b.metaAdAccountId); } catch { /* sin token de Meta aún */ }
   // key: al cambiar la campaña (nueva propuesta) se remonta el panel y descarta el estado antiguo
-  return <BusinessPanel key={b.campaigns[0]?.id ?? b.id} data={JSON.parse(JSON.stringify(b))} accounts={accounts} accountsError={accountsError} metaAccounts={metaAccounts} metaPixels={metaPixels} />;
+  return <BusinessPanel key={b.campaigns[0]?.id ?? b.id} data={JSON.parse(JSON.stringify(b))} accounts={accounts} accountsError={accountsError} salesKey={salesKey(b.id)} salesUrl={`${process.env.APP_URL || ""}/api/ventas?negocio=${b.id}`} metaAccounts={metaAccounts} metaPixels={metaPixels} />;
 }

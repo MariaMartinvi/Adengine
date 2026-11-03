@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Rutas que llaman máquinas, no personas: snippet de medición, Stripe (firma propia) y cron (CRON_SECRET).
-const PUBLIC = ["/api/track", "/adengine.js", "/api/webhooks/stripe", "/api/cron/sync"];
+// Rutas que llaman máquinas, no personas: snippet de medición, Stripe (firma propia), cron (CRON_SECRET) y ventas de las webs (clave por negocio).
+const PUBLIC = ["/api/track", "/adengine.js", "/api/webhooks/stripe", "/api/cron/sync", "/api/ventas"];
 
 // Todo lo demás pide usuario y contraseña (Basic Auth). Sin ADMIN_PASSWORD, la app queda cerrada.
 export function middleware(req: NextRequest) {

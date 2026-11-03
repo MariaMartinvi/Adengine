@@ -7,7 +7,7 @@ type Metric = { date: string; cost: number; clicks: number; conversions: number;
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; extras?: any; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; videoPlan?: unknown; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; orderId?: string | null; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -31,7 +31,7 @@ function shrink(file: File): Promise<string> {
     img.src = URL.createObjectURL(file);
   });
 }
-export default function BusinessPanel({ data, accounts, accountsError, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; accountsError?: string; metaAccounts?: Option[]; metaPixels?: Option[] }) {
+export default function BusinessPanel({ data, accounts, accountsError, salesKey, salesUrl, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; accountsError?: string; salesKey?: string; salesUrl?: string; metaAccounts?: Option[]; metaPixels?: Option[] }) {
   const r = useRouter();
   const [b, setB] = useState(data);
   const [busy, setBusy] = useState(""); const [err, setErr] = useState("");
@@ -419,6 +419,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
         <button onClick={saveFicha} disabled={!!busy}>{busy === "ficha" ? "Guardando…" : "Guardar ficha"}</button>
       </div>
       {b.notes && <p className="small" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{b.notes}</p>}
+      {salesKey && <p className="small" style={{ marginTop: 12 }}>Aviso de ventas (para la web, desde su webhook de Stripe): <code>POST {salesUrl}</code> con la cabecera <code>x-adengine-key: {salesKey}</code></p>}
       </details>
 
       <details className="card" style={{ marginTop: 16 }}>
@@ -616,7 +617,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
       {b.sales.length > 0 && (
         <>
           <h2>Ventas registradas</h2>
-          <ul className="log">{b.sales.map((s) => <li key={s.id}><time suppressHydrationWarning>{new Date(s.createdAt).toLocaleString("es-ES")}</time><span>{money(s.amount, s.currency)} · {s.channel}</span></li>)}</ul>
+          <ul className="log">{b.sales.map((s) => <li key={s.id}><time suppressHydrationWarning>{new Date(s.createdAt).toLocaleString("es-ES")}</time><span>{money(s.amount, s.currency)} · {s.channel}{s.orderId ? ` · pedido ${s.orderId}` : ""}</span></li>)}</ul>
         </>
       )}
 
