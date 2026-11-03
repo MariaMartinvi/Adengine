@@ -114,6 +114,10 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     } catch (e: any) { setErr(e.message || "No se pudo subir el archivo"); }
     setBusy("");
   }
+  async function discard(c: Campaign) {
+    if (!confirm("¿Descartar esta propuesta? No existe aún en Meta ni en Google; se borra de AdEngine.")) return;
+    setBusy("descartar"); await api(`/api/campanas/${c.id}`, undefined, "DELETE"); setBusy(""); r.refresh();
+  }
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
   const inc = kws.filter((k) => k.included);
@@ -408,6 +412,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           </div>
           <div className="row" style={{ marginTop: 18 }}>
             <button onClick={() => approve(mDraft)} disabled={!!busy || mDraft.ads.some((a) => !mCopy[a.id]?.message || !mCopy[a.id]?.headline) || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
+            <button className="btn-secondary" onClick={() => discard(mDraft)} disabled={!!busy}>{busy === "descartar" ? "Descartando…" : "Descartar propuesta"}</button>
             <span className="small">Facebook + Instagram · {mDraft.ads.length} anuncio{mDraft.ads.length > 1 ? "s" : ""} · captación (80 %) + remarketing a visitantes de la web sin compra (20 %)</span>
           </div>
         </>
@@ -476,6 +481,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           </div>
           <div className="row" style={{ marginTop: 18 }}>
             <button onClick={() => approve(gDraft)} disabled={!!busy || !inc.length || overCap > 0}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
+            <button className="btn-secondary" onClick={() => discard(gDraft)} disabled={!!busy}>{busy === "descartar" ? "Descartando…" : "Descartar propuesta"}</button>
             <span className="small">Lunes a viernes, 8–20 h · solo Búsqueda · puja manual con techo · con las fotos de hasta 3 cuadros como imágenes (Google decide cuándo enseñarlas)</span>
           </div>
         </>
