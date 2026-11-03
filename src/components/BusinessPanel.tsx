@@ -32,7 +32,7 @@ function shrink(file: File): Promise<string> {
     img.src = URL.createObjectURL(file);
   });
 }
-export default function BusinessPanel({ data, accounts, accountsError, salesKey, salesUrl, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; accountsError?: string; salesKey?: string; salesUrl?: string; metaAccounts?: Option[]; metaPixels?: Option[] }) {
+export default function BusinessPanel({ data, accounts, accountsError, salesKey, salesUrl, monthly, committed = 0, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; accountsError?: string; salesKey?: string; salesUrl?: string; monthly?: number | null; committed?: number; metaAccounts?: Option[]; metaPixels?: Option[] }) {
   const r = useRouter();
   const [b, setB] = useState(data);
   const [busy, setBusy] = useState(""); const [err, setErr] = useState("");
@@ -165,6 +165,13 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
     setBusy("desbloquear"); await api(`/api/campanas/${c.id}/desbloquear`); setBusy(""); r.refresh();
   }
   async function adStatus(adId: string, status: "ENABLED" | "PAUSED") { setBusy(`estado-${adId}`); await api(`/api/anuncios/${adId}/estado`, { status }); setBusy(""); r.refresh(); }
+  // Aviso si una campaña nueva de `daily` €/día hace pasar la cartera de su presupuesto mensual (no bloquea).
+  const overMonthly = (daily: number) => {
+    if (monthly == null) return null;
+    const after = committed + daily * 30.4;
+    return after > monthly ? <p className="small" style={{ color: "var(--bad)" }}>Con esta campaña, la cartera comprometería {Math.round(after)} €/mes y tu presupuesto mensual es {Math.round(monthly)} €: te pasas {Math.round(after - monthly)} €. Puedes crearla igualmente o bajar antes otra.</p>
+      : <p className="small">Cabe en tu presupuesto mensual: {Math.round(after)} de {Math.round(monthly)} €/mes.</p>;
+  };
   async function rewrite(adId: string) {
     setBusy(`rehacer-${adId}`);
     const j = await api(`/api/anuncios/${adId}/reescribir`, { feedback: mFeedback[adId] || "" });
@@ -585,6 +592,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
             <button className="btn-secondary" onClick={() => discard(mDraft)} disabled={!!busy}>{busy === "descartar" ? "Descartando…" : "Descartar propuesta"}</button>
             <span className="small">Facebook + Instagram · {mDraft.ads.filter((a) => mInc[a.id] !== false).length} de {mDraft.ads.length} anuncios marcados · {data.metaRtShare > 0 ? `captación (${100 - data.metaRtShare} %) + remarketing a visitantes de la web sin compra (${data.metaRtShare} %)` : "solo captación (sin remarketing)"}</span>
           </div>
+          {overMonthly(mBudget)}
         </>
       )}
 
@@ -665,6 +673,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
             <button className="btn-secondary" onClick={() => discard(gDraft)} disabled={!!busy}>{busy === "descartar" ? "Descartando…" : "Descartar propuesta"}</button>
             <span className="small">{data.googleWeekdaysOnly ? "Lunes a viernes, 8–20 h" : "Todos los días, a cualquier hora"} · solo Búsqueda · puja manual con techo · con las fotos de hasta 3 cuadros como imágenes (Google decide cuándo enseñarlas)</span>
           </div>
+          {overMonthly(budget)}
         </>
       )}
 

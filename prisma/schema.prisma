@@ -228,3 +228,9 @@ model Product {
   references Reference[]
   createdAt  DateTime    @default(now())
 }
+
+// Ajustes de toda la cartera (p. ej. monthlyBudget: presupuesto mensual para todas las campañas).
+model Setting {
+  key   String @id
+  value String
+}

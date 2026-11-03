@@ -401,6 +401,20 @@ TODOs:
 - [x] 25.2 Propuestas semanales en la actualización diaria (máx. 1 por campaña cada 7 días) y aplicarlas al aprobar (mover, subir, pausar) → verificar: propuesta de prueba aprobada cambia el presupuesto en Google/Meta y en AdEngine. Hecho en código (03/11/2026): se generan tras la actualización diaria; aplicar usa `setBudget`/`setStatus` (los mismos que los botones). Verificación real con la 1.ª propuesta
 - [x] 25.3 La página principal avisa de las propuestas de dinero pendientes de cada negocio → verificar: se ve el aviso. Hecho (03/11/2026): «Para decidir» y «Hecho solo (7 días)» en la principal; arriba de cada negocio, las propuestas con Aplicar/Descartar y lo hecho solo esta semana (María: las pausas automáticas siguen solas pero a la vista)
 
+## 26. Presupuesto mensual de la cartera
+
+**Petición (María, 03/11/2026):** un campo con el presupuesto mensual total para todas las campañas.
+
+- Campo en la página principal (ajuste global, no de una ficha). Vacío = sin límite.
+- Resumen: comprometido (suma de diarios de campañas activas × 30,4) y gastado este mes, frente al mensual; en rojo si se pasa.
+- Reparto (sección 25): la propuesta de +25 % dice si cabe en el mensual o cuánto se pasa y de qué negocio sacarlo. Nada se recorta solo.
+- Al crear una campaña nueva, aviso si con ella se pasa del mensual.
+
+TODOs:
+- [ ] 26.1 Ajuste `monthlyBudget` + campo y resumen en la principal → verificar: guardar una cifra y ver comprometido/gastado frente a ella
+- [ ] 26.2 `budgetMoves` tiene en cuenta el hueco del mensual (tests) → verificar: tests
+- [ ] 26.3 Aviso al crear campaña si se pasa del mensual → verificar: con un mensual bajo sale el aviso en la propuesta
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)

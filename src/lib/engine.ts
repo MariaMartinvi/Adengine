@@ -12,6 +12,7 @@ import { pickMetaAds } from "./metaPick";
 import { metaAdsToPause, metaRotation } from "./metaRotation";
 import { cacTestOf, validate } from "./validation";
 import { budgetMoves } from "./budgetMoves";
+import { portfolio } from "./portfolio";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -652,7 +653,7 @@ export async function proposeBudgetMoves(businessId: string) {
   const v = validate({ cacCap: b.cacCap, cacTest: b.cacTest, campaigns: b.campaigns, sales: b.sales });
   const week = new Date(Date.now() - 7 * 86400000);
   const recent = await db.proposal.findMany({ where: { campaignId: { in: live.map((c) => c.id) }, kind: { in: MONEY }, createdAt: { gte: week } } });
-  const moves = budgetMoves(b, v, live);
+  const moves = budgetMoves(b, v, live, (await portfolio()).room);
   // Una por campaña cada 7 días: si alguna de las implicadas ya tuvo propuesta de dinero esta semana, se espera.
   const touched = (m: (typeof moves)[number]) => [m.campaignId, (m.payload as any).toCampaignId].filter(Boolean);
   if (moves.some((m) => touched(m).some((id) => recent.some((r) => r.campaignId === id || (r.payload as any)?.toCampaignId === id)))) return;

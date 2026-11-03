@@ -1,8 +1,11 @@
 // Reparto del dinero de un negocio, con sus ventas reales. Solo propone (María aprueba):
 // · Parar → pausar sus campañas. · Entre Google y Meta: con ≥ 3 ventas, si un canal vende con CAC ≤ escalado y el otro
 //   cuesta más del doble (o no vende tras 1 CAC de validación) → pasar el 30 % del diario del peor al mejor.
-// · Escalar (y nada que mover) → +25 % de diario en el mejor canal, con el tope total en proporción.
+// · Escalar (y nada que mover) → +25 % de diario en el mejor canal, con el tope total en proporción. Si hay presupuesto
+//   mensual de la cartera (room = lo que queda libre al mes), la propuesta dice si cabe o cuánto se pasa.
 import type { validate } from "./validation";
+
+const DAYS = 30.4; // días de un mes, como en el resumen de la cartera
 
 type Live = { id: string; channel: string; dailyBudget: number; totalCap: number };
 export type BudgetMove = { campaignId: string; kind: "MOVE_BUDGET" | "SET_BUDGET" | "PAUSE_CAMPAIGN"; payload: Record<string, unknown>; reason: string };
@@ -11,7 +14,7 @@ const half = (n: number) => Math.round(n * 2) / 2; // importes a medio euro
 const ch = (c: string) => (c === "meta" ? "meta" : "google");
 const name = (c: string) => (ch(c) === "meta" ? "Meta" : "Google");
 
-export function budgetMoves(b: { cacCap: number; cacTest?: number | null }, v: ReturnType<typeof validate>, live: Live[]): BudgetMove[] {
+export function budgetMoves(b: { cacCap: number; cacTest?: number | null }, v: ReturnType<typeof validate>, live: Live[], room: number | null = null): BudgetMove[] {
   if (!live.length) return [];
   if (v.verdict.code === "parar") return live.map((c) => ({ campaignId: c.id, kind: "PAUSE_CAMPAIGN", payload: {}, reason: `Pausar ${name(c.channel)}: ${v.verdict.reason}` }));
 
@@ -31,8 +34,12 @@ export function budgetMoves(b: { cacCap: number; cacTest?: number | null }, v: R
 
   if (v.verdict.code === "escalar") {
     const best = [...live].filter((c) => by(c).cac != null).sort((x, y) => by(x).cac! - by(y).cac!)[0];
-    if (best) return [{ campaignId: best.id, kind: "SET_BUDGET", payload: { dailyBudget: half(best.dailyBudget * 1.25), totalCap: half(best.totalCap * 1.25) }, reason:
-      `Subir ${name(best.channel)} un 25 % (${best.dailyBudget} → ${half(best.dailyBudget * 1.25)} €/día): ${v.verdict.reason}` }];
+    if (best) {
+      const extra = (half(best.dailyBudget * 1.25) - best.dailyBudget) * DAYS;
+      const fit = room == null ? "" : extra <= room ? ` Cabe en tu presupuesto mensual (+${Math.round(extra)} €/mes).` : ` Ojo: te pasas ${Math.round(extra - room)} €/mes de tu presupuesto mensual; baja antes otro negocio (el que esté en «Parar» o «Aún pronto»).`;
+      return [{ campaignId: best.id, kind: "SET_BUDGET", payload: { dailyBudget: half(best.dailyBudget * 1.25), totalCap: half(best.totalCap * 1.25) }, reason:
+        `Subir ${name(best.channel)} un 25 % (${best.dailyBudget} → ${half(best.dailyBudget * 1.25)} €/día): ${v.verdict.reason}${fit}` }];
+    }
   }
   return [];
 }

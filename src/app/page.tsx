@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { validate } from "@/lib/validation";
+import { portfolio } from "@/lib/portfolio";
+import MonthlyBudget from "@/components/MonthlyBudget";
 export const dynamic = "force-dynamic";
 
 const eur = (n: number, c = "EUR") => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
@@ -9,6 +11,7 @@ export default async function Home({ searchParams }: { searchParams: { connected
   const conn = await db.googleConnection.findFirst({ orderBy: { createdAt: "desc" } });
   const businesses = await db.business.findMany({ orderBy: { createdAt: "desc" }, include: { sales: true, actions: { where: { auto: true, kind: "REGLA", createdAt: { gte: new Date(Date.now() - 7 * 86400000) } } }, campaigns: { include: { metrics: true, proposals: { where: { status: "PENDING" } } } } } });
   const since = new Date(); since.setDate(since.getDate() - 7);
+  const pf = await portfolio();
 
   return (
     <main>
@@ -17,6 +20,8 @@ export default async function Home({ searchParams }: { searchParams: { connected
       {searchParams.connected && <div className="notice">Google Ads conectado como {conn?.email}.</div>}
       {searchParams.error && <div className="notice error">No se pudo conectar: {searchParams.error}</div>}
       {!conn && <div className="notice">Google Ads aún no está conectado. Pulsa «Conectar Google Ads» arriba con el correo del MCC.</div>}
+
+      {businesses.length > 0 && <MonthlyBudget monthly={pf.monthly} committed={pf.committed} spent={pf.spent} />}
 
       {businesses.length === 0 ? (
         <div className="empty">

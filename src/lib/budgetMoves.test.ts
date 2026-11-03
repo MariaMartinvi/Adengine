@@ -8,10 +8,10 @@ const g = { id: "g", channel: "google", dailyBudget: 5, totalCap: 150 };
 const m = { id: "m", channel: "meta", dailyBudget: 5, totalCap: 150 };
 const metric = (cost: number) => [{ cost, impressions: 0, clicks: 0, conversions: 0, purchases: 0 }];
 const sale = (channel: string) => ({ channel, amount: 49 });
-const run = (gCost: number, mCost: number, sales: { channel: string; amount: number }[], live = [g, m]) => {
+const run = (gCost: number, mCost: number, sales: { channel: string; amount: number }[], live = [g, m], room: number | null = null) => {
   const b = { cacCap: 6, cacTest: 12 };
   const v = validate({ ...b, campaigns: [{ channel: "google", metrics: metric(gCost) }, { channel: "meta", metrics: metric(mCost) }], sales });
-  return budgetMoves(b, v, live);
+  return budgetMoves(b, v, live, room);
 };
 
 test("sin datos: ninguna propuesta", () => {
@@ -48,4 +48,12 @@ test("veredicto Escalar con un solo canal: +25 % en ese canal", () => {
 test("veredicto Parar: proponer pausar todas sus campañas", () => {
   const r = run(20, 20, []);
   assert.deepEqual(r.map((x) => [x.kind, x.campaignId]), [["PAUSE_CAMPAIGN", "g"], ["PAUSE_CAMPAIGN", "m"]]);
+});
+
+test("presupuesto mensual: dice si la subida cabe o cuánto se pasa", () => {
+  const sales = [sale("meta"), sale("meta"), sale("meta")];
+  // +1,5 €/día ≈ +46 €/mes.
+  assert.match(run(0, 15, sales, [m], 100)[0].reason, /Cabe en tu presupuesto mensual \(\+46 €\/mes\)/);
+  assert.match(run(0, 15, sales, [m], 20)[0].reason, /te pasas 26 €\/mes/);
+  assert.doesNotMatch(run(0, 15, sales, [m])[0].reason, /presupuesto mensual/);
 });
