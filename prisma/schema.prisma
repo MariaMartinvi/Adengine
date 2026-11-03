@@ -140,6 +140,8 @@ model DailyMetric {
   cost        Float    @default(0)
   conversions Float    @default(0)
   convValue   Float    @default(0)
+  purchases   Float    @default(0)
+  purchaseValue Float  @default(0)
   @@unique([campaignId, keywordId, date])
 }
 

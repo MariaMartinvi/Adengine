@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 
-type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
+type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; purchases?: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; extras?: any; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; videoPlan?: unknown; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
@@ -237,7 +237,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
             {live.status !== "ENABLED" && <button className="btn-ok" onClick={() => status(live, "ENABLED")} disabled={!!busy}>Activar</button>}
             {live.status !== "ENABLED" && <button className="btn-secondary" onClick={() => archive(live)} disabled={!!busy}>{busy === "archivar" ? "Archivando…" : "Archivar campaña"}</button>}
             {live.status === "ENABLED" && <button className="btn-secondary" onClick={() => status(live, "PAUSED")} disabled={!!busy}>Pausar</button>}
-            <span className="small">{money(live.dailyBudget, b.currency)}/día · tope {money(live.totalCap, b.currency)} · gastado {money(sum(live.metrics, "cost"), b.currency)} · {sum(live.metrics, "conversions")} ventas</span>
+            <span className="small">{money(live.dailyBudget, b.currency)}/día · tope {money(live.totalCap, b.currency)} · gastado {money(sum(live.metrics, "cost"), b.currency)} · {live.channel === "meta" ? `${sum(live.metrics, "purchases")} compras · ${sum(live.metrics, "conversions")} clics a compra` : `${sum(live.metrics, "conversions")} ventas`}</span>
           </div>
           <div className="row" style={{ marginBottom: 14 }}>
             <label className="field">{live.channel === "meta" ? "€/día (aprox.)" : "€/día"}<input type="number" step="1" value={lb(live).d} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), d: +e.target.value } })} style={{ width: 100 }} /></label>
@@ -294,12 +294,13 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
           {live.channel === "meta" && (
             <div className="tablewrap">
               <table>
-                <thead><tr><th>Anuncio</th><th>Estado</th><th className="num">Impr.</th><th className="num">Clics</th><th className="num">Gasto</th><th className="num">Clics a compra</th><th className="num">Coste/clic a compra</th></tr></thead>
+                <thead><tr><th>Anuncio</th><th>Estado</th><th className="num">Impr.</th><th className="num">Clics</th><th className="num">Gasto</th><th className="num">Clics a compra</th><th className="num">Coste/clic a compra</th><th className="num">Compras</th><th className="num">Coste/compra</th></tr></thead>
                 <tbody>
                   {live.ads.map((a) => {
                     const m = live.metrics.filter((x) => x.adId === a.id);
                     const cost = sum(m, "cost"), conv = sum(m, "conversions");
                     const cpa = conv ? cost / conv : null;
+                    const buys = sum(m, "purchases"), cpb = buys ? cost / buys : null;
                     return (
                       <tr key={a.id} style={{ opacity: a.status === "PAUSED" ? .5 : 1 }}>
                         <td><a href={a.mediaUrl} target="_blank" rel="noreferrer">{a.mediaType === "video" ? "Vídeo" : "Imagen"} {live.ads.filter((x) => x.mediaType === a.mediaType).indexOf(a) + 1}</a>{a.headlines[0] ? <div className="small">{a.headlines[0]}</div> : null}</td>
@@ -309,7 +310,9 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
                         <td className="num">{sum(m, "clicks")}</td>
                         <td className="num">{cost.toFixed(2)}</td>
                         <td className="num">{conv}</td>
-                        <td className={`num ${cpa != null && cpa > b.cacCap ? "over" : ""}`}>{cpa != null ? cpa.toFixed(2) : "—"}</td>
+                        <td className="num">{cpa != null ? cpa.toFixed(2) : "—"}</td>
+                        <td className="num">{buys}</td>
+                        <td className={`num ${cpb != null && cpb > b.cacCap ? "over" : ""}`}>{cpb != null ? cpb.toFixed(2) : "—"}</td>
                       </tr>
                     );
                   })}

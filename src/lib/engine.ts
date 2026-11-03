@@ -523,18 +523,18 @@ export async function syncMetaCampaign(campaignId: string) {
   // Cada anuncio puede estar en captación y en remarketing: se suman sus dos filas del día antes de guardar.
   const byMetaId = new Map<string, (typeof c.ads)[number]>();
   for (const a of c.ads) { if (a.metaAdId) byMetaId.set(a.metaAdId, a); if (a.metaRtAdId) byMetaId.set(a.metaRtAdId, a); }
-  const daily = new Map<string, { ad: (typeof c.ads)[number]; date: string; impressions: number; clicks: number; cost: number; conversions: number }>();
+  const daily = new Map<string, { ad: (typeof c.ads)[number]; date: string; impressions: number; clicks: number; cost: number; conversions: number; purchases: number; purchaseValue: number }>();
   for (const r of rows) {
     const ad = byMetaId.get(r.adId);
     if (!ad) continue;
     const key = `${ad.id}|${r.date}`;
-    const acc = daily.get(key) || { ad, date: r.date, impressions: 0, clicks: 0, cost: 0, conversions: 0 };
-    acc.impressions += r.impressions; acc.clicks += r.clicks; acc.cost += r.cost; acc.conversions += r.conversions;
+    const acc = daily.get(key) || { ad, date: r.date, impressions: 0, clicks: 0, cost: 0, conversions: 0, purchases: 0, purchaseValue: 0 };
+    acc.impressions += r.impressions; acc.clicks += r.clicks; acc.cost += r.cost; acc.conversions += r.conversions; acc.purchases += r.purchases; acc.purchaseValue += r.purchaseValue;
     daily.set(key, acc);
   }
   for (const r of daily.values()) {
     const ad = r.ad;
-    const data = { impressions: r.impressions, clicks: r.clicks, cost: r.cost, conversions: r.conversions };
+    const data = { impressions: r.impressions, clicks: r.clicks, cost: r.cost, conversions: r.conversions, purchases: r.purchases, purchaseValue: r.purchaseValue };
     const existing = await db.dailyMetric.findFirst({ where: { campaignId: c.id, adId: ad.id, date: new Date(r.date) } });
     if (existing) await db.dailyMetric.update({ where: { id: existing.id }, data });
     else await db.dailyMetric.create({ data: { campaignId: c.id, adId: ad.id, date: new Date(r.date), ...data } });

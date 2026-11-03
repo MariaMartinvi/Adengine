@@ -151,17 +151,20 @@ export async function setAdSetAudience(adSetId: string, country: string, ageMin:
 }
 
 
-export type AdDayRow = { adId: string; date: string; impressions: number; clicks: number; cost: number; conversions: number };
+export type AdDayRow = { adId: string; date: string; impressions: number; clicks: number; cost: number; conversions: number; purchases: number; purchaseValue: number };
 // Conversión = clic de compra del píxel (InitiateCheckout). Clics = clics en el enlace, no "me gusta" ni ampliaciones.
 const CONV = ["offsite_conversion.fb_pixel_initiate_checkout", "initiate_checkout"];
+// Compra: Meta repite la misma compra con varios nombres; se toma uno solo, por orden de preferencia.
+const BUY = ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"];
+const pick = (list: any[] | undefined, types: string[]) => { for (const t of types) { const x = (list || []).find((a: any) => a.action_type === t); if (x) return Number(x.value || 0); } return 0; };
 export async function adInsights(campaignId: string, since: string, until: string): Promise<AdDayRow[]> {
   const j = await call(`/${campaignId}/insights`, {
     level: "ad", time_increment: "1", time_range: { since, until }, limit: "500",
-    fields: "ad_id,date_start,impressions,inline_link_clicks,spend,actions",
+    fields: "ad_id,date_start,impressions,inline_link_clicks,spend,actions,action_values",
   });
   return (j.data || []).map((r: any) => {
     const act = (r.actions || []).find((a: any) => CONV.includes(a.action_type));
-    return { adId: r.ad_id, date: r.date_start, impressions: Number(r.impressions || 0), clicks: Number(r.inline_link_clicks || 0), cost: Number(r.spend || 0), conversions: Number(act?.value || 0) };
+    return { adId: r.ad_id, date: r.date_start, impressions: Number(r.impressions || 0), clicks: Number(r.inline_link_clicks || 0), cost: Number(r.spend || 0), conversions: Number(act?.value || 0), purchases: pick(r.actions, BUY), purchaseValue: pick(r.action_values, BUY) };
   });
 }
 
