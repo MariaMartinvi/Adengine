@@ -95,7 +95,12 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
     setErr(""); setBusy("musica");
     try {
       const blob = await upload(`musica/${file.name}`, file, { access: "public", handleUploadUrl: "/api/subidas", multipart: file.size > 20 * 1024 * 1024 });
-      if (await api(`/api/negocios/${b.id}`, { musicUrl: blob.url }, "PATCH")) r.refresh();
+      if (await api(`/api/negocios/${b.id}`, { musicUrl: blob.url }, "PATCH")) {
+        setBusy("");
+        // Los vídeos ya montados de la propuesta se rehacen con la música nueva.
+        for (const x of mDraft?.ads.filter((x) => x.videoPlan && x.mediaType === "video") || []) await mountVideo(x.id);
+        r.refresh();
+      }
     } catch (e: any) { setErr(e.message || "No se pudo subir la música"); }
     setBusy("");
   }
