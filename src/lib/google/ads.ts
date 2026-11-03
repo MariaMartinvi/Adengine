@@ -68,7 +68,7 @@ export type CampaignSpec = {
   keywords: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number; finalUrl?: string | null; group?: string | null }[];
   ads: { headlines: string[]; descriptions: string[]; finalUrl?: string; group?: string | null; path1?: string | null; path2?: string | null }[];
   negatives: string[];
-  schedule: boolean; // lunes-viernes 8-20
+  schedule: boolean; // true = solo lunes-viernes 8-20 (B2B); false = todos los días, todo el día
 };
 
 // Crea presupuesto + campaña (EN PAUSA) + grupo + palabras + anuncios en una sola llamada atómica.
@@ -142,6 +142,17 @@ export async function setCampaignStatus(cid: string, campaignId: string, status:
 
 export async function setDailyBudget(cid: string, budgetId: string, dailyBudget: number) {
   await call(`/customers/${cid}/campaignBudgets:mutate`, { operations: [{ updateMask: "amount_micros", update: { resourceName: `customers/${cid}/campaignBudgets/${budgetId}`, amountMicros: toMicros(dailyBudget) } }] });
+}
+
+// Horario de una campaña ya creada: quita las franjas que tenga y, si es solo laborables, pone lunes-viernes 8-20.
+export async function setWeekdaySchedule(cid: string, campaignId: string, weekdaysOnly: boolean) {
+  const rows = await search(cid, `SELECT campaign_criterion.resource_name FROM campaign_criterion WHERE campaign.id = ${campaignId} AND campaign_criterion.type = AD_SCHEDULE`);
+  const ops: any[] = rows.map((r) => ({ remove: r.campaignCriterion.resourceName }));
+  if (weekdaysOnly) for (const day of ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]) {
+    ops.push({ create: { campaign: `customers/${cid}/campaigns/${campaignId}`, adSchedule: { dayOfWeek: day, startHour: 8, startMinute: "ZERO", endHour: 20, endMinute: "ZERO" } } });
+  }
+  if (ops.length) await call(`/customers/${cid}/campaignCriteria:mutate`, { operations: ops });
+  return { removed: rows.length };
 }
 
 export async function setCampaignName(cid: string, campaignId: string, name: string) {

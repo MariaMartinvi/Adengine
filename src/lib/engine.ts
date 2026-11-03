@@ -108,7 +108,7 @@ async function addGoogleImages(c: { id: string; name: string; googleCampaignId: 
 }
 
 // Fotos por grupo de anuncios: cada tema enseña sus cuadros (recortadas a 1,91:1 y 1:1). Igual que en campaña: si Google no las acepta, se apunta y sigue.
-async function addGroupImages(name: string, groups: { name: string; images: string[] }[], adGroupIds: Record<string, string>, b: { id: string; googleCustomerId: string | null }) {
+async function addGroupImages(name: string, groups: { name: string; images: string[] }[], adGroupIds: Record<string, string>, b: { id: string; googleCustomerId: string | null }, campaignId: string) {
   const done: string[] = []; const errors: string[] = [];
   for (const g of groups) {
     const agId = adGroupIds[g.name];
@@ -117,9 +117,18 @@ async function addGroupImages(name: string, groups: { name: string; images: stri
       try {
         const src = Buffer.from(await (await fetch(url)).arrayBuffer());
         const tag = `${g.name} · ${Date.now()}`;
-        await ads.addAdGroupImage(b.googleCustomerId!, agId, `${tag} · horizontal`, await sharp(src).resize(1200, 628, { fit: "cover" }).jpeg({ quality: 85 }).toBuffer());
-        await ads.addAdGroupImage(b.googleCustomerId!, agId, `${tag} · cuadrada`, await sharp(src).resize(1200, 1200, { fit: "cover" }).jpeg({ quality: 85 }).toBuffer());
-        done.push(g.name);
+        const wide = await sharp(src).resize(1200, 628, { fit: "cover" }).jpeg({ quality: 85 }).toBuffer();
+        const square = await sharp(src).resize(1200, 1200, { fit: "cover" }).jpeg({ quality: 85 }).toBuffer();
+        // Por grupo, para que cada tema enseñe sus cuadros; si Google no lo admite por grupo, a nivel de campaña.
+        try {
+          await ads.addAdGroupImage(b.googleCustomerId!, agId, `${tag} · horizontal`, wide);
+          await ads.addAdGroupImage(b.googleCustomerId!, agId, `${tag} · cuadrada`, square);
+          done.push(g.name);
+        } catch {
+          await ads.addCampaignImage(b.googleCustomerId!, campaignId, `${tag} · horizontal (campaña)`, wide);
+          await ads.addCampaignImage(b.googleCustomerId!, campaignId, `${tag} · cuadrada (campaña)`, square);
+          done.push(`${g.name} (en la campaña)`);
+        }
       } catch (e: any) { errors.push(`${g.name}: ${e.message}`); }
     }
   }
@@ -144,7 +153,7 @@ export async function approveCampaign(campaignId: string) {
     keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc, finalUrl: k.finalUrl, group: k.adGroup })),
     ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl, group: a.adGroup, path1: a.path1 || b.googlePath1, path2: a.path1 ? a.path2 : b.googlePath2 })),
     negatives: c.proposals.filter((p) => p.kind === "ADD_NEGATIVE" && p.status === "APPROVED").map((p) => p.target),
-    schedule: true,
+    schedule: b.googleWeekdaysOnly,
   });
   await db.$transaction([
     db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", googleCampaignId: res.campaignId, googleBudgetId: res.budgetId, googleAdGroupId: res.adGroupId } }),
@@ -154,7 +163,7 @@ export async function approveCampaign(campaignId: string) {
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Google Ads en pausa (id ${res.campaignId}): ${kws.length} palabras, ${c.dailyBudget} ${b.currency}/día, tope total ${c.totalCap}.`);
   const groups = (c.groups as { name: string; url: string; images: string[] }[] | null) || [];
-  if (groups.length) await addGroupImages(c.name, groups, res.adGroupIds, b);
+  if (groups.length) await addGroupImages(c.name, groups, res.adGroupIds, b, res.campaignId);
   else await addGoogleImages({ id: c.id, name: c.name, googleCampaignId: res.campaignId, ads: c.ads }, b);
 }
 
@@ -289,6 +298,27 @@ export async function addRemarketing(campaignId: string) {
     throw e;
   }
   await log(b.id, "REMARKETING", `Campaña ${c.name}: remarketing añadido (${b.metaRtShare} % del tope, ${active.length} anuncios) para visitantes de la web de los últimos 30 días que no han comprado.`);
+}
+
+// Reintenta las fotos de una campaña de Google ya creada (por grupo o, si no se puede, en la campaña).
+export async function retryGoogleImages(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, keywords: true, ads: true } });
+  const b = c.business;
+  if (c.channel === "meta" || !c.googleCampaignId) throw new Error("Solo para campañas de Google ya creadas.");
+  const groups = (c.groups as { name: string; url: string; images: string[] }[] | null) || [];
+  const adGroupIds: Record<string, string> = {};
+  for (const k of c.keywords) if (k.adGroup && k.googleAdGroupId) adGroupIds[k.adGroup] = k.googleAdGroupId;
+  if (groups.length) await addGroupImages(c.name, groups, adGroupIds, b, c.googleCampaignId);
+  else await addGoogleImages({ id: c.id, name: c.name, googleCampaignId: c.googleCampaignId, ads: c.ads }, b);
+}
+
+// Aplica a una campaña de Google ya creada el horario de la ficha (todos los días o solo laborables 8-20).
+export async function applyGoogleSchedule(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true } });
+  const b = c.business;
+  if (c.channel === "meta" || !c.googleCampaignId) throw new Error("Solo para campañas de Google ya creadas.");
+  const res = await ads.setWeekdaySchedule(b.googleCustomerId!, c.googleCampaignId, b.googleWeekdaysOnly);
+  await log(b.id, "HORARIO", `Campaña ${c.name}: ${b.googleWeekdaysOnly ? "lunes a viernes, 8-20 h" : "todos los días, a cualquier hora"} (${res.removed} franjas anteriores quitadas).`);
 }
 
 // Rehace el texto de UN anuncio de una propuesta de Meta con los comentarios de María: misma referencia y misma imagen.

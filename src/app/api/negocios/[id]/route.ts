@@ -5,7 +5,7 @@ import { log } from "@/lib/engine";
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const data = await req.json();
-    const allowed = ["name", "url", "sells", "audience", "country", "language", "currency", "price", "marginPct", "saleEvent", "cacCap", "maxCpc", "dailyBudget", "totalCap", "googleCustomerId", "metaAdAccountId", "metaPixelId", "metaPageId", "metaAdvertiser", "metaInstagramId", "metaRtShare", "ageMin", "ageMax", "metaCta", "googlePath1", "googlePath2", "notes"];
+    const allowed = ["name", "url", "sells", "audience", "country", "language", "currency", "price", "marginPct", "saleEvent", "cacCap", "maxCpc", "dailyBudget", "totalCap", "googleCustomerId", "metaAdAccountId", "metaPixelId", "metaPageId", "metaAdvertiser", "metaInstagramId", "metaRtShare", "googleWeekdaysOnly", "ageMin", "ageMax", "metaCta", "googlePath1", "googlePath2", "notes"];
     const patch: any = {};
     for (const k of allowed) if (k in data) patch[k] = data[k];
     for (const k of ["price", "marginPct", "cacCap", "maxCpc", "dailyBudget", "totalCap", "ageMin", "ageMax", "metaRtShare"]) if (k in patch) patch[k] = Number(patch[k]);

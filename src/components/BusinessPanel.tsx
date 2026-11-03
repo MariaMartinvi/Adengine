@@ -7,7 +7,7 @@ type Metric = { date: string; cost: number; clicks: number; conversions: number;
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -123,6 +123,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     setBusy("");
     if (j) { setMCopy({ ...mCopy, [adId]: { message: j.message, headline: j.headline, description: j.description } }); setMFeedback({ ...mFeedback, [adId]: "" }); r.refresh(); }
   }
+  async function photos(c: Campaign) { setBusy("fotos"); await api(`/api/campanas/${c.id}/fotos`); setBusy(""); r.refresh(); }
+  async function schedule(c: Campaign) { setBusy("horario"); await api(`/api/campanas/${c.id}/horario`); setBusy(""); r.refresh(); }
   async function addRt(c: Campaign) { setBusy("remarketing"); await api(`/api/campanas/${c.id}/remarketing`); setBusy(""); r.refresh(); }
   async function discard(c: Campaign) {
     if (!confirm("¿Descartar esta propuesta? No existe aún en Meta ni en Google; se borra de AdEngine.")) return;
@@ -192,6 +194,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             <label className="field">{live.channel === "meta" ? "€/día (aprox.)" : "€/día"}<input type="number" step="1" value={lb(live).d} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), d: +e.target.value } })} style={{ width: 100 }} /></label>
             <label className="field">Tope total<input type="number" step="10" value={lb(live).t} onChange={(e) => setLiveEdit({ ...liveEdit, [live.id]: { ...lb(live), t: +e.target.value } })} style={{ width: 100 }} /></label>
             <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => saveBudget(live)} disabled={!!busy || !(lb(live).d > 0) || !(lb(live).t >= lb(live).d)}>{busy === "presupuesto" ? "Guardando…" : "Guardar presupuesto"}</button>
+            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => photos(live)} disabled={!!busy}>{busy === "fotos" ? "Subiendo fotos…" : "Añadir fotos"}</button>}
+            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => schedule(live)} disabled={!!busy}>{busy === "horario" ? "Aplicando…" : `Aplicar horario de la ficha (${data.googleWeekdaysOnly ? "laborables 8-20" : "todos los días"})`}</button>}
             {live.channel === "meta" && !live.metaRtAdSetId && data.metaRtShare > 0 && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRt(live)} disabled={!!busy}>{busy === "remarketing" ? "Creando remarketing…" : `Añadir remarketing (${data.metaRtShare} %)`}</button>}
             {live.channel === "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => applyAudience(live)} disabled={!!busy}>{busy === "publico" ? "Aplicando…" : `Aplicar público de la ficha (${data.country}, ${data.ageMin}–${data.ageMax} años)`}</button>}
           </div>
@@ -309,6 +313,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             </select>
           ) : <input value={b.googleCustomerId || ""} onChange={(e) => set("googleCustomerId", e.target.value)} placeholder="9148745988" />}
         </label>
+        {b.googleCustomerId && <label className="row small" style={{ gap: 6, alignSelf: "end" }}><input type="checkbox" checked={b.googleWeekdaysOnly} onChange={(e) => set("googleWeekdaysOnly", e.target.checked)} /> Google: solo laborables de 8 a 20 h (B2B)</label>}
         {b.googleCustomerId && <label className="field">Ruta del enlace en Google (texto visible, 15 car. por parte)
           <span className="row" style={{ gap: 4 }}>/<input value={b.googlePath1 || ""} maxLength={15} onChange={(e) => set("googlePath1", e.target.value)} placeholder="comprar" style={{ width: 110 }} />/<input value={b.googlePath2 || ""} maxLength={15} onChange={(e) => set("googlePath2", e.target.value)} placeholder="cuadros" style={{ width: 110 }} /></span>
         </label>}
@@ -497,7 +502,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
           <div className="row" style={{ marginTop: 18 }}>
             <button onClick={() => approve(gDraft)} disabled={!!busy || !inc.length || overCap > 0}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
             <button className="btn-secondary" onClick={() => discard(gDraft)} disabled={!!busy}>{busy === "descartar" ? "Descartando…" : "Descartar propuesta"}</button>
-            <span className="small">Lunes a viernes, 8–20 h · solo Búsqueda · puja manual con techo · con las fotos de hasta 3 cuadros como imágenes (Google decide cuándo enseñarlas)</span>
+            <span className="small">{data.googleWeekdaysOnly ? "Lunes a viernes, 8–20 h" : "Todos los días, a cualquier hora"} · solo Búsqueda · puja manual con techo · con las fotos de hasta 3 cuadros como imágenes (Google decide cuándo enseñarlas)</span>
           </div>
         </>
       )}

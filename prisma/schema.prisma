@@ -45,6 +45,7 @@ model Business {
   metaCta            String      @default("SHOP_NOW")
   googlePath1        String?
   googlePath2        String?
+  googleWeekdaysOnly Boolean     @default(false)
   metaVisitorsAudienceId String?
   metaBuyersAudienceId   String?
   notes              String?
