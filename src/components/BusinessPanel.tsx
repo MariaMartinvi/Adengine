@@ -360,6 +360,33 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
       <div className="small"><a href={b.url} target="_blank" rel="noreferrer">{b.url}</a></div>
       {err && <div className="notice error" style={{ marginTop: 16 }}>{err}</div>}
       {(() => {
+        // Lo que espera tu aprobación y lo que AdEngine ha hecho solo esta semana, arriba y a la vista.
+        const pending = data.campaigns.filter(isLive).flatMap((c) => c.proposals.map((p) => ({ ...p, campaign: c })));
+        const week = Date.now() - 7 * 86400000;
+        const autos = data.actions.filter((a) => a.auto && a.kind === "REGLA" && new Date(a.createdAt).getTime() >= week);
+        if (!pending.length && !autos.length) return null;
+        return (
+          <div className="card" style={{ marginTop: 16, borderColor: pending.length ? "var(--warn)" : undefined }}>
+            {pending.length > 0 && <>
+              <strong style={{ fontWeight: 500 }}>Para que decidas ({pending.length})</strong>
+              {pending.map((p) => (
+                <div key={p.id} className="row" style={{ justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid var(--line)" }}>
+                  <span><span className="small">{isMeta(p.campaign) ? "Meta" : "Google"} · </span>{p.reason}</span>
+                  <span className="row">
+                    <button className="btn-secondary" onClick={() => decide(p.id, "DISMISSED")} disabled={!!busy}>Descartar</button>
+                    <button onClick={() => decide(p.id, "APPROVED")} disabled={!!busy}>Aplicar</button>
+                  </span>
+                </div>
+              ))}
+            </>}
+            {autos.length > 0 && <>
+              <strong style={{ fontWeight: 500, display: "block", marginTop: pending.length ? 14 : 0 }}>Hecho automáticamente esta semana ({autos.length})</strong>
+              <ul className="log">{autos.map((a) => <li key={a.id}><time suppressHydrationWarning>{new Date(a.createdAt).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time><span>{a.detail}</span></li>)}</ul>
+            </>}
+          </div>
+        );
+      })()}
+      {(() => {
         // ¿Vende? Todo lo gastado en anuncios (también campañas archivadas) frente a las ventas reales que avisa la web.
         const v = validate({ cacCap: data.cacCap, cacTest: data.cacTest, campaigns: data.campaigns, sales: data.sales });
         const m = (n: number | null) => (n == null ? "—" : money(n, b.currency));
@@ -648,7 +675,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
       {b.sales.length > 0 && (
         <>
           <h2>Ventas registradas</h2>
-          <ul className="log">{b.sales.map((s) => <li key={s.id}><time suppressHydrationWarning>{new Date(s.createdAt).toLocaleString("es-ES")}</time><span>{money(s.amount, s.currency)} · {s.channel}{s.orderId ? ` · pedido ${s.orderId}` : ""}</span></li>)}</ul>
+          <ul className="log">{b.sales.slice(0, 20).map((s) => <li key={s.id}><time suppressHydrationWarning>{new Date(s.createdAt).toLocaleString("es-ES")}</time><span>{money(s.amount, s.currency)} · {s.channel}{s.orderId ? ` · pedido ${s.orderId}` : ""}</span></li>)}</ul>
         </>
       )}
 

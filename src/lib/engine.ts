@@ -10,7 +10,8 @@ import { put } from "@vercel/blob";
 import { renderVideo, type VideoPlan } from "./video";
 import { pickMetaAds } from "./metaPick";
 import { metaAdsToPause, metaRotation } from "./metaRotation";
-import { cacTestOf } from "./validation";
+import { cacTestOf, validate } from "./validation";
+import { budgetMoves } from "./budgetMoves";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -642,10 +643,36 @@ export async function syncCampaign(campaignId: string) {
   } catch { /* search_term_view puede no tener datos aún */ }
 }
 
+// Reparto del dinero de un negocio (una vez por semana como mucho por campaña): propuestas que María aprueba.
+const MONEY = ["MOVE_BUDGET", "SET_BUDGET", "PAUSE_CAMPAIGN"];
+export async function proposeBudgetMoves(businessId: string) {
+  const b = await db.business.findUniqueOrThrow({ where: { id: businessId }, include: { sales: true, campaigns: { include: { metrics: true } } } });
+  const live = b.campaigns.filter((c) => c.status === "ENABLED" && (c.googleCampaignId || c.metaCampaignId));
+  if (!live.length) return;
+  const v = validate({ cacCap: b.cacCap, cacTest: b.cacTest, campaigns: b.campaigns, sales: b.sales });
+  const week = new Date(Date.now() - 7 * 86400000);
+  const recent = await db.proposal.findMany({ where: { campaignId: { in: live.map((c) => c.id) }, kind: { in: MONEY }, createdAt: { gte: week } } });
+  const moves = budgetMoves(b, v, live);
+  // Una por campaña cada 7 días: si alguna de las implicadas ya tuvo propuesta de dinero esta semana, se espera.
+  const touched = (m: (typeof moves)[number]) => [m.campaignId, (m.payload as any).toCampaignId].filter(Boolean);
+  if (moves.some((m) => touched(m).some((id) => recent.some((r) => r.campaignId === id || (r.payload as any)?.toCampaignId === id)))) return;
+  for (const m of moves) await db.proposal.create({ data: { campaignId: m.campaignId, kind: m.kind, target: m.campaignId, payload: m.payload as any, reason: m.reason } });
+  if (moves.length) await log(b.id, "PROPUESTA_DINERO", moves.map((m) => m.reason).join(" · "), true);
+}
+
 export async function applyProposal(proposalId: string, decision: "APPROVED" | "DISMISSED") {
   const p = await db.proposal.findUniqueOrThrow({ where: { id: proposalId }, include: { campaign: { include: { business: true } } } });
   const c = p.campaign, b = c.business, cid = b.googleCustomerId!;
   if (decision === "APPROVED" && p.kind === "PAUSE_AD") await setMetaAdStatus(p.target, "PAUSED");
+  else if (decision === "APPROVED" && p.kind === "PAUSE_CAMPAIGN") await setStatus(c.id, "PAUSED");
+  else if (decision === "APPROVED" && p.kind === "SET_BUDGET") { const x = p.payload as any; await setBudget(c.id, x.dailyBudget, x.totalCap); }
+  else if (decision === "APPROVED" && p.kind === "MOVE_BUDGET") {
+    // Mismo total del negocio: el diario baja en una campaña y sube en la otra; los topes totales no cambian.
+    const x = p.payload as any, to = await db.campaign.findUniqueOrThrow({ where: { id: x.toCampaignId } });
+    if (c.dailyBudget - x.amount <= 0) throw new Error("La campaña se quedaría sin presupuesto diario.");
+    await setBudget(c.id, c.dailyBudget - x.amount, c.totalCap);
+    await setBudget(to.id, to.dailyBudget + x.amount, to.totalCap);
+  }
   else if (decision === "APPROVED" && c.googleCampaignId) {
     const payload = p.payload as any;
     if (p.kind === "RAISE_BID" || p.kind === "LOWER_BID") {

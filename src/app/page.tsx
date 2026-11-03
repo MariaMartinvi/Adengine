@@ -7,7 +7,7 @@ const eur = (n: number, c = "EUR") => new Intl.NumberFormat("es-ES", { style: "c
 
 export default async function Home({ searchParams }: { searchParams: { connected?: string; error?: string } }) {
   const conn = await db.googleConnection.findFirst({ orderBy: { createdAt: "desc" } });
-  const businesses = await db.business.findMany({ orderBy: { createdAt: "desc" }, include: { sales: true, campaigns: { include: { metrics: true, proposals: { where: { status: "PENDING" } } } } } });
+  const businesses = await db.business.findMany({ orderBy: { createdAt: "desc" }, include: { sales: true, actions: { where: { auto: true, kind: "REGLA", createdAt: { gte: new Date(Date.now() - 7 * 86400000) } } }, campaigns: { include: { metrics: true, proposals: { where: { status: "PENDING" } } } } } });
   const since = new Date(); since.setDate(since.getDate() - 7);
 
   return (
@@ -51,7 +51,8 @@ export default async function Home({ searchParams }: { searchParams: { connected
                       <dt>Últimos 7 días</dt><dd>{eur(spent7, b.currency)} gastados</dd>
                       <dt>Ventas</dt><dd>{v.sales.ads} de anuncios{v.sales.organic ? ` + ${v.sales.organic} sin anuncio` : ""}</dd>
                       <dt>CAC real</dt><dd className={v.cac != null && v.cac > b.cacCap ? "over" : ""}>{v.cac != null ? eur(v.cac, b.currency) : "—"} <span className="small">/ escalado {eur(b.cacCap, b.currency)}</span></dd>
-                      <dt>Pendiente</dt><dd>{pending ? `${pending} propuestas` : "nada"}</dd>
+                      <dt>Para decidir</dt><dd className={pending ? "over" : ""}>{pending ? `${pending} propuesta${pending === 1 ? "" : "s"}` : "nada"}</dd>
+                      <dt>Hecho solo (7 días)</dt><dd>{b.actions.length ? `${b.actions.length} · ${b.actions[0].detail.slice(0, 60)}…` : "nada"}</dd>
                     </dl>
                   </>
                 ) : (

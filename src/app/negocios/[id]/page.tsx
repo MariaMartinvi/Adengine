@@ -12,7 +12,7 @@ export default async function Page({ params }: { params: { id: string } }) {
     include: {
       campaigns: { orderBy: { createdAt: "desc" }, include: { keywords: { orderBy: { volume: "desc" }, include: { metrics: true } }, ads: true, metrics: true, proposals: { where: { status: "PENDING" }, orderBy: { createdAt: "desc" } } } },
       actions: { orderBy: { createdAt: "desc" }, take: 40 },
-      sales: { orderBy: { createdAt: "desc" }, take: 20 },
+      sales: { orderBy: { createdAt: "desc" } }, // todas: el CAC real se calcula con ellas
       references: { orderBy: { createdAt: "desc" } },
       products: { orderBy: { name: "asc" } },
     },
