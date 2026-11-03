@@ -156,6 +156,27 @@ ${COPY_RULE}`;
   return { message: j.message.trim().slice(0, 300), headline: j.headline.trim().slice(0, 40), description: (j.description || "").trim().slice(0, 30), basedOn: (j.basedOn || "").trim().slice(0, 160), script: ref.video ? (j.script || "").trim() : "" };
 }
 
+// Guion para montar nuestro vídeo calcando el de la referencia, con las fotos de nuestro producto (se le enseñan numeradas).
+export type VideoPlanAI = { transition: "cut" | "fade"; scenes: { photo: number; seconds: number; zoom?: boolean; scale?: number; focusY?: number }[]; captions: { text: string; from: number; to: number }[] };
+export async function writeVideoPlan(ficha: { name: string; sells: string; language: string; notes?: string | null }, ref: Ref, photos: string[], revise?: string) {
+  const sys = `Montas un vídeo vertical 9:16 para Facebook e Instagram calcando el vídeo de la referencia, con las fotos de NUESTRO producto que te enseño numeradas. Devuelves SOLO JSON:
+{"transition":"cut"|"fade","scenes":[{"photo":n,"seconds":s,"zoom":bool,"scale":k,"focusY":y}],"captions":[{"text","from","to"}]}
+- Misma duración total que la referencia, mismo número de cortes y mismo ritmo (segundos por escena). transition: "cut" si cambia de golpe, "fade" si funde.
+- zoom: true solo si en la referencia la cámara se acerca despacio. Si la referencia tiene la cámara fija, false.
+- scale (1 a 2,5) y focusY (0 arriba, 0,5 centro, 1 abajo): encuadra cada foto para que el producto ocupe en pantalla lo mismo que en la referencia (si en la referencia el cuadro llena la pantalla, acércate). Mismo encuadre en todas si en la referencia la cámara no se mueve.
+- Si hay menos fotos que escenas, repite fotos cambiando el encuadre; si hay más, elige las que más se parezcan a lo que se ve en la referencia.
+- captions: los mismos textos sobreimpresos de la referencia, en los mismos segundos, traducidos al castellano de España y adaptados a nuestro producto; máximo 40 caracteres cada uno; mismos emojis. Nada de reseñas, cifras ni datos que no estén en la ficha.`;
+  const user: any[] = [{ type: "text", text: `Producto: ${ficha.name} — ${ficha.sells}\nIdioma: ${ficha.language}\nDatos reales: ${ficha.notes || ""}\n\nReferencia (vídeo): ${ref.note}\nMúsica y audio: ${ref.audio || ""}${revise ? `\n\nComentarios para cambiar el vídeo (aplícalos todos): ${revise}` : ""}\n\nNuestras fotos (${photos.length}):` }];
+  photos.forEach((u, i) => { user.push({ type: "text", text: `Foto ${i + 1}` }); user.push({ type: "image", source: { type: "url", url: u } }); });
+  const j = json<VideoPlanAI>(await ask(sys, user, 2000));
+  const num = (v: unknown, lo: number, hi: number, d: number) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  const scenes = (j.scenes || []).slice(0, 15).map((x) => ({ photo: photos[Math.round(num(x.photo, 1, photos.length, 1)) - 1], seconds: num(x.seconds, 0.5, 8, 2), zoom: !!x.zoom, scale: num(x.scale, 1, 2.5, 1), focusY: num(x.focusY, 0, 1, 0.5) }));
+  const total = scenes.reduce((t, x) => t + x.seconds, 0);
+  if (!scenes.length || total > 30) throw new Error("El guion del vídeo no es válido (sin escenas o más de 30 s).");
+  const captions = (j.captions || []).map((c) => ({ text: String(c.text || "").trim().slice(0, 40), from: num(c.from, 0, total, 0), to: num(c.to, 0, total, total) })).filter((c) => c.text && c.to > c.from);
+  return { transition: j.transition === "fade" ? "fade" as const : "cut" as const, scenes, captions };
+}
+
 export type GoogleExtras = {
   sitelinks: { text: string; desc1: string; desc2: string; url: string }[];
   callouts: string[];

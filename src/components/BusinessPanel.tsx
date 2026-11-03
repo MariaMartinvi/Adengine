@@ -1,12 +1,12 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; extras?: any; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
+type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; extras?: any; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; videoPlan?: unknown; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
 type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
@@ -137,6 +137,20 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
     } catch (e: any) { setErr(e.message || "No se pudo subir el archivo"); }
     setBusy("");
   }
+  // Vídeos de la propuesta: se montan solos, uno a uno, al abrir la propuesta (cada uno tarda medio minuto o más).
+  const [vBusy, setVBusy] = useState("");
+  const tried = useRef(new Set<string>());
+  async function mountVideo(adId: string, feedback?: string) {
+    setErr(""); setVBusy(adId);
+    const j = await api(`/api/anuncios/${adId}/video`, feedback ? { feedback } : {});
+    setVBusy("");
+    if (j) { if (feedback) setMFeedback((f) => ({ ...f, [adId]: "" })); r.refresh(); }
+  }
+  useEffect(() => {
+    if (vBusy || mLive) return;
+    const next = mDraft?.ads.find((a) => a.videoPlan && a.mediaType !== "video" && !tried.current.has(a.id));
+    if (next) { tried.current.add(next.id); mountVideo(next.id); }
+  });
   async function rewrite(adId: string) {
     setBusy(`rehacer-${adId}`);
     const j = await api(`/api/anuncios/${adId}/reescribir`, { feedback: mFeedback[adId] || "" });
@@ -448,6 +462,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             <label className="field">Gasto total máximo<input type="number" step="10" value={mCap} onChange={(e) => setMCap(+e.target.value)} style={{ width: 120 }} /></label>
             <div className="small" style={{ alignSelf: "end" }}>~{mBudget > 0 ? Math.ceil(mCap / mBudget) : 0} días de campaña</div>
           </div>
+          {mDraft.ads.some((a) => a.videoPlan) && !data.musicUrl && <p className="small" style={{ color: "#b45309" }}>Sin música: los vídeos salen en silencio. Sube una en la ficha («Música de los vídeos») y pulsa «Volver a montar el vídeo».</p>}
           <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", marginTop: 14 }}>
             {mDraft.ads.map((a, i) => {
               const k = mCopy[a.id] || { message: "", headline: "", description: "" };
@@ -457,7 +472,13 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                   <label className="row small" style={{ gap: 6, marginBottom: 4 }}><input type="checkbox" checked={mInc[a.id] !== false} onChange={(e) => setMInc({ ...mInc, [a.id]: e.target.checked })} /> Incluir en la campaña</label>
                   <div className="small">Anuncio {i + 1} · <a href={a.finalUrl} target="_blank" rel="noreferrer">{a.finalUrl.replace(/^https?:\/\//, "")}</a></div>
                   {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
-                  {a.mediaType === "video" ? <video src={a.mediaUrl} controls muted playsInline style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
+                  {a.mediaType === "video" ? <video src={a.mediaUrl} controls playsInline style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
+                  {!!a.videoPlan && (
+                    <div className="row small" style={{ marginTop: 4, gap: 6 }}>
+                      {vBusy === a.id ? <span>Montando el vídeo como el de la referencia…</span> : a.mediaType !== "video" ? <span style={{ color: "#b45309" }}>La referencia es un vídeo: falta montar el nuestro.</span> : <span>Vídeo calcado de la referencia.</span>}
+                      <button className="btn-secondary" onClick={() => mountVideo(a.id)} disabled={!!vBusy || !!busy}>{a.mediaType === "video" ? "Volver a montar el vídeo" : "Montar vídeo"}</button>
+                    </div>
+                  )}
                   <label className="field" style={{ marginTop: 6 }}>{busy === `medio-${a.id}` ? "Subiendo a Meta…" : "Cambiar por mi vídeo o imagen"}
                     <input type="file" accept="video/*,image/*" disabled={!!busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) replaceMedia(a.id, f); }} />
                   </label>
@@ -466,13 +487,14 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                   <label className="field">Descripción ({k.description.length}/30)<input value={k.description} maxLength={30} onChange={(e) => set("description", e.target.value)} /></label>
                   <label className="field" style={{ marginTop: 8 }}>Comentarios para mejorarlo<textarea rows={2} value={mFeedback[a.id] || ""} onChange={(e) => setMFeedback({ ...mFeedback, [a.id]: e.target.value })} placeholder="Más corto, habla de cumpleaños, sin emojis…" /></label>
                   <button className="btn-secondary" style={{ marginTop: 6 }} onClick={() => rewrite(a.id)} disabled={!!busy || !(mFeedback[a.id] || "").trim()}>{busy === `rehacer-${a.id}` ? "Reescribiendo…" : "Rehacer con mis comentarios"}</button>
+                  {!!a.videoPlan && <button className="btn-secondary" style={{ marginTop: 6, marginLeft: 6 }} onClick={() => mountVideo(a.id, mFeedback[a.id])} disabled={!!busy || !!vBusy || !(mFeedback[a.id] || "").trim()}>Rehacer el vídeo con mis comentarios</button>}
                   {a.brief && <details style={{ marginTop: 8 }}><summary className="small">Guion para grabar el vídeo</summary><p className="small" style={{ whiteSpace: "pre-wrap" }}>{a.brief}</p></details>}
                 </div>
               );
             })}
           </div>
           <div className="row" style={{ marginTop: 18 }}>
-            <button onClick={() => approve(mDraft)} disabled={!!busy || mDraft.ads.some((a) => mInc[a.id] !== false && (!mCopy[a.id]?.message || !mCopy[a.id]?.headline)) || !mDraft.ads.some((a) => mInc[a.id] !== false) || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
+            <button onClick={() => approve(mDraft)} disabled={!!busy || !!vBusy || mDraft.ads.some((a) => mInc[a.id] !== false && a.videoPlan && a.mediaType !== "video") || mDraft.ads.some((a) => mInc[a.id] !== false && (!mCopy[a.id]?.message || !mCopy[a.id]?.headline)) || !mDraft.ads.some((a) => mInc[a.id] !== false) || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
             <button className="btn-secondary" onClick={() => discard(mDraft)} disabled={!!busy}>{busy === "descartar" ? "Descartando…" : "Descartar propuesta"}</button>
             <span className="small">Facebook + Instagram · {mDraft.ads.filter((a) => mInc[a.id] !== false).length} de {mDraft.ads.length} anuncios marcados · {data.metaRtShare > 0 ? `captación (${100 - data.metaRtShare} %) + remarketing a visitantes de la web sin compra (${data.metaRtShare} %)` : "solo captación (sin remarketing)"}</span>
           </div>

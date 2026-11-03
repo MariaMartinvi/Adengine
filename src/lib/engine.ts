@@ -3,7 +3,7 @@ import { db } from "./db";
 import * as ads from "./google/ads";
 import { fichaFromSite } from "./ai";
 import { fetchSiteText } from "./fetchSite";
-import { pickKeywords, writeAds, writeMetaAdFromRef, writeGoogleExtras, type GoogleExtras } from "./ai";
+import { pickKeywords, writeAds, writeMetaAdFromRef, writeGoogleExtras, writeVideoPlan, type GoogleExtras } from "./ai";
 import * as meta from "./meta/ads";
 import sharp from "sharp";
 import { put } from "@vercel/blob";
@@ -34,7 +34,7 @@ function seedsFromNotes(notes?: string | null) {
 // Genera la propuesta: palabras con CPC reales de Google + anuncios. No toca Google Ads (solo lee).
 // Antes de generar, copiar lo que funciona: sin referencias del canal no se propone.
 async function latestRefs(businessId: string, channel: "meta" | "google") {
-  const refs = await db.reference.findMany({ where: { businessId, channel }, orderBy: { createdAt: "desc" }, take: 6, include: { item: true } });
+  const refs = await db.reference.findMany({ where: { businessId, channel }, orderBy: { createdAt: "desc" }, take: 10, include: { item: true } });
   if (!refs.length) throw new Error(`Añade al menos una referencia que funcione en ${channel === "meta" ? "Meta" : "Google"} antes de proponer.`);
   return refs.reverse();
 }
@@ -188,14 +188,17 @@ export async function proposeMetaCampaign(businessId: string) {
   for (const r of refs) {
     const copy = await writeMetaAdFromRef(b, r);
     const hash = await meta.uploadImage(b.metaAdAccountId!, r.item!.image!);
-    ads.push({ mediaType: "image", mediaUrl: r.item!.image!, mediaRef: hash, finalUrl: r.item!.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn, brief: copy.script || null, refId: r.id });
+    // Referencia en vídeo → nuestro anuncio también es vídeo (obligatorio): guion con las fotos del producto; el panel lo monta después.
+    const videoPlan = r.video ? await writeVideoPlan(b, r, r.item!.photos.length ? r.item!.photos : [r.item!.image!]) : undefined;
+    ads.push({ mediaType: "image", mediaUrl: r.item!.image!, mediaRef: hash, finalUrl: r.item!.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn, brief: copy.script || null, refId: r.id, videoPlan });
   }
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "meta" } });
   const c = await db.campaign.create({ data: {
     businessId, channel: "meta", name: `${b.name} · Meta ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
     ads: { create: ads },
   } });
-  await log(businessId, "PROPUESTA", `Meta: ${ads.length} anuncios, uno por referencia, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
+  const videos = ads.filter((a) => a.videoPlan).length;
+  await log(businessId, "PROPUESTA", `Meta: ${ads.length} anuncios, uno por referencia${videos ? ` (${videos} en vídeo${b.musicUrl ? "" : ", SIN MÚSICA: sube una en la ficha"})` : ""}, ${b.dailyBudget} ${b.currency}/día, tope ${b.totalCap}. Pendiente de tu aprobación.`);
   return c.id;
 }
 
@@ -274,9 +277,17 @@ export async function replaceDraftMedia(adId: string, url: string, kind: "image"
 
 // Monta el vídeo de un anuncio de la propuesta de Meta con su guion (fotos del producto, textos y música de la ficha),
 // lo deja en el almacén y lo pone en el anuncio; la imagen que tenía queda de miniatura.
-export async function makeDraftVideo(adId: string, plan?: VideoPlan) {
+// Con comentarios de María, la IA rehace antes el guion (textos, orden, duración…) partiendo de la misma referencia.
+export async function makeDraftVideo(adId: string, opts: { plan?: VideoPlan; feedback?: string } = {}) {
   const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { business: true } } } });
   const b = a.campaign.business;
+  let plan = opts.plan;
+  if (!plan && opts.feedback?.trim()) {
+    const ref = a.refId ? await db.reference.findUnique({ where: { id: a.refId }, include: { item: true } }) : null;
+    if (!ref?.item) throw new Error("No encuentro la referencia ni el producto de este anuncio.");
+    const prev = JSON.stringify(a.videoPlan || {});
+    plan = await writeVideoPlan(b, ref, ref.item.photos.length ? ref.item.photos : [ref.item.image!], `${opts.feedback.trim()}\nGuion anterior: ${prev}`);
+  }
   const p = plan || (a.videoPlan as VideoPlan | null);
   if (!p?.scenes?.length) throw new Error("Este anuncio no tiene guion de vídeo.");
   if (plan) await db.ad.update({ where: { id: a.id }, data: { videoPlan: plan as any } });
