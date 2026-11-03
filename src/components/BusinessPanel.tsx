@@ -162,6 +162,7 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
     if (!confirm(`«${c.name}» se quedó a medias al crearse. ¿Volver a dejarla como propuesta? Mira antes en ${isMeta(c) ? "Meta" : "Google"} si quedó una campaña en pausa con ese nombre y archívala allí.`)) return;
     setBusy("desbloquear"); await api(`/api/campanas/${c.id}/desbloquear`); setBusy(""); r.refresh();
   }
+  async function adStatus(adId: string, status: "ENABLED" | "PAUSED") { setBusy(`estado-${adId}`); await api(`/api/anuncios/${adId}/estado`, { status }); setBusy(""); r.refresh(); }
   async function rewrite(adId: string) {
     setBusy(`rehacer-${adId}`);
     const j = await api(`/api/anuncios/${adId}/reescribir`, { feedback: mFeedback[adId] || "" });
@@ -293,8 +294,9 @@ export default function BusinessPanel({ data, accounts, accountsError, metaAccou
                     const cpa = conv ? cost / conv : null;
                     return (
                       <tr key={a.id} style={{ opacity: a.status === "PAUSED" ? .5 : 1 }}>
-                        <td>{a.mediaType === "video" ? "Vídeo" : <a href={a.mediaUrl} target="_blank" rel="noreferrer">Imagen {live.ads.filter((x) => x.mediaType === "image").indexOf(a) + 1}</a>}</td>
-                        <td><span className={`status ${a.status}`}>{a.status === "ENABLED" ? "activo" : "pausado"}</span></td>
+                        <td><a href={a.mediaUrl} target="_blank" rel="noreferrer">{a.mediaType === "video" ? "Vídeo" : "Imagen"} {live.ads.filter((x) => x.mediaType === a.mediaType).indexOf(a) + 1}</a>{a.headlines[0] ? <div className="small">{a.headlines[0]}</div> : null}</td>
+                        <td><span className={`status ${a.status}`}>{a.status === "ENABLED" ? "activo" : "pausado"}</span>{" "}
+                          <button className="btn-secondary" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => adStatus(a.id, a.status === "ENABLED" ? "PAUSED" : "ENABLED")} disabled={!!busy}>{busy === `estado-${a.id}` ? "…" : a.status === "ENABLED" ? "Pausar" : "Reactivar"}</button></td>
                         <td className="num">{sum(m, "impressions")}</td>
                         <td className="num">{sum(m, "clicks")}</td>
                         <td className="num">{cost.toFixed(2)}</td>

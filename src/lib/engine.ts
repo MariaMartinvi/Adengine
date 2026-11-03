@@ -298,6 +298,19 @@ export async function makeDraftVideo(adId: string, opts: { plan?: VideoPlan; fee
   return blob.url;
 }
 
+// Pausa o reactiva un anuncio de una campaña de Meta creada, junto con su gemelo de remarketing. Siempre queda al menos uno activo.
+export async function setMetaAdStatus(adId: string, status: "ENABLED" | "PAUSED") {
+  const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { ads: true } } } });
+  const c = a.campaign;
+  if (c.channel !== "meta" || !a.metaAdId) throw new Error("Solo se pausan anuncios de una campaña de Meta ya creada.");
+  if (status === "PAUSED" && !c.ads.some((x) => x.id !== a.id && x.status === "ENABLED" && x.metaAdId)) throw new Error("Es el último anuncio activo: pausa la campaña entera si quieres pararla.");
+  const s = status === "ENABLED" ? "ACTIVE" : "PAUSED";
+  await meta.setAdStatus(a.metaAdId, s);
+  if (a.metaRtAdId) await meta.setAdStatus(a.metaRtAdId, s);
+  await db.ad.update({ where: { id: a.id }, data: { status } });
+  await log(c.businessId, status === "PAUSED" ? "ANUNCIO_PAUSADO" : "ANUNCIO_ACTIVADO", `${c.name}: anuncio ${a.mediaType === "video" ? "de vídeo" : "de imagen"} ${status === "PAUSED" ? "en pausa" : "reactivado"}${a.metaRtAdId ? " (también en remarketing)" : ""}.`);
+}
+
 // Añade remarketing a una campaña de Meta viva que nació sin él (p. ej. Meta rechazó los públicos al crearla):
 // públicos de la web, conjunto con el % de la ficha y los mismos anuncios activos. La suma de los dos conjuntos sigue siendo el tope.
 export async function addRemarketing(campaignId: string) {
