@@ -320,14 +320,14 @@ Orden acordado (03/11/2026): primero aprender rápido copiando lo probado; repar
 | 2 | CAC real, embudo y veredicto por negocio | Hecho (sección 21) |
 | 3 | **Copiar lo probado, pocos anuncios**: fecha de inicio en cada referencia (aviso si < 1 mes) y propuesta de Meta con 4 anuncios marcados como máximo (las referencias más antiguas, vídeo primero) | Siguiente |
 | 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | Pendiente |
-| 5 | **Presupuesto de experimento** por MVP (importe y fecha de fin, informe al acabar) y CAC de validación vs CAC de escalado en la ficha | Pendiente |
-| 6 | **Camino a 10.000 €**: margen de contribución por negocio y total frente al objetivo, ventas que faltan (necesita margen real y costes fijos de María) | Pendiente |
+| 5 | **CAC de validación vs CAC de escalado** en la ficha (el veredicto usa el de validación para no parar demasiado pronto). El presupuesto de experimento queda apuntado | Pendiente |
+| 6 | ~~Camino a 10.000 €~~ | Descartado por ahora (María, 03/11/2026) |
 | 7 | **Reparto del dinero** entre canales y negocios por margen por euro invertido (propuesta semanal, María aprueba) | Pendiente |
-| 8 | **Escalado progresivo** (+20-30 % cada 3-4 días) y optimizar a compra / CPA objetivo cuando haya datos | Pendiente |
-| 9 | **Alertas** (primera venta, anuncio rechazado, gasto sin ventas, tope) | Pendiente |
-| 10 | **Diagnóstico de la web** (clics a compra sin ventas → qué cambiar) | Pendiente |
-| 11 | **Alta exprés** (URL → ficha, productos, referencias y campañas en < 30 min) | Pendiente |
-| 12 | **Aprendizaje entre negocios** y test de demanda sin producto | Pendiente |
+| 8 | **Escalado progresivo** (+20-30 % cada 3-4 días) y optimizar a compra / CPA objetivo cuando haya datos | Apuntado |
+| 9 | **Alertas** (primera venta, anuncio rechazado, gasto sin ventas, tope) | Apuntado |
+| 10 | **Diagnóstico de la web** (clics a compra sin ventas → qué cambiar) | Apuntado |
+| 11 | **Alta exprés** (URL → ficha, productos, referencias y campañas en < 30 min) | Apuntado |
+| 12 | **Aprendizaje entre negocios** y test de demanda sin producto | Apuntado |
 
 ## 21. CAC real y veredicto por negocio (1.2)
 
@@ -349,6 +349,15 @@ TODOs:
 - [x] 21.1 Cálculo en `src/lib/validation.ts` (función pura: gasto, ventas, CAC por canal, embudo, veredicto) con tests (`node --test`) para cada veredicto → verificar: los tests pasan. Hecho (03/11/2026): 9 tests (`npm test`, tsx + node:test) en verde
 - [x] 21.2 Tarjeta de validación arriba en la página del negocio → verificar: en los 3 negocios sale «Aún pronto» con su gasto y 0 ventas. Hecho (03/11/2026): Bebés, Caricaturea y Cuadros en «Aún pronto», 0 € gastados (Meta aún en preparación)
 - [x] 21.3 Página principal: cambiar «Coste por venta» (engañoso en Meta) por CAC real + veredicto → verificar: la principal enseña el veredicto de cada negocio. Hecho (03/11/2026). Ojo: Equipo Tierra sale «Parar» (gastó sin ventas registradas; su web no avisa de ventas a AdEngine, así que puede tener ventas que AdEngine no ve)
+
+## 22. Copiar lo probado, con pocos anuncios (punto 3)
+
+**Por qué:** un anuncio que lleva más de 1 mes activo en la Biblioteca casi seguro le es rentable a su dueño. Y con 5 €/día, Meta no aprende con 7 anuncios (Bebés salió con 7, 14 con remarketing).
+
+TODOs:
+- [ ] 22.1 Campo «En circulación desde» en cada referencia (fecha; aviso si tiene menos de 1 mes) → verificar: guardar la fecha en una referencia de Bebés y ver el aviso en una de prueba de menos de 1 mes
+- [ ] 22.2 Propuesta de Meta: como mucho 4 anuncios marcados (referencias más antiguas primero, vídeo antes que imagen); el resto sale desmarcado → verificar: con las 7 referencias de Bebés salen 4 marcadas (los 3 vídeos y la imagen más antigua)
+- [ ] 22.3 Poner la fecha a las referencias que ya hay (las anoté en las notas) → verificar: todas las de Meta de los 3 negocios con fecha
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
