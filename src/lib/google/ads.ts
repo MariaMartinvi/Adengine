@@ -155,6 +155,29 @@ export async function setWeekdaySchedule(cid: string, campaignId: string, weekda
   return { removed: rows.length };
 }
 
+// Recursos de la campaña (enlaces de sitio, destacados, extracto, promoción, precios): se crean y se enlazan tipo a tipo;
+// si Google rechaza uno, los demás siguen. Devuelve qué se añadió y qué falló.
+export async function addCampaignExtras(cid: string, campaignId: string, x: { sitelinks: { text: string; desc1: string; desc2: string; url: string }[]; callouts: string[]; snippet: { header: string; values: string[] } | null; promotion: { percentOff: number; item: string; code?: string } | null; prices: { header: string; description: string; price: number; url: string }[] }, o: { currency: string; language: string; url: string }) {
+  const groups: [string, string, any[]][] = [
+    ["enlaces de sitio", "SITELINK", x.sitelinks.map((s) => ({ sitelinkAsset: { linkText: s.text, description1: s.desc1, description2: s.desc2 }, finalUrls: [s.url] }))],
+    ["destacados", "CALLOUT", x.callouts.map((t) => ({ calloutAsset: { calloutText: t } }))],
+    ["extracto", "STRUCTURED_SNIPPET", x.snippet && x.snippet.values.length >= 3 ? [{ structuredSnippetAsset: { header: x.snippet.header, values: x.snippet.values } }] : []],
+    ["promoción", "PROMOTION", x.promotion ? [{ promotionAsset: { promotionTarget: x.promotion.item, percentOff: String(x.promotion.percentOff * 10000), languageCode: o.language, ...(x.promotion.code ? { promotionCode: x.promotion.code } : {}) }, finalUrls: [o.url] }] : []],
+    ["precios", "PRICE", x.prices.length >= 3 ? [{ priceAsset: { type: "PRODUCT_CATEGORIES", priceQualifier: "FROM", languageCode: o.language, priceOfferings: x.prices.map((p) => ({ header: p.header, description: p.description, price: { currencyCode: o.currency, amountMicros: toMicros(p.price) }, finalUrl: p.url })) } }] : []],
+  ];
+  const added: string[] = [], failed: string[] = [];
+  for (const [label, fieldType, assets] of groups) {
+    if (!assets.length) continue;
+    try {
+      const j = await call(`/customers/${cid}/assets:mutate`, { operations: assets.map((create) => ({ create })) });
+      const names = (j.results || []).map((r: any) => r.resourceName);
+      await call(`/customers/${cid}/campaignAssets:mutate`, { operations: names.map((asset: string) => ({ create: { campaign: `customers/${cid}/campaigns/${campaignId}`, asset, fieldType } })) });
+      added.push(`${label} (${names.length})`);
+    } catch (e: any) { failed.push(`${label}: ${e.message.slice(0, 160)}`); }
+  }
+  return { added, failed };
+}
+
 export async function setCampaignName(cid: string, campaignId: string, name: string) {
   await call(`/customers/${cid}/campaigns:mutate`, { operations: [{ updateMask: "name", update: { resourceName: `customers/${cid}/campaigns/${campaignId}`, name } }] });
 }

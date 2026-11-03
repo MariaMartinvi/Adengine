@@ -3,7 +3,7 @@ import { db } from "./db";
 import * as ads from "./google/ads";
 import { fichaFromSite } from "./ai";
 import { fetchSiteText } from "./fetchSite";
-import { pickKeywords, writeAds, writeMetaAdFromRef } from "./ai";
+import { pickKeywords, writeAds, writeMetaAdFromRef, writeGoogleExtras, type GoogleExtras } from "./ai";
 import * as meta from "./meta/ads";
 import sharp from "sharp";
 
@@ -61,11 +61,15 @@ export async function proposeCampaign(businessId: string) {
     for (const k of picked.keywords) if (!withAd.has(k.group!)) k.group = fallback;
   }
 
+  // Recursos del anuncio (enlaces de sitio, destacados, extracto, promoción, precios). Si fallan, la propuesta sigue sin ellos.
+  const extras = await writeGoogleExtras(b, pages).catch(() => null);
+
   // Borra borradores anteriores: la propuesta es siempre la última.
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "google" } });
   const c = await db.campaign.create({ data: {
     businessId, name: `${b.name} · Búsqueda ${b.country}`, dailyBudget: b.dailyBudget, totalCap: b.totalCap,
     groups: groups.length ? groups : undefined,
+    extras: extras || undefined,
     keywords: { create: picked.keywords.map((k) => {
       const i = byText.get(k.text.toLowerCase());
       // Puja inicial: entre el mínimo estimado de Google y el techo de la ficha, nunca por encima del techo.
@@ -162,6 +166,7 @@ export async function approveCampaign(campaignId: string) {
     db.keyword.deleteMany({ where: { campaignId: c.id, included: false } }),
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Google Ads en pausa (id ${res.campaignId}): ${kws.length} palabras, ${c.dailyBudget} ${b.currency}/día, tope total ${c.totalCap}.`);
+  if (c.extras) await createExtras(c.name, res.campaignId, c.extras as GoogleExtras, b);
   const groups = (c.groups as { name: string; url: string; images: string[] }[] | null) || [];
   if (groups.length) await addGroupImages(c.name, groups, res.adGroupIds, b, res.campaignId);
   else await addGoogleImages({ id: c.id, name: c.name, googleCampaignId: res.campaignId, ads: c.ads }, b);
@@ -298,6 +303,26 @@ export async function addRemarketing(campaignId: string) {
     throw e;
   }
   await log(b.id, "REMARKETING", `Campaña ${c.name}: remarketing añadido (${b.metaRtShare} % del tope, ${active.length} anuncios) para visitantes de la web de los últimos 30 días que no han comprado.`);
+}
+
+// Crea en Google los recursos de una campaña y lo apunta en el historial.
+async function createExtras(name: string, googleCampaignId: string, x: GoogleExtras, b: { id: string; googleCustomerId: string | null; currency: string; language: string; url: string }) {
+  const r = await ads.addCampaignExtras(b.googleCustomerId!, googleCampaignId, x, { currency: b.currency, language: b.language, url: b.url });
+  await log(b.id, "RECURSOS", `Campaña ${name}: ${r.added.length ? `añadidos ${r.added.join(", ")}` : "ningún recurso añadido"}.${r.failed.length ? ` Google rechazó: ${r.failed.join(" · ")}` : ""}`);
+}
+
+// Añade los recursos a una campaña de Google ya creada (los genera si la propuesta no los tenía).
+export async function addExtrasLive(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true } });
+  const b = c.business;
+  if (c.channel === "meta" || !c.googleCampaignId) throw new Error("Solo para campañas de Google ya creadas.");
+  let x = c.extras as GoogleExtras | null;
+  if (!x) {
+    const pages = (await db.product.findMany({ where: { businessId: b.id } })).map((p) => ({ name: p.name, url: p.url }));
+    x = await writeGoogleExtras(b, pages);
+    await db.campaign.update({ where: { id: c.id }, data: { extras: x } });
+  }
+  await createExtras(c.name, c.googleCampaignId, x, b);
 }
 
 // Reintenta las fotos de una campaña de Google ya creada (por grupo o, si no se puede, en la campaña).

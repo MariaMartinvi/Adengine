@@ -155,3 +155,34 @@ ${COPY_RULE}`;
   const j = json<MetaAdCopy>(await ask(sys, withRefs(user + extra, [ref]), 2000));
   return { message: j.message.trim().slice(0, 300), headline: j.headline.trim().slice(0, 40), description: (j.description || "").trim().slice(0, 30), basedOn: (j.basedOn || "").trim().slice(0, 160), script: ref.video ? (j.script || "").trim() : "" };
 }
+
+export type GoogleExtras = {
+  sitelinks: { text: string; desc1: string; desc2: string; url: string }[];
+  callouts: string[];
+  snippet: { header: string; values: string[] } | null;
+  promotion: { percentOff: number; item: string; code?: string } | null;
+  prices: { header: string; description: string; price: number; url: string }[];
+};
+
+// Recursos de los anuncios de búsqueda (enlaces de sitio, destacados, extracto, promoción y precios) con los datos reales de la ficha.
+export async function writeGoogleExtras(ficha: { name: string; sells: string; language: string; currency: string; url: string; notes?: string | null }, pages: { name: string; url: string }[]): Promise<GoogleExtras> {
+  const sys = `Preparas los recursos de una campaña de búsqueda de Google en el idioma indicado. Devuelves SOLO JSON:
+{"sitelinks":[{"text","desc1","desc2","url"}],"callouts":[…],"snippet":{"header","values":[…]},"promotion":{"percentOff","item","code"}|null,"prices":[{"header","description","price","url"}]}
+- sitelinks: 4-6 enlaces a las páginas más útiles de la lista (colecciones o temas); text ≤25 caracteres, desc1 y desc2 ≤35; url SOLO de la lista.
+- callouts: 4-8 frases ≤25 caracteres con ventajas REALES de la ficha (envío, impresión, garantías…).
+- snippet: header "Tipos" o "Estilos"; values 3-10 valores ≤25 caracteres.
+- promotion: solo si la ficha tiene un descuento real: percentOff (número entero), item (≤20 caracteres, qué se descuenta), code (solo si la ficha da un código). Si no hay descuento real, null.
+- prices: 3-8 productos o categorías con su precio REAL "desde" de la ficha; header ≤25, description ≤25, price número, url SOLO de la lista. Si la ficha no da precios, [].
+No inventes datos, cifras, reseñas ni ofertas que no estén en la ficha.`;
+  const user = `Negocio: ${ficha.name} — ${ficha.sells}\nIdioma: ${ficha.language}\nMoneda: ${ficha.currency}\nWeb: ${ficha.url}\nNotas y datos reales: ${ficha.notes || ""}\n\nPáginas (nombre | url):\n${pages.map((p) => `${p.name} | ${p.url}`).join("\n")}`;
+  const j = json<GoogleExtras>(await ask(sys, user, 3000));
+  const ok = new Set([...pages.map((p) => p.url), ficha.url]);
+  const fit = (t: unknown, n: number) => { const x = String(t || "").trim(); return x.length <= n ? x : ""; };
+  return {
+    sitelinks: (j.sitelinks || []).map((x) => ({ text: fit(x.text, 25), desc1: fit(x.desc1, 35), desc2: fit(x.desc2, 35), url: x.url })).filter((x) => x.text && x.desc1 && x.desc2 && ok.has(x.url)).slice(0, 6),
+    callouts: (j.callouts || []).map((x) => fit(x, 25)).filter((x) => x && allowedText(x)).slice(0, 8),
+    snippet: j.snippet && ["Tipos", "Estilos"].includes(j.snippet.header) ? { header: j.snippet.header, values: (j.snippet.values || []).map((v) => fit(v, 25)).filter(Boolean).slice(0, 10) } : null,
+    promotion: j.promotion && Number(j.promotion.percentOff) > 0 && Number(j.promotion.percentOff) < 100 && fit(j.promotion.item, 20) ? { percentOff: Math.round(Number(j.promotion.percentOff)), item: fit(j.promotion.item, 20), ...(j.promotion.code ? { code: String(j.promotion.code).trim().slice(0, 15) } : {}) } : null,
+    prices: (j.prices || []).map((x) => ({ header: fit(x.header, 25), description: fit(x.description, 25), price: Number(x.price), url: x.url })).filter((x) => x.header && x.description && x.price > 0 && ok.has(x.url)).slice(0, 8),
+  };
+}

@@ -73,6 +73,7 @@ model Campaign {
   metaAdSetId      String?
   metaRtAdSetId    String?
   groups           Json?
+  extras           Json?
   keywords         Keyword[]
   ads              Ad[]
   metrics          DailyMetric[]
