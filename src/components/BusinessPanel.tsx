@@ -7,14 +7,14 @@ type Metric = { date: string; cost: number; clicks: number; conversions: number;
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; extras?: any; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
 
 type Option = { id: string; name: string };
 type Ref = { id: string; channel: string; note: string; image?: string | null; video: boolean; audio?: string | null; product?: string | null; productId?: string | null; createdAt: string };
-type Product = { id: string; name: string; url: string; image?: string | null };
+type Product = { id: string; name: string; url: string; image?: string | null; photos: string[] };
 
 // Reduce la captura en el navegador (≤1280 px, JPEG) para que quepa en la BD y en la llamada a la IA.
 function shrink(file: File): Promise<string> {
@@ -77,6 +77,26 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   async function proposeMeta() { setBusy("meta"); await api(`/api/negocios/${b.id}/proponer`, { channel: "meta" }); setBusy(""); r.refresh(); }
   async function importSite() { setBusy("importar"); const j = await api(`/api/negocios/${b.id}/importar`); setBusy(""); if (j) { if (j.message) setErr(j.message); r.refresh(); } }
   async function addProduct() { setBusy("producto"); const j = await api(`/api/negocios/${b.id}/productos`, prodForm); setBusy(""); if (j) { setProdForm({ name: "", url: "", image: "" }); r.refresh(); } }
+  // Fotos del producto para los vídeos: se suben al almacén y se guardan en orden.
+  async function addPhotos(p: Product, files: FileList) {
+    setErr(""); setBusy(`fotos-${p.id}`);
+    try {
+      const urls = [];
+      for (const f of Array.from(files)) urls.push((await upload(`productos/${f.name}`, f, { access: "public", handleUploadUrl: "/api/subidas" })).url);
+      if (await api(`/api/productos/${p.id}`, { photos: [...p.photos, ...urls] }, "PATCH")) r.refresh();
+    } catch (e: any) { setErr(e.message || "No se pudieron subir las fotos"); }
+    setBusy("");
+  }
+  async function delPhoto(p: Product, url: string) { setBusy(`fotos-${p.id}`); await api(`/api/productos/${p.id}`, { photos: p.photos.filter((u) => u !== url) }, "PATCH"); setBusy(""); r.refresh(); }
+  // Música de los vídeos del negocio (p. ej. bajada de la Sound Collection de Meta).
+  async function uploadMusic(file: File) {
+    setErr(""); setBusy("musica");
+    try {
+      const blob = await upload(`musica/${file.name}`, file, { access: "public", handleUploadUrl: "/api/subidas", multipart: file.size > 20 * 1024 * 1024 });
+      if (await api(`/api/negocios/${b.id}`, { musicUrl: blob.url }, "PATCH")) r.refresh();
+    } catch (e: any) { setErr(e.message || "No se pudo subir la música"); }
+    setBusy("");
+  }
   async function delProduct(id: string) { setBusy("producto"); await api(`/api/productos/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
   async function setRefProduct(id: string, productId: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { productId }, "PATCH"); setBusy(""); r.refresh(); }
   async function addCover() { setBusy("portada"); const j = await api(`/api/campanas/${mLive!.id}/anuncios`, { imageUrl: newCover }); setBusy(""); if (j) { setNewCover(""); r.refresh(); } }
@@ -346,6 +366,11 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
             <option value="SIGN_UP">Registrarte</option>
           </select>
         </label>}
+        {b.metaAdAccountId && <label className="field">Música de los vídeos (Meta)
+          {data.musicUrl ? <audio controls src={data.musicUrl} style={{ width: "100%" }} /> : <span className="small" style={{ color: "#b45309" }}>Sin música: los vídeos saldrán en silencio</span>}
+          <input type="file" accept="audio/*,video/mp4" disabled={!!busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMusic(f); e.target.value = ""; }} />
+          {busy === "musica" && <span className="small">Subiendo…</span>}
+        </label>}
         {b.metaAdAccountId && <label className="field">Edad mínima (Meta)<input type="number" min={18} max={65} value={b.ageMin} onChange={(e) => set("ageMin", +e.target.value)} /></label>}
         {b.metaAdAccountId && <label className="field">Edad máxima (Meta)<input type="number" min={18} max={65} value={b.ageMax} onChange={(e) => set("ageMax", +e.target.value)} /></label>}
       </div>
@@ -365,6 +390,20 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
               <div key={p.id} className="card" style={{ padding: 8 }}>
                 {p.image && <img src={p.image} alt="" style={{ width: "100%" }} />}
                 <div className="small" style={{ margin: "4px 0" }}><a href={p.url} target="_blank" rel="noreferrer">{p.name}</a></div>
+                {p.photos.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                    {p.photos.map((u) => (
+                      <span key={u} style={{ position: "relative" }}>
+                        <img src={u} alt="" style={{ width: 40, height: 40, objectFit: "cover" }} />
+                        <button onClick={() => delPhoto(p, u)} disabled={!!busy} title="Quitar foto" style={{ position: "absolute", top: -6, right: -6, padding: "0 5px", fontSize: 11 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <label className="small" style={{ display: "block", marginBottom: 4, cursor: "pointer" }}>
+                  {busy === `fotos-${p.id}` ? "Subiendo fotos…" : `Fotos para vídeo (${p.photos.length}) · añadir`}
+                  <input type="file" accept="image/*" multiple style={{ display: "none" }} disabled={!!busy} onChange={(e) => { if (e.target.files?.length) addPhotos(p, e.target.files); e.target.value = ""; }} />
+                </label>
                 <button className="btn-secondary" onClick={() => delProduct(p.id)} disabled={!!busy}>Quitar</button>
               </div>
             ))}

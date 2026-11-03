@@ -48,6 +48,7 @@ model Business {
   googleWeekdaysOnly Boolean     @default(false)
   metaVisitorsAudienceId String?
   metaBuyersAudienceId   String?
+  musicUrl           String?
   notes              String?
   createdAt          DateTime    @default(now())
   campaigns          Campaign[]
@@ -213,6 +214,7 @@ model Product {
   name       String
   url        String
   image      String?
+  photos     String[]    @default([])
   references Reference[]
   createdAt  DateTime    @default(now())
 }

@@ -251,6 +251,31 @@ Nota: el píxel se instaló el 02/11/2026; Meta necesita ~100 personas en el pú
 - [x] 18.5 Botón "Importar desde la web" en la ficha: lee /sitemap.xml y carga cada página de producto y colección con su título y su foto (og:image o la del sitemap) → verificar con caricaturea.com. Código de 18.1-18.5 hecho, `tsc` y build OK; falta probar en producción
 - [x] 18.6 Volver a proponer Google de Cuadros con Alma → verificar: grupos Virgen María, Buen Pastor, versículos… cada uno con su anuncio, su página y sus fotos. Hecho (02/11/2026): 6 grupos (Religiosos modernos, Virgen María, Buen Pastor, Versículos, Jesús y Sagrado Corazón, Regalos), 32 palabras, 6 anuncios, 2 fotos por grupo. Importar probado con Caricaturea: 14 colecciones + 150 diseños con foto (los productos están en /p/: se saltan páginas por palabras, no por ruta). Pendiente: comprobar al crear que Google acepta grupos e imágenes
 
+## 19. Vídeo obligatorio cuando la referencia es un vídeo
+
+**Petición (María, 03/11/2026):** si una referencia de Meta es un vídeo, la propuesta tiene que traer un vídeo parecido hecho con nuestro producto, no una imagen.
+
+**Cómo es hoy:** cada referencia de Meta da un anuncio con la imagen del producto; el vídeo lo monta Claude a mano (ffmpeg + textos renderizados con Chrome) y María lo sube con "Cambiar medio". Ejemplo: `videos/bebes/bebes-tamano-real.mp4` (misma habitación, 6 estilos de lámina, 2 textos, 10 s, 9:16).
+
+**Suposiciones (a confirmar):**
+- Los vídeos de referencia que copiamos son "fotos con cortes o zoom + textos encima + música" (los de The Birth Poster, Karykatura, Cuadros con Alma). No grabamos vídeo real ni voz en off.
+- Hace falta más de una foto por producto (en el de Bebés: la lámina en varios estilos). Si el producto tiene 1 sola foto, el vídeo se hace con zoom lento sobre esa foto.
+- La música es un archivo por negocio que sube María (bajado de la Sound Collection de Meta). Sin música, el vídeo va en silencio.
+- Obligatorio = si la referencia es vídeo y el producto no tiene fotos, la propuesta se para con un aviso claro (igual que hoy cuando falta el producto).
+
+**Cómo se monta en el servidor:** ffmpeg dentro de la función de Vercel (paquete `ffmpeg-static`) y una fuente .ttf en el repo para los textos (sin emojis: ffmpeg no pinta emojis de color). Cada vídeo se monta en su propia llamada (máx. 300 s) para no pasarse del tiempo: la propuesta se crea con "vídeo pendiente" y el panel pide los vídeos uno a uno.
+
+**Alternativa descartada por ahora:** montar el vídeo en el navegador de María (canvas + grabadora). Pinta emojis, pero Chrome graba en WebM y no siempre en MP4, y depende de tener la pestaña abierta.
+
+TODOs (uno a uno, cada uno se prueba antes de pasar al siguiente):
+- [ ] 19.1 Fotos por producto: en "Nuestros productos" cada producto admite varias fotos (subir, ver y quitar) → verificar: subir las 6 láminas de Bebés a un producto y verlas en el panel
+- [ ] 19.2 Música por negocio: campo en la ficha para subir un mp3/mp4 → verificar: subir la Pavane a Cuadros con Alma y oírla desde la ficha
+- [ ] 19.3 Montador `src/lib/video.ts`: fotos + textos con tiempos + música → mp4 9:16 en Blob. Primero en local → verificar: con las 6 láminas sale un vídeo como `bebes-tamano-real.mp4`
+- [ ] 19.4 El montador en Vercel (ruta `POST /api/anuncios/[id]/video`) → verificar: generar el vídeo de un anuncio de prueba en producción y que Meta lo dé por listo
+- [ ] 19.5 Guion del vídeo: la IA, a partir de la descripción de la referencia, devuelve escenas (segundos, foto, texto en castellano adaptado) → verificar: con la referencia de The Birth Poster devuelve ~10 s, 6 cortes, "Recuerda lo pequeño que era" / "Diseña la tuya"
+- [ ] 19.6 Propuesta de Meta: referencia de vídeo → anuncio de vídeo (obligatorio; aviso si faltan fotos); el panel monta los vídeos pendientes y los enseña en la tarjeta → verificar: proponer Bebés y que los anuncios de referencias de vídeo salgan con vídeo
+- [ ] 19.7 "Rehacer vídeo con mis comentarios" en la tarjeta (cambiar textos, orden o duración) → verificar: pedir un cambio de texto y que el vídeo nuevo lo lleve
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
