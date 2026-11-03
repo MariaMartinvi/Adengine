@@ -91,7 +91,7 @@ export async function renderVideo(plan: VideoPlan, musicUrl?: string | null): Pr
       const cf = path.join(dir, `t${i}.png`);
       await writeFile(cf, await captionPng(text));
       args.push("-i", cf);
-      f.push(`[${last}][${input}]overlay=x=(W-w)/2:y=110:enable='between(t,${c.from},${c.to})'[c${i}]`);
+      f.push(`[${last}][${input}]overlay=x=(W-w)/2:y=110:enable='gte(t,${c.from})*lt(t,${c.to})'[c${i}]`);
       last = `c${i}`; input++;
     }
     f.push(`[${last}]format=yuv420p[out]`);
