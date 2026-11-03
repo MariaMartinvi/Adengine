@@ -144,12 +144,14 @@ El anuncio lo ve un adulto que decide (madre, padre, docente); si el producto es
 export type MetaAdCopy = MetaCopy & { script: string };
 
 // Un anuncio de Meta que calca una referencia con nuestro cuadro. Si la referencia es un vídeo, además un guion para grabar el nuestro igual.
-export async function writeMetaAdFromRef(ficha: { name: string; sells: string; audience: string; language: string; price: number; url: string; notes?: string | null }, ref: Ref): Promise<MetaAdCopy> {
+export async function writeMetaAdFromRef(ficha: { name: string; sells: string; audience: string; language: string; price: number; url: string; notes?: string | null }, ref: Ref, revise?: { previous: { message: string; headline: string; description: string }; feedback: string }): Promise<MetaAdCopy> {
   const sys = `Escribes un anuncio para Facebook e Instagram en el idioma indicado, calcando la referencia. Devuelves SOLO JSON: {"message","headline","description","basedOn","script"}.
 - message (texto principal): máximo 300 caracteres. headline (titular bajo la imagen): máximo 40. description: máximo 30.
 - script: si la referencia es un vídeo, guion para grabar el nuestro igual con nuestro cuadro: duración, plano a plano con segundos, texto sobreimpreso y música (la de la referencia). Si no es vídeo, "".
 ${COPY_RULE}`;
   const user = `Producto: ${ficha.name} — ${ficha.sells}\nPara quién: ${ficha.audience}\nIdioma: ${ficha.language}\nPrecio: desde ${ficha.price}\nWeb: ${ficha.url}\nNotas y datos reales: ${ficha.notes || ""}`;
-  const j = json<MetaAdCopy>(await ask(sys, withRefs(user, [ref]), 2000));
+  // Rehacer con comentarios: la versión anterior y lo que pide María, que manda sobre todo lo demás (salvo las reglas de no inventar).
+  const extra = revise ? `\n\nVersión anterior del anuncio:\nTexto: ${revise.previous.message}\nTitular: ${revise.previous.headline}\nDescripción: ${revise.previous.description}\n\nComentarios para mejorarlo (aplícalos todos): ${revise.feedback}` : "";
+  const j = json<MetaAdCopy>(await ask(sys, withRefs(user + extra, [ref]), 2000));
   return { message: j.message.trim().slice(0, 300), headline: j.headline.trim().slice(0, 40), description: (j.description || "").trim().slice(0, 30), basedOn: (j.basedOn || "").trim().slice(0, 160), script: ref.video ? (j.script || "").trim() : "" };
 }

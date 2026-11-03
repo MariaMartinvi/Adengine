@@ -172,7 +172,7 @@ export async function proposeMetaCampaign(businessId: string) {
   for (const r of refs) {
     const copy = await writeMetaAdFromRef(b, r);
     const hash = await meta.uploadImage(b.metaAdAccountId!, r.item!.image!);
-    ads.push({ mediaType: "image", mediaUrl: r.item!.image!, mediaRef: hash, finalUrl: r.item!.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn, brief: copy.script || null });
+    ads.push({ mediaType: "image", mediaUrl: r.item!.image!, mediaRef: hash, finalUrl: r.item!.url, headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn, brief: copy.script || null, refId: r.id });
   }
   await db.campaign.deleteMany({ where: { businessId, status: "DRAFT", channel: "meta" } });
   const c = await db.campaign.create({ data: {
@@ -256,11 +256,32 @@ export async function replaceDraftMedia(adId: string, url: string, kind: "image"
   await log(b.id, "MEDIO", `Propuesta de Meta: ${kind === "video" ? "vídeo" : "imagen"} nuevo en un anuncio.`);
 }
 
+// Rehace el texto de UN anuncio de una propuesta de Meta con los comentarios de María: misma referencia y misma imagen.
+export async function rewriteDraftMetaAd(adId: string, feedback: string) {
+  const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { business: true } } } });
+  const c = a.campaign, b = c.business;
+  if (c.channel !== "meta" || c.status !== "DRAFT") throw new Error("Solo se rehacen anuncios de una propuesta de Meta.");
+  if (!feedback.trim()) throw new Error("Escribe qué quieres mejorar.");
+  // La referencia del anuncio; en propuestas antiguas, la del mismo producto o la primera.
+  const refs = await db.reference.findMany({ where: { businessId: b.id, channel: "meta" }, include: { item: true }, orderBy: { createdAt: "desc" } });
+  const ref = refs.find((r) => r.id === a.refId) || refs.find((r) => r.item?.url === a.finalUrl) || refs[0];
+  if (!ref) throw new Error("Este negocio no tiene referencias de Meta.");
+  const [headline] = a.headlines as string[]; const [message, description] = a.descriptions as string[];
+  const copy = await writeMetaAdFromRef(b, ref, { previous: { message, headline, description: description || "" }, feedback: feedback.trim().slice(0, 1000) });
+  await db.ad.update({ where: { id: a.id }, data: { headlines: [copy.headline], descriptions: [copy.message, copy.description], basedOn: copy.basedOn, refId: ref.id, ...(copy.script ? { brief: copy.script } : {}) } });
+  await log(b.id, "ANUNCIO_REHECHO", `Propuesta de Meta: anuncio reescrito con tus comentarios («${feedback.trim().slice(0, 80)}»).`);
+  return { message: copy.message, headline: copy.headline, description: copy.description, basedOn: copy.basedOn };
+}
+
 // Aprobación: crea en Meta campaña EN PAUSA + conjunto con presupuesto total (freno nativo) + un anuncio por creatividad.
-export async function approveMetaCampaign(campaignId: string, edits: { dailyBudget: number; totalCap: number; ads: { id: string; message: string; headline: string; description: string }[] }) {
+export async function approveMetaCampaign(campaignId: string, edits: { dailyBudget: number; totalCap: number; ads: { id: string; message: string; headline: string; description: string; included?: boolean }[] }) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: true } });
   const b = c.business;
   if (c.status !== "CREATING" || c.channel !== "meta") throw new Error("Esta propuesta ya no está pendiente.");
+  // Solo se crean los anuncios marcados; los demás se quitan de la propuesta.
+  const off = edits.ads.filter((x) => x.included === false).map((x) => x.id);
+  if (off.length >= c.ads.length) throw new Error("Marca al menos un anuncio para crear.");
+  if (off.length) { await db.ad.deleteMany({ where: { id: { in: off }, campaignId: c.id } }); c.ads = c.ads.filter((a) => !off.includes(a.id)); }
   if (!(edits.dailyBudget > 0) || !(edits.totalCap >= edits.dailyBudget)) throw new Error("El gasto total debe ser al menos el presupuesto diario.");
   // Texto de cada anuncio: el editado en la pantalla de aprobación o, si no llega, el de la propuesta.
   const copyOf = (a: { id: string; headlines: unknown; descriptions: unknown }) => {

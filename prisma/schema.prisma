@@ -117,6 +117,8 @@ model Ad {
   adGroup      String?
   path1        String?
   path2        String?
+  included     Boolean  @default(true)
+  refId        String?
   status       String   @default("ENABLED")
 }
 

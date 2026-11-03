@@ -6,7 +6,7 @@ import { upload } from "@vercel/blob/client";
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
-type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null }[]; metrics: Metric[]; proposals: Proposal[] };
+type Campaign = { id: string; name: string; status: string; channel: string; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
 type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
@@ -52,6 +52,9 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   const [mCopy, setMCopy] = useState<Record<string, { message: string; headline: string; description: string }>>(Object.fromEntries((mDraft?.ads || []).map((a) => [a.id, { message: a.descriptions[0] || "", headline: a.headlines[0] || "", description: a.descriptions[1] || "" }])));
   // Ruta visible de cada anuncio de Google (tienda.com/parte1/parte2), editable antes de crear.
   const [gPaths, setGPaths] = useState<Record<string, { path1: string; path2: string }>>(Object.fromEntries((gDraft?.ads || []).map((a) => [a.id, { path1: a.path1 || "", path2: a.path2 || "" }])));
+  // Por anuncio de Meta: si se crea y los comentarios para rehacerlo.
+  const [mInc, setMInc] = useState<Record<string, boolean>>(Object.fromEntries((mDraft?.ads || []).map((a) => [a.id, a.included !== false])));
+  const [mFeedback, setMFeedback] = useState<Record<string, string>>({});
   const [prodForm, setProdForm] = useState({ name: "", url: "", image: "" });
   const [newCover, setNewCover] = useState("");
   const [adLinks, setAdLinks] = useState<Record<string, string>>({});
@@ -80,7 +83,7 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
   async function approve(d: Campaign) {
     setBusy("aprobar");
     const body = isMeta(d)
-      ? { campaignId: d.id, dailyBudget: mBudget, totalCap: mCap, ads: d.ads.map((a) => ({ id: a.id, ...mCopy[a.id] })), keywords: [] }
+      ? { campaignId: d.id, dailyBudget: mBudget, totalCap: mCap, ads: d.ads.map((a) => ({ id: a.id, ...mCopy[a.id], included: mInc[a.id] !== false })), keywords: [] }
       : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType, finalUrl: k.finalUrl || null })), ads: d.ads.map((a) => ({ id: a.id, ...gPaths[a.id] })) };
     const j = await api(`/api/negocios/${b.id}/aprobar`, body);
     setBusy(""); if (j) r.refresh();
@@ -113,6 +116,12 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
       if (j) r.refresh();
     } catch (e: any) { setErr(e.message || "No se pudo subir el archivo"); }
     setBusy("");
+  }
+  async function rewrite(adId: string) {
+    setBusy(`rehacer-${adId}`);
+    const j = await api(`/api/anuncios/${adId}/reescribir`, { feedback: mFeedback[adId] || "" });
+    setBusy("");
+    if (j) { setMCopy({ ...mCopy, [adId]: { message: j.message, headline: j.headline, description: j.description } }); setMFeedback({ ...mFeedback, [adId]: "" }); r.refresh(); }
   }
   async function discard(c: Campaign) {
     if (!confirm("¿Descartar esta propuesta? No existe aún en Meta ni en Google; se borra de AdEngine.")) return;
@@ -395,7 +404,8 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
               const k = mCopy[a.id] || { message: "", headline: "", description: "" };
               const set = (f: string, v: string) => setMCopy({ ...mCopy, [a.id]: { ...k, [f]: v } });
               return (
-                <div className="card" key={a.id}>
+                <div className="card" key={a.id} style={{ opacity: mInc[a.id] === false ? 0.5 : 1 }}>
+                  <label className="row small" style={{ gap: 6, marginBottom: 4 }}><input type="checkbox" checked={mInc[a.id] !== false} onChange={(e) => setMInc({ ...mInc, [a.id]: e.target.checked })} /> Incluir en la campaña</label>
                   <div className="small">Anuncio {i + 1} · <a href={a.finalUrl} target="_blank" rel="noreferrer">{a.finalUrl.replace(/^https?:\/\//, "")}</a></div>
                   {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
                   {a.mediaType === "video" ? <video src={a.mediaUrl} controls muted playsInline style={{ width: "100%", marginTop: 8 }} /> : <img src={a.mediaUrl} alt="" style={{ width: "100%", marginTop: 8 }} />}
@@ -405,15 +415,17 @@ export default function BusinessPanel({ data, accounts, metaAccounts = [], metaP
                   <label className="field">Texto principal ({k.message.length}/300)<textarea rows={4} value={k.message} maxLength={300} onChange={(e) => set("message", e.target.value)} /></label>
                   <label className="field">Titular ({k.headline.length}/40)<input value={k.headline} maxLength={40} onChange={(e) => set("headline", e.target.value)} /></label>
                   <label className="field">Descripción ({k.description.length}/30)<input value={k.description} maxLength={30} onChange={(e) => set("description", e.target.value)} /></label>
+                  <label className="field" style={{ marginTop: 8 }}>Comentarios para mejorarlo<textarea rows={2} value={mFeedback[a.id] || ""} onChange={(e) => setMFeedback({ ...mFeedback, [a.id]: e.target.value })} placeholder="Más corto, habla de cumpleaños, sin emojis…" /></label>
+                  <button className="btn-secondary" style={{ marginTop: 6 }} onClick={() => rewrite(a.id)} disabled={!!busy || !(mFeedback[a.id] || "").trim()}>{busy === `rehacer-${a.id}` ? "Reescribiendo…" : "Rehacer con mis comentarios"}</button>
                   {a.brief && <details style={{ marginTop: 8 }}><summary className="small">Guion para grabar el vídeo</summary><p className="small" style={{ whiteSpace: "pre-wrap" }}>{a.brief}</p></details>}
                 </div>
               );
             })}
           </div>
           <div className="row" style={{ marginTop: 18 }}>
-            <button onClick={() => approve(mDraft)} disabled={!!busy || mDraft.ads.some((a) => !mCopy[a.id]?.message || !mCopy[a.id]?.headline) || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
+            <button onClick={() => approve(mDraft)} disabled={!!busy || mDraft.ads.some((a) => mInc[a.id] !== false && (!mCopy[a.id]?.message || !mCopy[a.id]?.headline)) || !mDraft.ads.some((a) => mInc[a.id] !== false) || !(mCap >= mBudget)}>{busy === "aprobar" ? "Creando en Meta…" : "Crear en pausa en Meta"}</button>
             <button className="btn-secondary" onClick={() => discard(mDraft)} disabled={!!busy}>{busy === "descartar" ? "Descartando…" : "Descartar propuesta"}</button>
-            <span className="small">Facebook + Instagram · {mDraft.ads.length} anuncio{mDraft.ads.length > 1 ? "s" : ""} · captación (80 %) + remarketing a visitantes de la web sin compra (20 %)</span>
+            <span className="small">Facebook + Instagram · {mDraft.ads.filter((a) => mInc[a.id] !== false).length} de {mDraft.ads.length} anuncios marcados · captación (80 %) + remarketing a visitantes de la web sin compra (20 %)</span>
           </div>
         </>
       )}
