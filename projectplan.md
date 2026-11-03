@@ -312,19 +312,22 @@ Objetivo: que AdEngine no solo lance campañas, sino que diga rápido y con dato
 
 **Meta de negocio (María, 03/11/2026):** el CAC más bajo posible con el volumen de ventas que lleve la cartera a **10.000 € de EBITDA al mes**. Cada mejora se mide por cuánto acerca a esa cifra: margen por venta (precio × margen − CAC) × ventas − costes fijos.
 
+Orden acordado (03/11/2026): primero aprender rápido copiando lo probado; repartir el dinero cuando haya ventas que comparar.
+
 | # | Qué | Estado |
 |---|---|---|
-| 1.1 | Medir la compra de verdad (webs → AdEngine → Google y Meta) | Hecho (sección 20) |
-| 1.2 | CAC real y veredicto por negocio | Hecho (sección 21) |
-| 1.3 | Presupuesto de experimento: «gasto como máximo X € para saber si funciona», con fecha de fin e informe al acabar | Pendiente |
-| 2.1 | Pocos anuncios pero distintos: proponer 3 ángulos (emoción, regalo, precio/oferta) en vez de N variantes | Pendiente |
-| 2.2 | Rotación de ganadores: a los 3-4 días proponer pausar los flojos y pasar el dinero al mejor | Pendiente |
-| 2.3 | Diagnóstico de la web: clics sin compras → «el anuncio funciona, la página no» + sugerencias | Pendiente |
-| 2.4 | Test de demanda sin producto (lista de espera / reserva) | Pendiente |
-| 3.1 | Panel de cartera: todos los negocios con gasto, ventas, CAC y veredicto | Pendiente |
-| 3.2 | Alertas (anuncio rechazado, gasto sin ventas, primera venta, tope) | Pendiente |
-| 3.3 | Alta exprés: URL → ficha, productos, referencias y campañas en <30 min | Pendiente |
-| 3.4 | Aprendizaje entre negocios (qué ángulos y referencias vendieron) | Pendiente |
+| 1 | Medir la compra de verdad (webs → AdEngine → Google y Meta) | Hecho (sección 20) |
+| 2 | CAC real, embudo y veredicto por negocio | Hecho (sección 21) |
+| 3 | **Copiar lo probado, pocos anuncios**: fecha de inicio en cada referencia (aviso si < 1 mes) y propuesta de Meta con 4 anuncios marcados como máximo (las referencias más antiguas, vídeo primero) | Siguiente |
+| 4 | **Rotación de ganadores**: a los 3-4 días proponer pausar los flojos y dejar el dinero al que vende | Pendiente |
+| 5 | **Presupuesto de experimento** por MVP (importe y fecha de fin, informe al acabar) y CAC de validación vs CAC de escalado en la ficha | Pendiente |
+| 6 | **Camino a 10.000 €**: margen de contribución por negocio y total frente al objetivo, ventas que faltan (necesita margen real y costes fijos de María) | Pendiente |
+| 7 | **Reparto del dinero** entre canales y negocios por margen por euro invertido (propuesta semanal, María aprueba) | Pendiente |
+| 8 | **Escalado progresivo** (+20-30 % cada 3-4 días) y optimizar a compra / CPA objetivo cuando haya datos | Pendiente |
+| 9 | **Alertas** (primera venta, anuncio rechazado, gasto sin ventas, tope) | Pendiente |
+| 10 | **Diagnóstico de la web** (clics a compra sin ventas → qué cambiar) | Pendiente |
+| 11 | **Alta exprés** (URL → ficha, productos, referencias y campañas en < 30 min) | Pendiente |
+| 12 | **Aprendizaje entre negocios** y test de demanda sin producto | Pendiente |
 
 ## 21. CAC real y veredicto por negocio (1.2)
 
