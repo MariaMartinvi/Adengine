@@ -644,6 +644,32 @@ export async function syncCampaign(campaignId: string) {
   } catch { /* search_term_view puede no tener datos aún */ }
 }
 
+// Google, campaña creada: cambiar la puja máxima o pausar/reactivar una palabra, y añadir palabras a un grupo.
+export async function updateLiveKeyword(keywordId: string, patch: { maxCpc?: number; status?: "ENABLED" | "PAUSED" }) {
+  const k = await db.keyword.findUniqueOrThrow({ where: { id: keywordId }, include: { campaign: { include: { business: true } } } });
+  const c = k.campaign, b = c.business;
+  if (!c.googleCampaignId || !k.googleCriterionId) throw new Error("Esta palabra aún no está en Google Ads.");
+  if (patch.maxCpc != null && !(patch.maxCpc >= 0.05 && patch.maxCpc <= 20)) throw new Error("La puja máxima debe estar entre 0,05 y 20 €.");
+  await ads.updateKeyword(b.googleCustomerId!, k.googleAdGroupId || c.googleAdGroupId!, k.googleCriterionId, patch);
+  await db.keyword.update({ where: { id: k.id }, data: patch });
+  await log(b.id, "PALABRA", `«${k.text}»: ${patch.maxCpc != null ? `puja máxima ${patch.maxCpc} €` : patch.status === "PAUSED" ? "en pausa" : "reactivada"} (por ti).`);
+}
+
+export async function addLiveKeyword(campaignId: string, k: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number; adGroup?: string | null; finalUrl?: string | null }) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, keywords: true } });
+  const b = c.business;
+  if (c.channel === "meta" || !c.googleCampaignId) throw new Error("Solo en una campaña de Google ya creada.");
+  const text = k.text.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!text || text.length > 80 || text.split(" ").length > 10) throw new Error("La palabra debe tener de 1 a 10 palabras (máx. 80 caracteres).");
+  if (!(k.maxCpc >= 0.05 && k.maxCpc <= 20)) throw new Error("La puja máxima debe estar entre 0,05 y 20 €.");
+  if (c.keywords.some((x) => x.text === text && x.matchType === k.matchType)) throw new Error("Esa palabra ya está en la campaña.");
+  // El grupo se reconoce por las palabras que ya tiene; sin grupo, el principal de la campaña.
+  const adGroupId = c.keywords.find((x) => (x.adGroup || "") === (k.adGroup || "") && x.googleAdGroupId)?.googleAdGroupId || c.googleAdGroupId!;
+  const criterionId = await ads.addKeyword(b.googleCustomerId!, adGroupId, { text, matchType: k.matchType, maxCpc: k.maxCpc, finalUrl: k.finalUrl });
+  await db.keyword.create({ data: { campaignId: c.id, text, matchType: k.matchType, maxCpc: k.maxCpc, adGroup: k.adGroup || null, finalUrl: k.finalUrl || null, googleCriterionId: criterionId, googleAdGroupId: adGroupId, intent: "añadida por ti" } });
+  await log(b.id, "PALABRA", `Añadida «${text}» (${k.matchType === "EXACT" ? "exacta" : "frase"}, ${k.maxCpc} €)${k.adGroup ? ` al grupo «${k.adGroup}»` : ""}.`);
+}
+
 // Reparto del dinero de un negocio (una vez por semana como mucho por campaña): propuestas que María aprueba.
 const MONEY = ["MOVE_BUDGET", "SET_BUDGET", "PAUSE_CAMPAIGN"];
 export async function proposeBudgetMoves(businessId: string) {

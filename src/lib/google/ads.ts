@@ -191,6 +191,14 @@ export async function updateKeyword(cid: string, adGroupId: string, criterionId:
   await call(`/customers/${cid}/adGroupCriteria:mutate`, { operations: [{ updateMask: mask.join(","), update }] });
 }
 
+// Palabra nueva en un grupo de una campaña ya creada; devuelve el id del criterio.
+export async function addKeyword(cid: string, adGroupId: string, k: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number; finalUrl?: string | null }) {
+  const j = await call(`/customers/${cid}/adGroupCriteria:mutate`, { operations: [{ create: {
+    adGroup: `customers/${cid}/adGroups/${adGroupId}`, status: "ENABLED", cpcBidMicros: toMicros(k.maxCpc), keyword: { text: k.text, matchType: k.matchType }, ...(k.finalUrl ? { finalUrls: [k.finalUrl] } : {}),
+  } }] });
+  return j.results[0].resourceName.split("~").pop() as string;
+}
+
 export async function addNegative(cid: string, campaignId: string, text: string) {
   await call(`/customers/${cid}/campaignCriteria:mutate`, { operations: [{ create: { campaign: `customers/${cid}/campaigns/${campaignId}`, negative: true, keyword: { text, matchType: "PHRASE" } } }] });
 }

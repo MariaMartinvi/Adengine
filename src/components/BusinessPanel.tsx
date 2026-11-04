@@ -164,6 +164,10 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
     if (!confirm(`«${c.name}» se quedó a medias al crearse. ¿Volver a dejarla como propuesta? Mira antes en ${isMeta(c) ? "Meta" : "Google"} si quedó una campaña en pausa con ese nombre y archívala allí.`)) return;
     setBusy("desbloquear"); await api(`/api/campanas/${c.id}/desbloquear`); setBusy(""); r.refresh();
   }
+  // Google, campaña creada: puja o estado de una palabra, y palabras nuevas.
+  async function kwPatch(id: string, patch: { maxCpc?: number; status?: string }) { setBusy(`kw-${id}`); await api(`/api/palabras/${id}`, patch, "PATCH"); setBusy(""); r.refresh(); }
+  const [newKw, setNewKw] = useState({ text: "", matchType: "PHRASE", maxCpc: b.maxCpc, adGroup: "", finalUrl: "" });
+  async function addKw(c: Campaign) { setBusy("palabra"); const j = await api(`/api/campanas/${c.id}/palabras`, newKw); setBusy(""); if (j) { setNewKw({ ...newKw, text: "" }); r.refresh(); } }
   async function adStatus(adId: string, status: "ENABLED" | "PAUSED") { setBusy(`estado-${adId}`); await api(`/api/anuncios/${adId}/estado`, { status }); setBusy(""); r.refresh(); }
   // Aviso si una campaña nueva de `daily` €/día hace pasar la cartera de su presupuesto mensual (no bloquea).
   const overMonthly = (daily: number) => {
@@ -344,8 +348,10 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
                   return (
                     <tr key={k.id} style={{ opacity: k.status === "PAUSED" ? .5 : 1 }}>
                       <td>{k.text} <span className="small">{k.matchType === "EXACT" ? "[exacta]" : "\"frase\""}</span></td>
-                      <td><span className={`status ${k.status}`}>{k.status === "ENABLED" ? "activa" : "pausada"}</span></td>
-                      <td className="num">{k.maxCpc.toFixed(2)}</td>
+                      <td style={{ whiteSpace: "nowrap" }}><span className={`status ${k.status}`}>{k.status === "ENABLED" ? "activa" : "pausada"}</span>{" "}
+                        <button className="btn-secondary" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => kwPatch(k.id, { status: k.status === "ENABLED" ? "PAUSED" : "ENABLED" })} disabled={!!busy}>{k.status === "ENABLED" ? "Pausar" : "Reactivar"}</button></td>
+                      <td className="num"><input type="number" step="0.05" min="0.05" defaultValue={k.maxCpc} style={{ width: 72 }} disabled={!!busy}
+                        onBlur={(e) => { const v = Number(e.target.value); if (v && v !== k.maxCpc) kwPatch(k.id, { maxCpc: v }); }} /></td>
                       <td className="num">{sum(k.metrics, "impressions")}</td>
                       <td className="num">{clicks}</td>
                       <td className="num">{clicks ? (cost / clicks).toFixed(2) : "—"}</td>
@@ -357,6 +363,20 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
                 })}
               </tbody>
             </table>
+            <div className="row" style={{ marginTop: 10 }}>
+              <label className="field">Añadir palabra<input value={newKw.text} onChange={(e) => setNewKw({ ...newKw, text: e.target.value })} placeholder="formación ia gestorías" style={{ width: 220 }} /></label>
+              <label className="field">Concordancia<select value={newKw.matchType} onChange={(e) => setNewKw({ ...newKw, matchType: e.target.value })}><option value="PHRASE">Frase</option><option value="EXACT">Exacta</option></select></label>
+              <label className="field">Puja máx. (€)<input type="number" step="0.05" min="0.05" value={newKw.maxCpc} onChange={(e) => setNewKw({ ...newKw, maxCpc: +e.target.value })} style={{ width: 80 }} /></label>
+              <label className="field">Grupo<select value={newKw.adGroup} onChange={(e) => setNewKw({ ...newKw, adGroup: e.target.value })}>
+                {[...new Set(live.keywords.map((k) => k.adGroup || ""))].map((g) => <option key={g} value={g}>{g || "Principal"}</option>)}
+              </select></label>
+              <label className="field">Lleva a<select value={newKw.finalUrl} onChange={(e) => setNewKw({ ...newKw, finalUrl: e.target.value })}>
+                <option value="">La web de la ficha</option>
+                {data.products.map((p) => <option key={p.id} value={p.url}>{p.name}</option>)}
+              </select></label>
+              <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addKw(live)} disabled={!!busy || !newKw.text.trim() || !(newKw.maxCpc > 0)}>{busy === "palabra" ? "Añadiendo…" : "Añadir"}</button>
+            </div>
+            <p className="small">La puja se guarda al salir del campo. Todo se aplica en Google Ads al momento.</p>
           </div>}
         </div>
   );
