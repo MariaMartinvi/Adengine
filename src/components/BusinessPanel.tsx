@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { validate } from "@/lib/validation";
+import { groupsWithoutAd } from "@/lib/googleGroups";
 
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; purchases?: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
@@ -56,6 +57,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   // Ruta visible de cada anuncio de Google (tienda.com/parte1/parte2), editable antes de crear.
   const [gPaths, setGPaths] = useState<Record<string, { path1: string; path2: string }>>(Object.fromEntries((gDraft?.ads || []).map((a) => [a.id, { path1: a.path1 || "", path2: a.path2 || "" }])));
   // Por anuncio de Meta: si se crea y los comentarios para rehacerlo.
+  const [gInc, setGInc] = useState<Record<string, boolean>>(Object.fromEntries((gDraft?.ads || []).map((a) => [a.id, a.included !== false])));
   const [mInc, setMInc] = useState<Record<string, boolean>>(Object.fromEntries((mDraft?.ads || []).map((a) => [a.id, a.included !== false])));
   const [mFeedback, setMFeedback] = useState<Record<string, string>>({});
   const [prodForm, setProdForm] = useState({ name: "", url: "", image: "" });
@@ -114,7 +116,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
     setBusy("aprobar");
     const body = isMeta(d)
       ? { campaignId: d.id, dailyBudget: mBudget, totalCap: mCap, ads: d.ads.map((a) => ({ id: a.id, ...mCopy[a.id], included: mInc[a.id] !== false })), keywords: [] }
-      : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType, finalUrl: k.finalUrl || null })), ads: d.ads.map((a) => ({ id: a.id, ...gPaths[a.id] })) };
+      : { campaignId: d.id, dailyBudget: budget, totalCap: cap, keywords: kws.map((k) => ({ id: k.id, maxCpc: k.maxCpc, included: k.included, matchType: k.matchType, finalUrl: k.finalUrl || null })), ads: d.ads.map((a) => ({ id: a.id, ...gPaths[a.id], included: gInc[a.id] !== false })) };
     const j = await api(`/api/negocios/${b.id}/aprobar`, body);
     setBusy(""); if (j) r.refresh();
   }
@@ -194,6 +196,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   async function decide(id: string, decision: string) { setBusy(id); await api(`/api/propuestas/${id}`, { decision }); setBusy(""); r.refresh(); }
 
   const inc = kws.filter((k) => k.included);
+  const gEmpty = gDraft ? groupsWithoutAd(kws, gDraft.ads.map((a) => ({ adGroup: a.adGroup, included: gInc[a.id] !== false }))) : [];
   const overCap = inc.filter((k) => k.maxCpc > b.maxCpc).length;
   const estDailyClicks = useMemo(() => inc.length ? budget / (inc.reduce((s, k) => s + k.maxCpc, 0) / inc.length) : 0, [inc, budget]);
   const set = (k: keyof Business, v: any) => setB({ ...b, [k]: v });
@@ -748,7 +751,8 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
           <h2>Anuncios</h2>
           <div className="grid">
             {gDraft.ads.map((a, i) => (
-              <div className="card" key={i}>
+              <div className="card" key={i} style={{ opacity: gInc[a.id] === false ? 0.5 : 1 }}>
+                <label className="row small" style={{ gap: 6, marginBottom: 4 }}><input type="checkbox" checked={gInc[a.id] !== false} onChange={(e) => setGInc({ ...gInc, [a.id]: e.target.checked })} /> Incluir en la campaña</label>
                 <div className="small">Anuncio {i + 1}{a.adGroup ? ` · grupo «${a.adGroup}»` : ""} · Google combina estos textos</div>
                 {a.basedOn && <div className="small">Imita: {a.basedOn}</div>}
                 <div className="small"><a href={a.finalUrl} target="_blank" rel="noreferrer">{a.finalUrl.replace(/^https?:\/\//, "")}</a></div>
@@ -762,8 +766,9 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
             ))}
           </div>
           <div className="row" style={{ marginTop: 18 }}>
-            <button onClick={() => approve(gDraft)} disabled={!!busy || !inc.length || overCap > 0}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
+            <button onClick={() => approve(gDraft)} disabled={!!busy || !inc.length || overCap > 0 || gEmpty.length > 0 || !gDraft.ads.some((a) => gInc[a.id] !== false)}>{busy === "aprobar" ? "Creando en Google Ads…" : "Crear en pausa en Google Ads"}</button>
             <button className="btn-secondary" onClick={() => discard(gDraft)} disabled={!!busy}>{busy === "descartar" ? "Descartando…" : "Descartar propuesta"}</button>
+            {gEmpty.length > 0 && <span className="small" style={{ color: "var(--bad)" }}>{gEmpty.map((g) => `El grupo «${g}»`).join(" y ")} tiene palabras pero ningún anuncio: incluye uno o quita sus palabras.</span>}
             <span className="small">{data.googleWeekdaysOnly ? "Lunes a viernes, 8–20 h" : "Todos los días, a cualquier hora"} · solo Búsqueda · puja manual con techo · con las fotos de hasta 3 cuadros como imágenes (Google decide cuándo enseñarlas)</span>
           </div>
           {overMonthly(budget)}

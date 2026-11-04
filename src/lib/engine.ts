@@ -14,6 +14,7 @@ import { metaAdsToPause, metaRotation } from "./metaRotation";
 import { cacTestOf, validate } from "./validation";
 import { budgetMoves } from "./budgetMoves";
 import { portfolio } from "./portfolio";
+import { groupsWithoutAd } from "./googleGroups";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -153,7 +154,10 @@ export async function approveCampaign(campaignId: string) {
   const b = c.business;
   const kws = c.keywords.filter((k) => k.included);
   if (!kws.length) throw new Error("La campaña necesita al menos una palabra incluida.");
-  if (!c.ads.length) throw new Error("La campaña necesita al menos un anuncio.");
+  const gAds = c.ads.filter((a) => a.included);
+  if (!gAds.length) throw new Error("La campaña necesita al menos un anuncio incluido.");
+  const empty = groupsWithoutAd(kws, gAds);
+  if (empty.length) throw new Error(`${empty.map((g) => `El grupo «${g}»`).join(" y ")} tiene palabras pero ningún anuncio: incluye uno o quita sus palabras.`);
   const over = kws.filter((k) => k.maxCpc > b.maxCpc);
   if (over.length) throw new Error(`Hay ${over.length} palabras con CPC máximo por encima del techo de la ficha (${b.maxCpc}). Bájalas o sube el techo.`);
   if (!b.conversionActionId) {
@@ -163,21 +167,22 @@ export async function approveCampaign(campaignId: string) {
   const res = await ads.createSearchCampaign(b.googleCustomerId!, {
     name: `${c.name} · ${stamp()}`, dailyBudget: c.dailyBudget, country: b.country, language: b.language, finalUrl: b.url, path1: b.googlePath1, path2: b.googlePath2,
     keywords: kws.map((k) => ({ text: k.text, matchType: k.matchType as "EXACT" | "PHRASE", maxCpc: k.maxCpc, finalUrl: k.finalUrl, group: k.adGroup })),
-    ads: c.ads.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl, group: a.adGroup, path1: a.path1 || b.googlePath1, path2: a.path1 ? a.path2 : b.googlePath2 })),
+    ads: gAds.map((a) => ({ headlines: a.headlines as unknown as string[], descriptions: a.descriptions as unknown as string[], finalUrl: a.finalUrl, group: a.adGroup, path1: a.path1 || b.googlePath1, path2: a.path1 ? a.path2 : b.googlePath2 })),
     negatives: c.proposals.filter((p) => p.kind === "ADD_NEGATIVE" && p.status === "APPROVED").map((p) => p.target),
     schedule: b.googleWeekdaysOnly,
   });
   await db.$transaction([
     db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", googleCampaignId: res.campaignId, googleBudgetId: res.budgetId, googleAdGroupId: res.adGroupId } }),
     ...kws.map((k, i) => db.keyword.update({ where: { id: k.id }, data: { googleCriterionId: res.criterionIds[i], googleAdGroupId: res.adGroupIds[k.adGroup || ""] || res.adGroupId } })),
-    ...c.ads.map((a, i) => db.ad.update({ where: { id: a.id }, data: { googleAdId: res.adIds[i] } })),
+    ...gAds.map((a, i) => db.ad.update({ where: { id: a.id }, data: { googleAdId: res.adIds[i] } })),
     db.keyword.deleteMany({ where: { campaignId: c.id, included: false } }),
+    db.ad.deleteMany({ where: { campaignId: c.id, included: false } }),
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Google Ads en pausa (id ${res.campaignId}): ${kws.length} palabras, ${c.dailyBudget} ${b.currency}/día, tope total ${c.totalCap}.`);
   if (c.extras) await createExtras(c.name, res.campaignId, c.extras as GoogleExtras, b);
   const groups = (c.groups as { name: string; url: string; images: string[] }[] | null) || [];
   if (groups.length) await addGroupImages(c.name, groups, res.adGroupIds, b, res.campaignId);
-  else await addGoogleImages({ id: c.id, name: c.name, googleCampaignId: res.campaignId, ads: c.ads }, b);
+  else await addGoogleImages({ id: c.id, name: c.name, googleCampaignId: res.campaignId, ads: gAds }, b);
 }
 
 // ---------- Meta (Facebook + Instagram) ----------

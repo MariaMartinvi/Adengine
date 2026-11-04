@@ -22,8 +22,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       db.campaign.update({ where: { id: c.id }, data: { dailyBudget: Number(dailyBudget), totalCap: Number(totalCap) } }),
       ...keywords.map((k) => db.keyword.update({ where: { id: k.id }, data: { maxCpc: Number(k.maxCpc), included: !!k.included, matchType: k.matchType, ...(k.finalUrl !== undefined ? { finalUrl: k.finalUrl || null } : {}) } })),
     ]);
-    // Ruta visible de cada anuncio, editada en la propuesta.
-    if (Array.isArray(body.ads)) await db.$transaction(body.ads.map((a: { id: string; path1?: string; path2?: string }) => db.ad.update({ where: { id: a.id }, data: { path1: cleanPath(a.path1) || null, path2: cleanPath(a.path2) || null } })));
+    // Ruta visible de cada anuncio y si se incluye, editados en la propuesta.
+    if (Array.isArray(body.ads)) await db.$transaction(body.ads.map((a: { id: string; path1?: string; path2?: string; included?: boolean }) => db.ad.update({ where: { id: a.id }, data: { path1: cleanPath(a.path1) || null, path2: cleanPath(a.path2) || null, included: a.included !== false } })));
     await approveCampaign(c.id);
     return NextResponse.json({ ok: true });
     } catch (e) {

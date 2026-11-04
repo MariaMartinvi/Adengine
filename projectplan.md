@@ -428,6 +428,11 @@ TODOs:
 - [x] 27.3 Tests del recorte (cajas fuera de la imagen, porcentajes) → verificar: `npm test`
 - [x] 27.4 Vídeos de Meta (María: «en Meta a veces te paso links a vídeos»): el enlace de la Biblioteca no se puede bajar desde el servidor; María sube el vídeo (o capturas) y pega el enlace; AdEngine saca fotogramas con ffmpeg, la IA describe el vídeo (planos, textos, ritmo, duración) y la tira de fotogramas queda como imagen de la referencia; la música, María → verificar: con el vídeo de The Birth Poster sale una descripción como la que hizo Claude. Hecho (04/11) con un vídeo de Bebés del almacén: «VÍDEO vertical de 10 s», cámara fija, cambios de estilo con sus segundos y textos sobreimpresos; tira de 6 fotogramas como imagen. Se le pasa el formato real (la tira engañaba: decía horizontal) y se quita el markdown. El guardado desde el panel lo prueba María
 
+## 28. Aprobar o descartar anuncios de Google (04/11/2026)
+- [x] Casilla «Incluir en la campaña» en cada anuncio de la propuesta de Google (como en Meta) → verificar: solo se suben los marcados.
+- [x] Aviso y bloqueo si un grupo con palabras se queda sin anuncio (`googleGroups.ts`) → verificar: 3 tests.
+- Precio «Desde 300 €» en Formación IA: sale del campo Precio de la ficha (300); se corrige en la ficha, no en el código.
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)
