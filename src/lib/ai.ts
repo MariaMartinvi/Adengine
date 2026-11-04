@@ -234,3 +234,11 @@ No inventes nada que no se lea; si algo está cortado, ponlo hasta donde se lea 
   const j = json<{ ads: ShotAd[] }>(await ask(sys, user, 8000));
   return (j.ads || []).filter((a) => a && a.box && a.image >= 1 && a.image <= images.length).slice(0, 30);
 }
+
+// Vídeo de referencia: a partir de su tira de fotogramas, una descripción con la que AdEngine pueda montar uno parecido.
+export async function describeRefVideo(channel: "meta" | "google", strip: string, seconds: number, times: number[], link: string) {
+  const sys = `Describes un anuncio en vídeo de ${channel === "meta" ? "Facebook e Instagram" : "Google"} a partir de ${times.length} fotogramas repartidos por todo el vídeo (de izquierda a derecha, en los segundos ${times.join(", ")} de ${seconds} s). Escribe en castellano, en un párrafo, para que otro equipo monte un vídeo parecido con su producto: formato (vertical u horizontal), duración, si la cámara está fija o se mueve, cuántos planos o cortes hay y cada cuánto, qué se ve en cada parte, los textos sobreimpresos tal cual y en qué segundos aparecen, colores y ambiente. Termina con «NO copiar:» y lo que no se puede copiar (marcas, cifras, reseñas, personas reconocibles). No inventes lo que no se vea; el audio no lo oyes, no lo describas.`;
+  const m = strip.match(/^data:(image\/jpeg);base64,(.+)$/)!;
+  const text = await ask(sys, [{ type: "text", text: link ? `Enlace del anuncio: ${link}` : "Sin enlace." }, { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } }], 1500);
+  return text.trim();
+}

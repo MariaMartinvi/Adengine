@@ -107,3 +107,24 @@ export async function renderVideo(plan: VideoPlan, musicUrl?: string | null): Pr
     await rm(dir, { recursive: true, force: true });
   }
 }
+
+// Vídeo de referencia (subido por María): duración y una tira de fotogramas repartidos por todo el vídeo, para que la IA
+// lo describa y para guardarla como imagen de la referencia.
+export async function videoStrip(url: string, frames = 6): Promise<{ seconds: number; strip: Buffer; times: number[] }> {
+  const dir = await mkdtemp(path.join(tmpdir(), "ref-"));
+  try {
+    const f = path.join(dir, "v");
+    await fetchTo(url, f);
+    // ffmpeg -i sin salida falla a propósito, pero deja la duración en el error.
+    const info = await run(ffmpegPath as unknown as string, ["-hide_banner", "-i", f]).then(() => "", (e) => String(e.stderr || ""));
+    const m = /Duration: (\d+):(\d+):([\d.]+)/.exec(info);
+    const seconds = m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0;
+    if (!seconds) throw new Error("No se pudo leer la duración del vídeo.");
+    const times = Array.from({ length: frames }, (_, i) => +(((i + 0.5) * seconds) / frames).toFixed(1));
+    const out = path.join(dir, "tira.jpg");
+    await run(ffmpegPath as unknown as string, ["-y", "-loglevel", "error", "-i", f, "-vf", `fps=${frames}/${seconds},scale=320:-2,tile=${frames}x1`, "-frames:v", "1", "-q:v", "4", out]);
+    return { seconds: +seconds.toFixed(1), strip: await readFile(out), times };
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}

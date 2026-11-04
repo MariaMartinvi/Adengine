@@ -3,12 +3,12 @@ import { db } from "./db";
 import * as ads from "./google/ads";
 import { fichaFromSite } from "./ai";
 import { fetchSiteText } from "./fetchSite";
-import { pickKeywords, writeAds, writeMetaAdFromRef, writeGoogleExtras, writeVideoPlan, readAdScreenshots, type GoogleExtras } from "./ai";
+import { pickKeywords, writeAds, writeMetaAdFromRef, writeGoogleExtras, writeVideoPlan, readAdScreenshots, describeRefVideo, type GoogleExtras } from "./ai";
 import { boxToRect, sinceText } from "./crop";
 import * as meta from "./meta/ads";
 import sharp from "sharp";
 import { put } from "@vercel/blob";
-import { renderVideo, type VideoPlan } from "./video";
+import { renderVideo, videoStrip, type VideoPlan } from "./video";
 import { pickMetaAds } from "./metaPick";
 import { metaAdsToPause, metaRotation } from "./metaRotation";
 import { cacTestOf, validate } from "./validation";
@@ -699,6 +699,14 @@ export async function referencesFromScreenshots(channel: "meta" | "google", imag
     out.push({ note: note.slice(0, 2000), image, runningSince: since, video: a.format === "vídeo" });
   }
   return out;
+}
+
+// Vídeo de referencia subido por María → referencia propuesta: tira de fotogramas como imagen y descripción de la IA.
+export async function referenceFromVideo(channel: "meta" | "google", url: string, link: string) {
+  const { seconds, strip, times } = await videoStrip(url);
+  const img = "data:image/jpeg;base64," + (await sharp(strip).resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer()).toString("base64");
+  const desc = await describeRefVideo(channel, img, seconds, times, link);
+  return { note: `${link ? `${link} · ` : ""}VÍDEO de ${seconds} s. ${desc}`.slice(0, 2000), image: img, runningSince: null, video: true };
 }
 
 // Reparto del dinero de un negocio (una vez por semana como mucho por campaña): propuestas que María aprueba.

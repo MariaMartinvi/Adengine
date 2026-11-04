@@ -211,6 +211,17 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
     setBusy("");
     if (j) setCands((c) => ({ ...c, [ch]: j.refs.map((x: any) => ({ ...x, audio: x.video ? "Música: por describir" : "", keep: true })) }));
   }
+  // Vídeo de referencia: se sube al almacén y AdEngine lo describe a partir de sus fotogramas.
+  const [vidLink, setVidLink] = useState<Record<string, string>>({});
+  async function readVideo(ch: string, file: File) {
+    setErr(""); setBusy(`video-${ch}`);
+    try {
+      const blob = await upload(`referencias/${file.name}`, file, { access: "public", handleUploadUrl: "/api/subidas", multipart: file.size > 20 * 1024 * 1024 });
+      const j = await api(`/api/negocios/${b.id}/referencias/video`, { channel: ch, url: blob.url, link: vidLink[ch] || "" });
+      if (j) setCands((c) => ({ ...c, [ch]: [...(c[ch] || []), { ...j.ref, audio: "Música: por describir", keep: true }] }));
+    } catch (e: any) { setErr(e.message || "No se pudo subir el vídeo"); }
+    setBusy("");
+  }
   async function saveCands(ch: string) {
     setBusy(`guardar-${ch}`);
     for (const x of (cands[ch] || []).filter((x) => x.keep)) {
@@ -234,6 +245,11 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
             {(shots[ch] || []).map((d, i) => <img key={i} src={d} alt="" style={{ height: 48, borderRadius: 4 }} />)}
             {(shots[ch] || []).length > 0 && <button className="btn-secondary" onClick={() => setShots((s) => ({ ...s, [ch]: [] }))} disabled={!!busy}>Quitar</button>}
             <button onClick={() => readShots(ch)} disabled={!!busy || !(shots[ch] || []).length}>{busy === `leer-${ch}` ? "Leyendo los anuncios…" : "Leer capturas"}</button>
+          </div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <label className="field">Enlace del anuncio en vídeo (opcional)<input value={vidLink[ch] || ""} onChange={(e) => setVidLink({ ...vidLink, [ch]: e.target.value.trim() })} placeholder="https://www.facebook.com/ads/library/?id=…" style={{ width: 300 }} /></label>
+            <label className="field">{busy === `video-${ch}` ? "Leyendo el vídeo…" : "Sube el vídeo (AdEngine saca los fotogramas y lo describe)"}
+              <input type="file" accept="video/*" disabled={!!busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) readVideo(ch, f); e.target.value = ""; }} /></label>
           </div>
           {(cands[ch] || []).length > 0 && <>
             <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", marginTop: 10 }}>
