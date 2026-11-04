@@ -12,7 +12,7 @@ const when = (d: Date) => d.toLocaleString("es-ES", { day: "2-digit", month: "sh
 const ORDER: Record<Verdict["code"], number> = { parar: 0, escalar: 1, iterar: 2, pronto: 3 };
 const ICON: Record<Verdict["code"], string> = { escalar: "🟢", iterar: "🟡", pronto: "⚪", parar: "🔴" };
 
-export default async function Home({ searchParams }: { searchParams: { connected?: string; error?: string } }) {
+export default async function Home({ searchParams }: { searchParams: { connected?: string; error?: string; cartera?: string } }) {
   const conn = await db.googleConnection.findFirst({ orderBy: { createdAt: "desc" } });
   const week = new Date(Date.now() - 7 * 86400000);
   const businesses = await db.business.findMany({ include: { sales: true, actions: { where: { auto: true, kind: "REGLA", createdAt: { gte: week } }, orderBy: { createdAt: "desc" } }, campaigns: { include: { metrics: true, proposals: { where: { status: "PENDING" }, orderBy: { createdAt: "desc" } } } } } });
@@ -34,6 +34,9 @@ export default async function Home({ searchParams }: { searchParams: { connected
     return { b, v, live, spent7, pending, stalled, next };
   }).sort((x, y) => (x.live.length ? 0 : 1) - (y.live.length ? 0 : 1) || ORDER[x.v.verdict.code] - ORDER[y.v.verdict.code] || y.v.spend - x.v.spend);
 
+  // Activas: con al menos una campaña publicándose. El resto (en pausa, detenidas, solo propuesta o sin campaña), en «Paradas».
+  const active = rows.filter((r) => r.live.some((c) => c.status === "ENABLED"));
+  const stopped = searchParams.cartera === "paradas";
   const decisions: Decision[] = rows.flatMap((r) => r.pending.map(({ p, c }) => ({ id: p.id, businessId: r.b.id, business: r.b.name, channel: c.channel === "meta" ? "Meta" : "Google", reason: p.reason })));
   const autos = rows.flatMap((r) => r.b.actions.map((a) => ({ ...a, business: r.b.name }))).sort((x, y) => y.createdAt.getTime() - x.createdAt.getTime());
   const alerts = rows.flatMap((r) => r.stalled.map((c) => `${r.b.name}: Meta lleva ${Math.round((Date.now() - c.createdAt.getTime()) / 3600000)} h activa sin publicar ningún anuncio (mira la columna «Entrega» en el Administrador de anuncios).`));
@@ -76,11 +79,15 @@ export default async function Home({ searchParams }: { searchParams: { connected
           )}
 
           <h2>Cartera</h2>
+          <div className="tabs" role="tablist" style={{ marginTop: 8 }}>
+            <Link href="/" role="tab" aria-selected={!stopped} className={`tab${stopped ? "" : " on"}`} style={{ textDecoration: "none" }}>Activas <span className="small">{active.length}</span></Link>
+            <Link href="/?cartera=paradas" role="tab" aria-selected={stopped} className={`tab${stopped ? " on" : ""}`} style={{ textDecoration: "none" }}>Paradas <span className="small">{rows.length - active.length}</span></Link>
+          </div>
           <div className="tablewrap">
             <table>
               <thead><tr><th>Negocio</th><th>Veredicto</th><th>Canales</th><th className="num">7 días</th><th className="num">Total</th><th className="num">Ventas</th><th className="num">CAC real</th><th>Siguiente paso</th></tr></thead>
               <tbody>
-                {rows.map(({ b, v, live, spent7, next }) => (
+                {(stopped ? rows.filter((r) => !active.includes(r)) : active).map(({ b, v, live, spent7, next }) => (
                   <tr key={b.id}>
                     <td><Link href={`/negocios/${b.id}`}><strong style={{ fontWeight: 500 }}>{b.name}</strong></Link><div className="small">{b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}</div></td>
                     <td>{live.length ? <span className={`status ${v.verdict.code}`}>{ICON[v.verdict.code]} {v.verdict.label}</span> : <span className="small">sin campaña</span>}</td>
