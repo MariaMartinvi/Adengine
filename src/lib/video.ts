@@ -110,7 +110,7 @@ export async function renderVideo(plan: VideoPlan, musicUrl?: string | null): Pr
 
 // Vídeo de referencia (subido por María): duración y una tira de fotogramas repartidos por todo el vídeo, para que la IA
 // lo describa y para guardarla como imagen de la referencia.
-export async function videoStrip(url: string, frames = 6): Promise<{ seconds: number; strip: Buffer; times: number[] }> {
+export async function videoStrip(url: string, frames = 6): Promise<{ seconds: number; strip: Buffer; times: number[]; width: number; height: number }> {
   const dir = await mkdtemp(path.join(tmpdir(), "ref-"));
   try {
     const f = path.join(dir, "v");
@@ -120,10 +120,11 @@ export async function videoStrip(url: string, frames = 6): Promise<{ seconds: nu
     const m = /Duration: (\d+):(\d+):([\d.]+)/.exec(info);
     const seconds = m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0;
     if (!seconds) throw new Error("No se pudo leer la duración del vídeo.");
+    const dims = /Video:.*?(\d{2,5})x(\d{2,5})/.exec(info);
     const times = Array.from({ length: frames }, (_, i) => +(((i + 0.5) * seconds) / frames).toFixed(1));
     const out = path.join(dir, "tira.jpg");
     await run(ffmpegPath as unknown as string, ["-y", "-loglevel", "error", "-i", f, "-vf", `fps=${frames}/${seconds},scale=320:-2,tile=${frames}x1`, "-frames:v", "1", "-q:v", "4", out]);
-    return { seconds: +seconds.toFixed(1), strip: await readFile(out), times };
+    return { seconds: +seconds.toFixed(1), strip: await readFile(out), times, width: dims ? +dims[1] : 0, height: dims ? +dims[2] : 0 };
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

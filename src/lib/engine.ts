@@ -703,10 +703,11 @@ export async function referencesFromScreenshots(channel: "meta" | "google", imag
 
 // Vídeo de referencia subido por María → referencia propuesta: tira de fotogramas como imagen y descripción de la IA.
 export async function referenceFromVideo(channel: "meta" | "google", url: string, link: string) {
-  const { seconds, strip, times } = await videoStrip(url);
+  const { seconds, strip, times, width, height } = await videoStrip(url);
+  const format = !width || !height ? "de formato desconocido" : height > width * 1.2 ? `vertical (${width}×${height})` : width > height * 1.2 ? `horizontal (${width}×${height})` : `cuadrado (${width}×${height})`;
   const img = "data:image/jpeg;base64," + (await sharp(strip).resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 78 }).toBuffer()).toString("base64");
-  const desc = await describeRefVideo(channel, img, seconds, times, link);
-  return { note: `${link ? `${link} · ` : ""}VÍDEO de ${seconds} s. ${desc}`.slice(0, 2000), image: img, runningSince: null, video: true };
+  const desc = (await describeRefVideo(channel, img, seconds, times, link, format)).replace(/\*\*|__/g, "");
+  return { note: `${link ? `${link} · ` : ""}VÍDEO ${format.split(" (")[0]} de ${seconds} s. ${desc}`.slice(0, 2000), image: img, runningSince: null, video: true };
 }
 
 // Reparto del dinero de un negocio (una vez por semana como mucho por campaña): propuestas que María aprueba.
