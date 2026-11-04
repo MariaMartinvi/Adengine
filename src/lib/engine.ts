@@ -3,7 +3,8 @@ import { db } from "./db";
 import * as ads from "./google/ads";
 import { fichaFromSite } from "./ai";
 import { fetchSiteText } from "./fetchSite";
-import { pickKeywords, writeAds, writeMetaAdFromRef, writeGoogleExtras, writeVideoPlan, type GoogleExtras } from "./ai";
+import { pickKeywords, writeAds, writeMetaAdFromRef, writeGoogleExtras, writeVideoPlan, readAdScreenshots, type GoogleExtras } from "./ai";
+import { boxToRect, sinceText } from "./crop";
 import * as meta from "./meta/ads";
 import sharp from "sharp";
 import { put } from "@vercel/blob";
@@ -668,6 +669,33 @@ export async function addLiveKeyword(campaignId: string, k: { text: string; matc
   const criterionId = await ads.addKeyword(b.googleCustomerId!, adGroupId, { text, matchType: k.matchType, maxCpc: k.maxCpc, finalUrl: k.finalUrl });
   await db.keyword.create({ data: { campaignId: c.id, text, matchType: k.matchType, maxCpc: k.maxCpc, adGroup: k.adGroup || null, finalUrl: k.finalUrl || null, googleCriterionId: criterionId, googleAdGroupId: adGroupId, intent: "añadida por ti" } });
   await log(b.id, "PALABRA", `Añadida «${text}» (${k.matchType === "EXACT" ? "exacta" : "frase"}, ${k.maxCpc} €)${k.adGroup ? ` al grupo «${k.adGroup}»` : ""}.`);
+}
+
+// Capturas → referencias propuestas (no se guardan: María elige). Cada anuncio con su recorte, su nota y su fecha.
+export async function referencesFromScreenshots(channel: "meta" | "google", images: string[]) {
+  const today = new Date().toISOString().slice(0, 10);
+  const ads = await readAdScreenshots(channel, images, today);
+  const bufs = images.map((d) => Buffer.from(d.split(",")[1], "base64"));
+  const out = [];
+  for (const a of ads) {
+    let image: string | null = null;
+    try {
+      const img = sharp(bufs[a.image - 1]); const { width = 0, height = 0 } = await img.metadata();
+      const r = boxToRect(a.box, width, height);
+      if (r) image = "data:image/jpeg;base64," + (await img.extract(r).resize({ width: 700, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer()).toString("base64");
+    } catch { image = null; }
+    const since = a.since && /^\d{4}-\d{2}-\d{2}$/.test(a.since) ? a.since : null;
+    const q = (t: string) => (t ? `«${t}»` : "");
+    const note = [
+      `${a.advertiser || "Anunciante"} · ${channel === "meta" ? "Meta" : "Google Búsqueda"}${a.libraryId ? ` · Biblioteca de anuncios ${a.libraryId}` : ""} · ${a.format.toUpperCase()}${since ? ` · en circulación desde ${since} (${sinceText(since)})` : ""}.`,
+      a.headline && `Titular: ${q(a.headline)}.`, a.text && `Texto: ${q(a.text)}.`, a.description && `Descripción: ${q(a.description)}.`,
+      a.sitelinks?.length ? `Enlaces de sitio: ${a.sitelinks.map(q).join(" · ")}.` : "", a.cta && `Botón: ${a.cta}.`,
+      a.visual && `${a.format === "vídeo" ? "Vídeo (fotograma)" : "Imagen"}: ${a.visual}.`, a.audience && `A quién habla: ${a.audience}.`,
+      a.dontCopy?.length ? `NO copiar: ${a.dontCopy.join("; ")}.` : "",
+    ].filter(Boolean).join(" ");
+    out.push({ note: note.slice(0, 2000), image, runningSince: since, video: a.format === "vídeo" });
+  }
+  return out;
 }
 
 // Reparto del dinero de un negocio (una vez por semana como mucho por campaña): propuestas que María aprueba.

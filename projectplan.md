@@ -415,6 +415,19 @@ TODOs:
 - [ ] 26.2 `budgetMoves` tiene en cuenta el hueco del mensual (tests) → verificar: tests
 - [ ] 26.3 Aviso al crear campaña si se pasa del mensual → verificar: con un mensual bajo sale el aviso en la propuesta
 
+## 27. Referencias desde capturas (04/11/2026)
+
+**Petición (María):** «que le pegue ahí directamente los pantallazos y que los transforme en referencias como hacemos aquí». Hoy Claude lee la captura y escribe la nota a mano; AdEngine solo guarda captura + nota.
+
+**Cómo:** en el bloque de referencias, «Pegar o subir capturas» (pegar con Cmd+V o elegir hasta 3 imágenes, de la Biblioteca de Meta o del Centro de transparencia de Google). AdEngine las manda a la IA, que devuelve cada anuncio que ve: nota (titular, texto, enlaces, botón, a quién habla, qué NO copiar), fecha «en circulación desde» si sale, si es vídeo, y dónde está en la captura. AdEngine recorta cada anuncio. María ve las tarjetas, marca cuáles guardar, corrige la nota y pulsa Guardar. Nada se guarda sin ella (como «enseñar antes de guardar»).
+- Vídeos: con una captura, la IA describe lo que se ve; la música la escribe María (la IA no oye). El vídeo entero no lo lee aquí.
+
+TODOs:
+- [ ] 27.1 `POST /api/negocios/[id]/referencias/leer` (no guarda): IA con visión + recorte con sharp → verificar: con la captura de Founderz (19 anuncios de texto) devuelve los anuncios con su texto y recortes que se ven bien
+- [ ] 27.2 Panel: pegar/subir capturas, tarjetas con casilla, nota editable, fecha, vídeo y música; «Guardar seleccionadas» → verificar: guardar 2 de prueba y verlas en la lista
+- [ ] 27.3 Tests del recorte (cajas fuera de la imagen, porcentajes) → verificar: `npm test`
+- [ ] 27.4 Vídeos de Meta (María: «en Meta a veces te paso links a vídeos»): el enlace de la Biblioteca no se puede bajar desde el servidor; María sube el vídeo (o capturas) y pega el enlace; AdEngine saca fotogramas con ffmpeg, la IA describe el vídeo (planos, textos, ritmo, duración) y la tira de fotogramas queda como imagen de la referencia; la música, María → verificar: con el vídeo de The Birth Poster sale una descripción como la que hizo Claude
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)

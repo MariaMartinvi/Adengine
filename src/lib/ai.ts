@@ -207,3 +207,30 @@ No inventes datos, cifras, reseñas ni ofertas que no estén en la ficha.`;
     prices: (j.prices || []).map((x) => ({ header: fit(x.header, 25), description: fit(x.description, 25), price: Number(x.price), url: x.url })).filter((x) => x.header && x.description && x.price > 0 && ok.has(x.url)).slice(0, 8),
   };
 }
+
+// Capturas de la Biblioteca de anuncios de Meta o del Centro de transparencia de Google, con uno o varios anuncios:
+// la IA devuelve cada anuncio con su texto, su fecha y dónde está en la captura (para recortarlo). No guarda nada.
+export type ShotAd = {
+  image: number; box: { x: number; y: number; w: number; h: number };
+  advertiser: string; libraryId: string; format: "imagen" | "vídeo" | "carrusel" | "texto"; since: string | null;
+  headline: string; text: string; description: string; sitelinks: string[]; cta: string; visual: string; audience: string; dontCopy: string[];
+};
+export async function readAdScreenshots(channel: "meta" | "google", images: string[], today: string): Promise<ShotAd[]> {
+  const sys = `Lees capturas de pantalla de ${channel === "meta" ? "la Biblioteca de anuncios de Meta" : "el Centro de transparencia de anuncios de Google"} y sacas CADA anuncio que se vea entero o casi entero. Hoy es ${today}. Devuelves SOLO JSON:
+{"ads":[{"image":n,"box":{"x","y","w","h"},"advertiser","libraryId","format","since","headline","text","description","sitelinks":[…],"cta","visual","audience","dontCopy":[…]}]}
+- image: número de la captura (1, 2…). box: la tarjeta del anuncio en fracciones de 0 a 1 del ancho y alto de esa captura (x, y = esquina superior izquierda), incluyendo su imagen o vídeo.
+- advertiser: anunciante. libraryId: «Identificador de la biblioteca» si se ve, si no "". format: "imagen", "vídeo" (si hay botón de play o 0:00), "carrusel" o "texto" (anuncio de búsqueda).
+- since: fecha de «En circulación desde» en formato AAAA-MM-DD si se ve; si no, null.
+- headline, text, description, cta: copiados tal cual, en su idioma (sin traducir), completos hasta donde se lea; "" si no hay. sitelinks: los enlaces de sitio o de la ficha (texto de cada uno y su descripción si se ve).
+- visual: en castellano, qué se ve en la imagen o en el fotograma del vídeo (producto, encuadre, personas, textos sobreimpresos, colores). audience: a quién habla, en una frase.
+- dontCopy: en castellano, lo que no podemos copiar porque es suyo o sería falso para otro negocio: cifras de clientes o alumnos, reseñas y estrellas, certificados, partners, premios, bonificaciones, envío gratis o descuentos concretos, marcas.
+No inventes nada que no se lea; si algo está cortado, ponlo hasta donde se lea con «…».`;
+  const user: any[] = [{ type: "text", text: `Capturas (${images.length}):` }];
+  images.forEach((d, i) => {
+    const m = d.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+    if (!m) throw new Error(`La captura ${i + 1} no es una imagen.`);
+    user.push({ type: "text", text: `Captura ${i + 1}` }, { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } });
+  });
+  const j = json<{ ads: ShotAd[] }>(await ask(sys, user, 8000));
+  return (j.ads || []).filter((a) => a && a.box && a.image >= 1 && a.image <= images.length).slice(0, 30);
+}

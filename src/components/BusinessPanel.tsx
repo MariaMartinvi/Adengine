@@ -18,11 +18,12 @@ type Ref = { id: string; channel: string; note: string; image?: string | null; v
 type Product = { id: string; name: string; url: string; image?: string | null; photos: string[] };
 
 // Reduce la captura en el navegador (≤1280 px, JPEG) para que quepa en la BD y en la llamada a la IA.
-function shrink(file: File): Promise<string> {
+// Reduce la imagen a JPEG; las capturas con varios anuncios se dejan más grandes para que la IA lea la letra pequeña.
+function shrink(file: File, max = 1280): Promise<string> {
   return new Promise((ok, ko) => {
     const img = new Image();
     img.onload = () => {
-      const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const k = Math.min(1, max / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
       c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
       c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
@@ -197,6 +198,26 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   const estDailyClicks = useMemo(() => inc.length ? budget / (inc.reduce((s, k) => s + k.maxCpc, 0) / inc.length) : 0, [inc, budget]);
   const set = (k: keyof Business, v: any) => setB({ ...b, [k]: v });
 
+  type Cand = { note: string; image: string | null; runningSince: string | null; video: boolean; audio: string; keep: boolean };
+  const [shots, setShots] = useState<Record<string, string[]>>({});
+  const [cands, setCands] = useState<Record<string, Cand[]>>({});
+  async function addShots(ch: string, files: File[]) {
+    const imgs = await Promise.all(files.filter((x) => x.type.startsWith("image/")).map((x) => shrink(x, 2000)));
+    setShots((s) => ({ ...s, [ch]: [...(s[ch] || []), ...imgs].slice(0, 3) }));
+  }
+  async function readShots(ch: string) {
+    setBusy(`leer-${ch}`);
+    const j = await api(`/api/negocios/${b.id}/referencias/leer`, { channel: ch, images: shots[ch] || [] });
+    setBusy("");
+    if (j) setCands((c) => ({ ...c, [ch]: j.refs.map((x: any) => ({ ...x, audio: x.video ? "Música: por describir" : "", keep: true })) }));
+  }
+  async function saveCands(ch: string) {
+    setBusy(`guardar-${ch}`);
+    for (const x of (cands[ch] || []).filter((x) => x.keep)) {
+      if (!(await api(`/api/negocios/${b.id}/referencias`, { channel: ch, note: x.note, image: x.image, video: x.video, audio: x.audio, runningSince: x.runningSince }))) break;
+    }
+    setBusy(""); setCands((c) => ({ ...c, [ch]: [] })); setShots((s) => ({ ...s, [ch]: [] })); r.refresh();
+  }
   const renderRefs = (ch: "meta" | "google") => {
     const f = refForm[ch] || { note: "", image: "", video: false, audio: "", product: "" };
     const list = refsOf(ch);
@@ -204,6 +225,35 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
       <details className="card" style={{ margin: "16px 0" }} open={!list.length}>
         <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Referencias que funcionan en {ch === "meta" ? "Meta" : "Google"}</strong> <span className="small">· {list.length}{list.some((x) => x.video) ? ` (${list.filter((x) => x.video).length} en vídeo)` : ""} · pulsa para abrir</span></summary>
         <p className="small">Antes de generar, copiamos lo que funciona: la IA replica la estructura de estos anuncios (gancho, formato, oferta, botón) con los datos de este negocio. Nunca calca frases, imágenes ni cifras ajenas. Vídeos: sube una captura y describe en la nota qué pasa.</p>
+        <div className="card" style={{ background: "var(--bg-2)", margin: "8px 0 12px" }}
+          onPaste={(e) => { const fs = [...e.clipboardData.files]; if (fs.length) { e.preventDefault(); addShots(ch, fs); } }}>
+          <strong style={{ fontWeight: 500 }}>Desde capturas</strong>
+          <p className="small" style={{ margin: "4px 0 8px" }}>Pega aquí (Cmd+V, tras hacer clic) o sube hasta 3 capturas de {ch === "meta" ? "la Biblioteca de anuncios de Meta" : "el Centro de transparencia de Google"}, aunque tengan varios anuncios. AdEngine saca cada anuncio con su texto, su fecha y su recorte; tú eliges cuáles guardar.</p>
+          <div className="row">
+            <input type="file" accept="image/*" multiple onChange={(e) => { addShots(ch, [...(e.target.files || [])]); e.target.value = ""; }} />
+            {(shots[ch] || []).map((d, i) => <img key={i} src={d} alt="" style={{ height: 48, borderRadius: 4 }} />)}
+            {(shots[ch] || []).length > 0 && <button className="btn-secondary" onClick={() => setShots((s) => ({ ...s, [ch]: [] }))} disabled={!!busy}>Quitar</button>}
+            <button onClick={() => readShots(ch)} disabled={!!busy || !(shots[ch] || []).length}>{busy === `leer-${ch}` ? "Leyendo los anuncios…" : "Leer capturas"}</button>
+          </div>
+          {(cands[ch] || []).length > 0 && <>
+            <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", marginTop: 10 }}>
+              {(cands[ch] || []).map((x, i) => {
+                const upd = (patch: Partial<Cand>) => setCands((c) => ({ ...c, [ch]: (c[ch] || []).map((y, j) => (j === i ? { ...y, ...patch } : y)) }));
+                return (
+                  <div key={i} className="card" style={{ padding: 10, opacity: x.keep ? 1 : 0.5 }}>
+                    <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={x.keep} onChange={(e) => upd({ keep: e.target.checked })} /> Guardar esta</label>
+                    {x.image && <img src={x.image} alt="" style={{ width: "100%", margin: "6px 0", borderRadius: 4 }} />}
+                    <label className="field">Nota<textarea rows={6} value={x.note} onChange={(e) => upd({ note: e.target.value })} /></label>
+                    <label className="field">En circulación desde<input type="date" value={x.runningSince || ""} onChange={(e) => upd({ runningSince: e.target.value || null })} /></label>
+                    <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={x.video} onChange={(e) => upd({ video: e.target.checked, audio: e.target.checked && !x.audio ? "Música: por describir" : x.audio })} /> Es un vídeo</label>
+                    {x.video && <label className="field">Música y audio<input value={x.audio} onChange={(e) => upd({ audio: e.target.value })} /></label>}
+                  </div>
+                );
+              })}
+            </div>
+            <button style={{ marginTop: 8 }} onClick={() => saveCands(ch)} disabled={!!busy || !(cands[ch] || []).some((x) => x.keep)}>{busy === `guardar-${ch}` ? "Guardando…" : `Guardar ${(cands[ch] || []).filter((x) => x.keep).length} referencias`}</button>
+          </>}
+        </div>
         {list.length > 0 && (
           <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", margin: "10px 0" }}>
             {list.map((x, i) => (
