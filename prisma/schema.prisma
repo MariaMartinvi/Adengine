@@ -44,6 +44,7 @@ model Business {
   ageMin             Int         @default(18)
   ageMax             Int         @default(65)
   metaCta            String      @default("SHOP_NOW")
+  metaOptimize       String      @default("INITIATED_CHECKOUT")
   googlePath1        String?
   googlePath2        String?
   googleWeekdaysOnly Boolean     @default(false)
@@ -74,6 +75,7 @@ model Campaign {
   metaCampaignId   String?
   metaAdSetId      String?
   metaRtAdSetId    String?
+  metaOptimize     String?
   groups           Json?
   extras           Json?
   keywords         Keyword[]

@@ -59,15 +59,22 @@ export type MetaCampaignSpec = {
   pageId: string; pixelId: string; link: string; thumbHash: string; cta: string; instagramId?: string | null; ads: MetaAdSpec[];
   advertiser: string; // UE (DSA): quién se anuncia y quién paga; sale en la Biblioteca de anuncios
   remarketing?: { visitors: string; buyers: string; share: number }; // conjunto aparte para quien visitó la web y no compró
+  optimize?: MetaOptimize;
 };
+// Para qué optimiza Meta. Con un píxel sin historial, «visitas a la web» entrega desde el primer día; cuando el píxel ya
+// registra clics a compra (o compras), se optimiza por ellos. Las visitas van en campaña de tráfico; lo demás, de ventas.
+export type MetaOptimize = "LANDING_PAGE_VIEWS" | "INITIATED_CHECKOUT" | "PURCHASE";
+const goal = (o: MetaOptimize = "INITIATED_CHECKOUT", pixelId: string) => o === "LANDING_PAGE_VIEWS"
+  ? { optimization_goal: "LANDING_PAGE_VIEWS" }
+  : { optimization_goal: "OFFSITE_CONVERSIONS", promoted_object: { pixel_id: pixelId, custom_event_type: o } };
 const cents = (eur: number) => Math.round(eur * 100);
 
-// Conjunto con presupuesto TOTAL hasta una fecha de fin (freno nativo) y optimizado al clic de compra del píxel.
-async function createAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; targeting: Record<string, unknown> }) {
+// Conjunto con presupuesto TOTAL hasta una fecha de fin (freno nativo), optimizado según la ficha (ver MetaOptimize).
+async function createAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; targeting: Record<string, unknown>; optimize?: MetaOptimize }) {
   return (await call(`/${act(adAccountId)}/adsets`, {
     name: o.name, campaign_id: campaignId, status: "ACTIVE",
     lifetime_budget: cents(o.total), end_time: o.endTime, billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-    optimization_goal: "OFFSITE_CONVERSIONS", promoted_object: { pixel_id: o.pixelId, custom_event_type: "INITIATED_CHECKOUT" },
+    ...goal(o.optimize, o.pixelId),
     dsa_beneficiary: o.advertiser, dsa_payor: o.advertiser,
     targeting: { geo_locations: { countries: [o.country] }, ...o.targeting, targeting_automation: { advantage_audience: 0 } },
   }, "POST")).id as string;
@@ -77,7 +84,7 @@ async function createAdSet(adAccountId: string, campaignId: string, o: { name: s
 const rtTargeting = (r: { visitors: string; buyers: string }) => ({ age_min: 18, custom_audiences: [{ id: r.visitors }], excluded_custom_audiences: [{ id: r.buyers }] });
 
 // Añade el conjunto de remarketing a una campaña ya creada (si al crearla Meta no lo dejó, p. ej. por condiciones sin aceptar).
-export async function addRemarketingAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; visitors: string; buyers: string }) {
+export async function addRemarketingAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; visitors: string; buyers: string; optimize?: MetaOptimize }) {
   return createAdSet(adAccountId, campaignId, { ...o, targeting: rtTargeting(o) });
 }
 
@@ -88,7 +95,7 @@ export async function addRemarketingAdSet(adAccountId: string, campaignId: strin
 export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
   const a = act(adAccountId);
   const campaignId = (await call(`/${a}/campaigns`, {
-    name: s.name, objective: "OUTCOME_SALES", status: "PAUSED", special_ad_categories: [],
+    name: s.name, objective: s.optimize === "LANDING_PAGE_VIEWS" ? "OUTCOME_TRAFFIC" : "OUTCOME_SALES", status: "PAUSED", special_ad_categories: [],
     is_adset_budget_sharing_enabled: false,
   }, "POST")).id;
   // Si algo falla a partir de aquí, se borra la campaña para no dejar nada a medias en Meta.
@@ -96,7 +103,7 @@ export async function createCampaign(adAccountId: string, s: MetaCampaignSpec) {
   const days = Math.max(1, Math.ceil(s.totalCap / s.dailyBudget));
   const endTime = new Date(Date.now() + days * 86400000).toISOString();
   const share = s.remarketing ? s.remarketing.share : 0;
-  const adSet = (name: string, total: number, targeting: Record<string, unknown>) => createAdSet(adAccountId, campaignId, { name, total, endTime, pixelId: s.pixelId, advertiser: s.advertiser, country: s.country, targeting });
+  const adSet = (name: string, total: number, targeting: Record<string, unknown>) => createAdSet(adAccountId, campaignId, { name, total, endTime, pixelId: s.pixelId, advertiser: s.advertiser, country: s.country, targeting, optimize: s.optimize });
   const adSetId = await adSet(`${s.name} · conjunto 1`, s.totalCap * (1 - share), { age_min: s.ageMin, age_max: s.ageMax });
   const adIds: string[] = [];
   for (const [i, ad] of s.ads.entries()) adIds.push(await createAd(adAccountId, adSetId, `${s.name} · ${ad.mediaType} ${i + 1}`, s, ad));

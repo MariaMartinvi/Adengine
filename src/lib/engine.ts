@@ -341,7 +341,7 @@ export async function addRemarketing(campaignId: string) {
   // Primero se baja la captación, para que la suma nunca pase del tope; si algo falla, se le devuelve el tope entero.
   await meta.setAdSetBudget(c.metaAdSetId, mainTotal, end);
   try {
-    const rtAdSetId = await meta.addRemarketingAdSet(b.metaAdAccountId!, c.metaCampaignId, { name: `${c.name} · remarketing`, total: c.totalCap - mainTotal, endTime: end.toISOString(), pixelId: b.metaPixelId!, advertiser: b.metaAdvertiser!, country: b.country, ...aud });
+    const rtAdSetId = await meta.addRemarketingAdSet(b.metaAdAccountId!, c.metaCampaignId, { name: `${c.name} · remarketing`, total: c.totalCap - mainTotal, endTime: end.toISOString(), pixelId: b.metaPixelId!, advertiser: b.metaAdvertiser!, country: b.country, ...aud, optimize: (c.metaOptimize || "INITIATED_CHECKOUT") as meta.MetaOptimize });
     await db.campaign.update({ where: { id: c.id }, data: { metaRtAdSetId: rtAdSetId } });
     for (const [i, a] of active.entries()) {
       const [headline] = a.headlines as string[]; const [message, description] = a.descriptions as string[];
@@ -439,11 +439,11 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   if (rtShare(b) > 0) { try { remarketing = { ...(await websiteAudiences(b)), share: rtShare(b) }; } catch (e: any) { audError = e.message; } }
   const res = await meta.createCampaign(b.metaAdAccountId!, {
     name: `${c.name} · ${stamp()}`, dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, country: b.country, ageMin: b.ageMin, ageMax: b.ageMax,
-    pageId: b.metaPageId!, instagramId: b.metaInstagramId, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta, remarketing,
+    pageId: b.metaPageId!, instagramId: b.metaInstagramId, pixelId: b.metaPixelId!, link: b.url, thumbHash: thumb, advertiser: b.metaAdvertiser!, cta: b.metaCta, remarketing, optimize: b.metaOptimize as meta.MetaOptimize,
     ads: c.ads.map((a) => ({ mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, link: a.finalUrl, thumbHash: a.thumbRef || undefined, ...copyOf(a) })),
   });
   await db.$transaction([
-    db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, metaCampaignId: res.campaignId, metaAdSetId: res.adSetId, metaRtAdSetId: res.rtAdSetId } }),
+    db.campaign.update({ where: { id: c.id }, data: { status: "PAUSED", dailyBudget: edits.dailyBudget, totalCap: edits.totalCap, metaCampaignId: res.campaignId, metaAdSetId: res.adSetId, metaRtAdSetId: res.rtAdSetId, metaOptimize: b.metaOptimize } }),
     ...c.ads.map((a, i) => { const k = copyOf(a); return db.ad.update({ where: { id: a.id }, data: { metaAdId: res.adIds[i], metaRtAdId: res.rtAdIds[i] || null, headlines: [k.headline], descriptions: [k.message, k.description] } }); }),
   ]);
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Meta en pausa (id ${res.campaignId}): ${c.ads.length} anuncios, ${edits.totalCap} ${b.currency} en total hasta agotar (~${edits.dailyBudget}/día).`);

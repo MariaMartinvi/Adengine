@@ -8,7 +8,7 @@ type Metric = { date: string; cost: number; clicks: number; conversions: number;
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
 type Proposal = { id: string; kind: string; reason: string; payload: any };
 type Campaign = { id: string; name: string; status: string; channel: string; metaRtAdSetId?: string | null; extras?: any; dailyBudget: number; totalCap: number; googleCampaignId?: string; keywords: Keyword[]; ads: { id: string; status: string; headlines: string[]; descriptions: string[]; mediaType?: string; mediaUrl?: string; basedOn?: string; brief?: string | null; videoPlan?: unknown; finalUrl: string; adGroup?: string | null; path1?: string | null; path2?: string | null; included?: boolean }[]; metrics: Metric[]; proposals: Proposal[] };
-type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; cacTest?: number | null; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string | null; orderId?: string | null; createdAt: string }[] };
+type Business = { id: string; name: string; url: string; sells: string; audience: string; country: string; language: string; currency: string; price: number; marginPct: number; saleEvent: string; cacCap: number; cacTest?: number | null; maxCpc: number; dailyBudget: number; totalCap: number; googleCustomerId?: string; metaAdAccountId?: string; metaPixelId?: string; metaPageId?: string; metaAdvertiser?: string; metaInstagramId?: string | null; metaRtShare: number; googleWeekdaysOnly: boolean; ageMin: number; ageMax: number; metaCta: string; metaOptimize: string; googlePath1?: string | null; googlePath2?: string | null; musicUrl?: string | null; notes?: string; campaigns: Campaign[]; references: Ref[]; products: Product[]; actions: { id: string; kind: string; detail: string; auto: boolean; createdAt: string }[]; sales: { id: string; amount: number; currency: string; channel?: string | null; orderId?: string | null; createdAt: string }[] };
 
 const money = (n: number, c: string) => new Intl.NumberFormat("es-ES", { style: "currency", currency: c, maximumFractionDigits: 2 }).format(n);
 const sum = (m: Metric[], k: keyof Metric) => m.reduce((s, x) => s + Number(x[k] || 0), 0);
@@ -465,6 +465,13 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
         {b.metaAdAccountId && <label className="field">Anunciante (aviso UE)<input value={b.metaAdvertiser || ""} onChange={(e) => set("metaAdvertiser", e.target.value)} placeholder="Quién se anuncia y paga" /></label>}
         {b.metaAdAccountId && <label className="field">Instagram (identificador; Configuración del negocio → Cuentas de Instagram)<input value={b.metaInstagramId || ""} onChange={(e) => set("metaInstagramId", e.target.value.replace(/\D/g, ""))} placeholder="17841…" /></label>}
         {b.metaAdAccountId && <label className="field">Remarketing en Meta (% del tope; 0 = sin remarketing)<input type="number" min={0} max={50} step={5} value={b.metaRtShare} onChange={(e) => set("metaRtShare", Math.round(+e.target.value))} /></label>}
+        {b.metaAdAccountId && <label className="field">Meta optimiza por (campañas nuevas)
+          <select value={b.metaOptimize} onChange={(e) => set("metaOptimize", e.target.value)}>
+            <option value="LANDING_PAGE_VIEWS">Visitas a la web (píxel sin datos: entrega desde el primer día)</option>
+            <option value="INITIATED_CHECKOUT">Clic a compra (cuando el píxel ya registra varios a la semana)</option>
+            <option value="PURCHASE">Compra (con unas 30-50 compras al mes)</option>
+          </select>
+        </label>}
         {b.metaAdAccountId && <label className="field">Botón de los anuncios (Meta)
           <select value={b.metaCta} onChange={(e) => set("metaCta", e.target.value)}>
             <option value="SHOP_NOW">Comprar</option>
@@ -550,7 +557,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
       {mDraft && !mLive && (
         <>
           <h2>Propuesta Meta · revisa y aprueba</h2>
-          <p className="muted">Nada existe en Meta hasta que pulses «Crear en pausa». Público: {b.country}, {data.ageMin}–{data.ageMax} años. Optimiza hacia el clic de compra del píxel. El gasto total es un tope que Meta respeta sola.</p>
+          <p className="muted">Nada existe en Meta hasta que pulses «Crear en pausa». Público: {b.country}, {data.ageMin}–{data.ageMax} años. Optimiza por {({ LANDING_PAGE_VIEWS: "visitas a la web", INITIATED_CHECKOUT: "clic a compra", PURCHASE: "compra" } as Record<string, string>)[data.metaOptimize]} (se cambia en la ficha). El gasto total es un tope que Meta respeta sola.</p>
           <div className="row" style={{ margin: "10px 0 16px" }}>
             <label className="field">Presupuesto diario (aprox.)<input type="number" step="1" value={mBudget} onChange={(e) => setMBudget(+e.target.value)} style={{ width: 120 }} /></label>
             <label className="field">Gasto total máximo<input type="number" step="10" value={mCap} onChange={(e) => setMCap(+e.target.value)} style={{ width: 120 }} /></label>
