@@ -423,10 +423,10 @@ TODOs:
 - Vídeos: con una captura, la IA describe lo que se ve; la música la escribe María (la IA no oye). El vídeo entero no lo lee aquí.
 
 TODOs:
-- [ ] 27.1 `POST /api/negocios/[id]/referencias/leer` (no guarda): IA con visión + recorte con sharp → verificar: con la captura de Founderz (19 anuncios de texto) devuelve los anuncios con su texto y recortes que se ven bien
-- [ ] 27.2 Panel: pegar/subir capturas, tarjetas con casilla, nota editable, fecha, vídeo y música; «Guardar seleccionadas» → verificar: guardar 2 de prueba y verlas en la lista
-- [ ] 27.3 Tests del recorte (cajas fuera de la imagen, porcentajes) → verificar: `npm test`
-- [ ] 27.4 Vídeos de Meta (María: «en Meta a veces te paso links a vídeos»): el enlace de la Biblioteca no se puede bajar desde el servidor; María sube el vídeo (o capturas) y pega el enlace; AdEngine saca fotogramas con ffmpeg, la IA describe el vídeo (planos, textos, ritmo, duración) y la tira de fotogramas queda como imagen de la referencia; la música, María → verificar: con el vídeo de The Birth Poster sale una descripción como la que hizo Claude
+- [x] 27.1 `POST /api/negocios/[id]/referencias/leer` (no guarda): IA con visión + recorte con sharp → verificar: con la captura de Founderz (19 anuncios de texto) devuelve los anuncios con su texto y recortes que se ven bien. Hecho (04/11): Founderz (Google) 8 anuncios en 35 s, texto y recortes bien; The Birth Poster (Meta) 8 anuncios con identificador, fecha y «N meses», vídeos detectados. Corregidos enlaces «[object Object]» y puntos dobles
+- [x] 27.2 Panel: pegar/subir capturas, tarjetas con casilla, nota editable, fecha, vídeo y música; «Guardar seleccionadas» → verificar: guardar 2 de prueba y verlas en la lista
+- [x] 27.3 Tests del recorte (cajas fuera de la imagen, porcentajes) → verificar: `npm test`
+- [x] 27.4 Vídeos de Meta (María: «en Meta a veces te paso links a vídeos»): el enlace de la Biblioteca no se puede bajar desde el servidor; María sube el vídeo (o capturas) y pega el enlace; AdEngine saca fotogramas con ffmpeg, la IA describe el vídeo (planos, textos, ritmo, duración) y la tira de fotogramas queda como imagen de la referencia; la música, María → verificar: con el vídeo de The Birth Poster sale una descripción como la que hizo Claude. Hecho (04/11) con un vídeo de Bebés del almacén: «VÍDEO vertical de 10 s», cámara fija, cambios de estilo con sus segundos y textos sobreimpresos; tira de 6 fotogramas como imagen. Se le pasa el formato real (la tira engañaba: decía horizontal) y se quita el markdown. El guardado desde el panel lo prueba María
 
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
