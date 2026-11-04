@@ -213,7 +213,7 @@ No inventes datos, cifras, reseñas ni ofertas que no estén en la ficha.`;
 export type ShotAd = {
   image: number; box: { x: number; y: number; w: number; h: number };
   advertiser: string; libraryId: string; format: "imagen" | "vídeo" | "carrusel" | "texto"; since: string | null;
-  headline: string; text: string; description: string; sitelinks: string[]; cta: string; visual: string; audience: string; dontCopy: string[];
+  headline: string; text: string; description: string; sitelinks: (string | { text?: string; description?: string })[]; cta: string; visual: string; audience: string; dontCopy: string[];
 };
 export async function readAdScreenshots(channel: "meta" | "google", images: string[], today: string): Promise<ShotAd[]> {
   const sys = `Lees capturas de pantalla de ${channel === "meta" ? "la Biblioteca de anuncios de Meta" : "el Centro de transparencia de anuncios de Google"} y sacas CADA anuncio que se vea entero o casi entero. Hoy es ${today}. Devuelves SOLO JSON:

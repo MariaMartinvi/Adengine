@@ -686,12 +686,15 @@ export async function referencesFromScreenshots(channel: "meta" | "google", imag
     } catch { image = null; }
     const since = a.since && /^\d{4}-\d{2}-\d{2}$/.test(a.since) ? a.since : null;
     const q = (t: string) => (t ? `«${t}»` : "");
+    // La IA a veces da los enlaces como {text, description}; y las frases ya traen su punto final.
+    const link = (l: any) => (typeof l === "string" ? q(l) : [q(l?.text || l?.title || ""), l?.description || l?.desc || ""].filter(Boolean).join(" "));
+    const end = (t: string) => t.trim().replace(/[.。]+$/, "");
     const note = [
       `${a.advertiser || "Anunciante"} · ${channel === "meta" ? "Meta" : "Google Búsqueda"}${a.libraryId ? ` · Biblioteca de anuncios ${a.libraryId}` : ""} · ${a.format.toUpperCase()}${since ? ` · en circulación desde ${since} (${sinceText(since)})` : ""}.`,
       a.headline && `Titular: ${q(a.headline)}.`, a.text && `Texto: ${q(a.text)}.`, a.description && `Descripción: ${q(a.description)}.`,
-      a.sitelinks?.length ? `Enlaces de sitio: ${a.sitelinks.map(q).join(" · ")}.` : "", a.cta && `Botón: ${a.cta}.`,
-      a.visual && `${a.format === "vídeo" ? "Vídeo (fotograma)" : "Imagen"}: ${a.visual}.`, a.audience && `A quién habla: ${a.audience}.`,
-      a.dontCopy?.length ? `NO copiar: ${a.dontCopy.join("; ")}.` : "",
+      a.sitelinks?.length ? `Enlaces de sitio: ${a.sitelinks.map(link).join(" · ")}.` : "", a.cta && `Botón: ${end(a.cta)}.`,
+      a.visual && `${a.format === "vídeo" ? "Vídeo (fotograma)" : "Imagen"}: ${end(a.visual)}.`, a.audience && `A quién habla: ${end(a.audience)}.`,
+      a.dontCopy?.length ? `NO copiar: ${a.dontCopy.map(end).join("; ")}.` : "",
     ].filter(Boolean).join(" ");
     out.push({ note: note.slice(0, 2000), image, runningSince: since, video: a.format === "vídeo" });
   }
