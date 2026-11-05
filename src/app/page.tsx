@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { validate, type Verdict } from "@/lib/validation";
 import { portfolio } from "@/lib/portfolio";
 import { funnelsOf } from "@/lib/funnel";
+import { lastSyncText } from "@/lib/lastSync";
 import MonthlyBudget from "@/components/MonthlyBudget";
 import Decisions, { type Decision } from "@/components/Decisions";
 export const dynamic = "force-dynamic";
@@ -49,6 +50,7 @@ export default async function Home({ searchParams }: { searchParams: { connected
   return (
     <main>
       <h1>Negocios</h1>
+      <p className="small" style={{ marginTop: -8 }}>{await lastSyncText()} · se actualizan dos veces al día</p>
       <p className="muted">¿Qué MVP vende a un coste que deja margen? Arriba, lo que necesita tu decisión; abajo, cada negocio con su veredicto.</p>
       {searchParams.connected && <div className="notice">Google Ads conectado como {conn?.email}.</div>}
       {searchParams.error && <div className="notice error">No se pudo conectar: {searchParams.error}</div>}

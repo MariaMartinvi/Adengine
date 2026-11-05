@@ -35,7 +35,7 @@ function shrink(file: File, max = 1280): Promise<string> {
     img.src = URL.createObjectURL(file);
   });
 }
-export default function BusinessPanel({ data, accounts, accountsError, salesKey, salesUrl, monthly, committed = 0, metaAccounts = [], metaPixels = [] }: { data: Business; accounts: Option[]; accountsError?: string; salesKey?: string; salesUrl?: string; monthly?: number | null; committed?: number; metaAccounts?: Option[]; metaPixels?: Option[] }) {
+export default function BusinessPanel({ data, accounts, accountsError, salesKey, salesUrl, monthly, committed = 0, metaAccounts = [], metaPixels = [], lastSync }: { data: Business; accounts: Option[]; accountsError?: string; salesKey?: string; salesUrl?: string; monthly?: number | null; committed?: number; metaAccounts?: Option[]; metaPixels?: Option[]; lastSync?: string }) {
   const r = useRouter();
   const [b, setB] = useState(data);
   const [busy, setBusy] = useState(""); const [err, setErr] = useState("");
@@ -454,6 +454,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   return (
     <main>
       <h1>{b.name}</h1>
+      {lastSync && <p className="small" style={{ marginTop: -8 }}>{lastSync} · se actualizan dos veces al día</p>}
       <div className="small"><a href={b.url} target="_blank" rel="noreferrer">{b.url}</a></div>
       {err && <div className="notice error" style={{ marginTop: 16 }}>{err}</div>}
       {(() => {

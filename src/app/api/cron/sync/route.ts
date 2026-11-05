@@ -16,5 +16,8 @@ export async function GET(req: Request) {
   for (const id of new Set(campaigns.map((c) => c.businessId))) {
     try { await proposeBudgetMoves(id); } catch (e: any) { await db.actionLog.create({ data: { businessId: id, kind: "ERROR_DINERO", detail: e.message, auto: true } }); }
   }
+  // Hora de la última actualización de datos, para enseñarla en el panel.
+  const now = new Date().toISOString();
+  await db.setting.upsert({ where: { key: "lastSync" }, create: { key: "lastSync", value: now }, update: { value: now } });
   return NextResponse.json({ synced: out });
 }
