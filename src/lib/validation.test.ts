@@ -78,3 +78,16 @@ test("vende caro pero dentro del CAC de validación: iterar y seguir probando", 
   assert.equal(v.verdict.code, "iterar");
   assert.match(v.verdict.reason, /dentro del CAC de validación/);
 });
+
+test("MER y CAC blended cuentan también las ventas sin anuncio", () => {
+  const v = validate({ cacCap: 50, campaigns: [{ channel: "meta", metrics: [{ cost: 300, impressions: 0, clicks: 0, conversions: 0 } as any] }],
+    sales: [...Array(6)].map(() => ({ channel: "meta", amount: 60 })).concat([...Array(4)].map(() => ({ channel: null as any, amount: 60 }))) });
+  assert.equal(v.cac, 50);          // 300 / 6 ventas de anuncios
+  assert.equal(v.blendedCac, 30);   // 300 / 10 ventas
+  assert.equal(v.mer, 2);           // 600 / 300
+});
+
+test("sin gasto ni ventas, MER y CAC blended vacíos", () => {
+  const v = validate({ cacCap: 50, campaigns: [], sales: [] });
+  assert.equal(v.mer, null); assert.equal(v.blendedCac, null);
+});

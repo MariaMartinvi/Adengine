@@ -65,6 +65,7 @@ export default async function Home({ searchParams }: { searchParams: { connected
             <div className="card"><div className="small">Gastado este mes</div><strong style={{ fontSize: 22, fontWeight: 500 }}>{eur(pf.spent)}</strong>{pf.monthly != null && <div className="small">de {eur(pf.monthly)}</div>}</div>
             <div className="card"><div className="small">Ventas de anuncios</div><strong style={{ fontSize: 22, fontWeight: 500 }}>{salesAll}</strong><div className="small">desde el inicio</div></div>
             <div className="card"><div className="small">CAC global</div><strong style={{ fontSize: 22, fontWeight: 500 }}>{salesAll ? eur(spentAll / salesAll) : "—"}</strong><div className="small">{eur(spentAll)} en anuncios</div></div>
+            <div className="card"><div className="small">MER de la cartera</div><strong style={{ fontSize: 22, fontWeight: 500 }}>{spentAll ? `× ${(rows.reduce((t, r) => t + r.v.revenue, 0) / spentAll).toLocaleString("es-ES", { maximumFractionDigits: 2 })}` : "—"}</strong><div className="small">{eur(rows.reduce((t, r) => t + r.v.revenue, 0))} vendidos en total</div></div>
             <div className="card"><div className="small">Veredictos</div><strong style={{ fontSize: 22, fontWeight: 500 }}>🟢 {count("escalar")} · 🟡 {count("iterar")} · ⚪ {count("pronto")} · 🔴 {count("parar")}</strong></div>
           </div>
           <MonthlyBudget monthly={pf.monthly} committed={pf.committed} spent={pf.spent} />
@@ -88,7 +89,7 @@ export default async function Home({ searchParams }: { searchParams: { connected
           </div>
           <div className="tablewrap">
             <table>
-              <thead><tr><th>Negocio</th><th>Veredicto</th><th>Canales</th><th className="num">7 días</th><th className="num">Total</th><th className="num">Ventas</th><th className="num">CAC real</th><th>Siguiente paso</th></tr></thead>
+              <thead><tr><th>Negocio</th><th>Veredicto</th><th>Canales</th><th className="num">7 días</th><th className="num">Total</th><th className="num">Ventas</th><th className="num">CAC real</th><th className="num">CAC blended</th><th className="num">MER</th><th>Siguiente paso</th></tr></thead>
               <tbody>
                 {(stopped ? rows.filter((r) => !active.includes(r)) : active).map(({ b, v, live, spent7, next }) => (
                   <tr key={b.id}>
@@ -99,6 +100,8 @@ export default async function Home({ searchParams }: { searchParams: { connected
                     <td className="num">{eur(v.spend, b.currency)}</td>
                     <td className="num">{v.sales.ads}{v.sales.organic ? <span className="small"> +{v.sales.organic}</span> : null}</td>
                     <td className={`num ${v.cac != null && v.cac > b.cacCap ? "over" : ""}`}>{v.cac != null ? eur(v.cac, b.currency) : "—"}<div className="small">escalado {eur(b.cacCap, b.currency)}</div></td>
+                    <td className="num">{v.blendedCac != null ? eur(v.blendedCac, b.currency) : "—"}</td>
+                    <td className={`num ${v.mer != null && v.mer < 100 / b.marginPct ? "over" : ""}`}>{v.mer != null ? `× ${v.mer.toLocaleString("es-ES", { maximumFractionDigits: 2 })}` : "—"}<div className="small">equilibrio × {(100 / b.marginPct).toLocaleString("es-ES", { maximumFractionDigits: 1 })}</div></td>
                     <td className="small" style={{ maxWidth: 260 }}>{next}</td>
                   </tr>
                 ))}

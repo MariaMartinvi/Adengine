@@ -498,6 +498,8 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
               <dt>Gasto en anuncios</dt><dd>{m(v.spend)} <span className="small">· Google {m(v.byChannel.google.spend)} · Meta {m(v.byChannel.meta.spend)}</span></dd>
               <dt>Ventas</dt><dd>{v.sales.ads} de anuncios{v.sales.organic ? ` + ${v.sales.organic} sin anuncio` : ""} · ingresos {m(v.revenue)}</dd>
               <dt>CAC real</dt><dd className={v.cac != null && v.cac > data.cacCap ? "over" : ""}>{m(v.cac)} <span className="small">/ escalado {m(data.cacCap)} · validación {m(v.cacTest)} · Google {m(v.byChannel.google.cac)} · Meta {m(v.byChannel.meta.cac)}</span></dd>
+              <dt>MER</dt><dd className={v.mer != null && v.mer < 100 / data.marginPct ? "over" : ""}>{v.mer == null ? "—" : `× ${v.mer.toLocaleString("es-ES", { maximumFractionDigits: 2 })}`} <span className="small">· ventas totales (con y sin anuncio) por cada euro de anuncios · para no perder hace falta × {(100 / data.marginPct).toLocaleString("es-ES", { maximumFractionDigits: 1 })} (margen {data.marginPct} %)</span></dd>
+              <dt>CAC blended</dt><dd>{m(v.blendedCac)} <span className="small">· gasto entre todos los clientes, también los que llegan sin anuncio</span></dd>
               <dt>Embudo</dt><dd>{v.funnel.impressions} impresiones → {v.funnel.clicks} clics → {v.funnel.checkouts} clics a compra → {v.funnel.sales} ventas</dd>
             </dl>
             {(() => {
@@ -534,6 +536,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
         <label className="field">Idioma<input value={b.language} onChange={(e) => set("language", e.target.value.toLowerCase())} maxLength={2} /></label>
         <label className="field">Venta que optimizamos<input value={b.saleEvent} onChange={(e) => set("saleEvent", e.target.value)} /></label>
         <label className="field">Precio de esa venta<input type="number" step="0.01" value={b.price} onChange={(e) => set("price", +e.target.value)} /></label>
+        <label className="field">Margen (% que te queda de cada venta, antes de anuncios)<input type="number" step="1" min="1" max="100" value={b.marginPct} onChange={(e) => set("marginPct", +e.target.value)} /></label>
         <label className="field">CAC de escalado (coste máx. por venta para crecer con margen)<input type="number" step="1" value={b.cacCap} onChange={(e) => set("cacCap", +e.target.value)} /></label>
         <label className="field">CAC de validación (lo que aceptas pagar por venta mientras pruebas; vacío = 2 × escalado)<input type="number" step="1" value={b.cacTest ?? ""} placeholder={String(2 * b.cacCap)} onChange={(e) => set("cacTest", e.target.value === "" ? null : +e.target.value)} /></label>
         <label className="field">CPC máximo (techo por clic)<input type="number" step="0.05" value={b.maxCpc} onChange={(e) => set("maxCpc", +e.target.value)} /></label>

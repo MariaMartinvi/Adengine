@@ -34,6 +34,9 @@ export function validate({ cacCap, cacTest: test, campaigns, sales }: Validation
 
   return {
     spend, revenue: sum(sales.map((s) => s.amount)), cac, cacTest, verdict, funnel,
+    // MER: ventas totales (con y sin anuncio) por cada euro de anuncios. CAC blended: gasto entre todos los clientes.
+    mer: spend > 0 ? sum(sales.map((s) => s.amount)) / spend : null,
+    blendedCac: sales.length ? spend / sales.length : null,
     sales: { ads, organic: sales.length - ads, total: sales.length },
     byChannel: { google: { ...google, cac: cacOf(google) }, meta: { ...meta, cac: cacOf(meta) } },
   };
