@@ -15,6 +15,7 @@ import { cacTestOf, validate } from "./validation";
 import { budgetMoves } from "./budgetMoves";
 import { portfolio } from "./portfolio";
 import { groupsWithoutAd } from "./googleGroups";
+import { winnersToSave } from "./winners";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -532,18 +533,18 @@ export async function syncMetaCampaign(campaignId: string) {
   // Cada anuncio puede estar en captación y en remarketing: se suman sus dos filas del día antes de guardar.
   const byMetaId = new Map<string, (typeof c.ads)[number]>();
   for (const a of c.ads) { if (a.metaAdId) byMetaId.set(a.metaAdId, a); if (a.metaRtAdId) byMetaId.set(a.metaRtAdId, a); }
-  const daily = new Map<string, { ad: (typeof c.ads)[number]; date: string; impressions: number; clicks: number; cost: number; conversions: number; purchases: number; purchaseValue: number }>();
+  const daily = new Map<string, { ad: (typeof c.ads)[number]; date: string; impressions: number; clicks: number; visits: number; cost: number; conversions: number; purchases: number; purchaseValue: number }>();
   for (const r of rows) {
     const ad = byMetaId.get(r.adId);
     if (!ad) continue;
     const key = `${ad.id}|${r.date}`;
-    const acc = daily.get(key) || { ad, date: r.date, impressions: 0, clicks: 0, cost: 0, conversions: 0, purchases: 0, purchaseValue: 0 };
-    acc.impressions += r.impressions; acc.clicks += r.clicks; acc.cost += r.cost; acc.conversions += r.conversions; acc.purchases += r.purchases; acc.purchaseValue += r.purchaseValue;
+    const acc = daily.get(key) || { ad, date: r.date, impressions: 0, clicks: 0, visits: 0, cost: 0, conversions: 0, purchases: 0, purchaseValue: 0 };
+    acc.impressions += r.impressions; acc.clicks += r.clicks; acc.visits += r.visits; acc.cost += r.cost; acc.conversions += r.conversions; acc.purchases += r.purchases; acc.purchaseValue += r.purchaseValue;
     daily.set(key, acc);
   }
   for (const r of daily.values()) {
     const ad = r.ad;
-    const data = { impressions: r.impressions, clicks: r.clicks, cost: r.cost, conversions: r.conversions, purchases: r.purchases, purchaseValue: r.purchaseValue };
+    const data = { impressions: r.impressions, clicks: r.clicks, visits: r.visits, cost: r.cost, conversions: r.conversions, purchases: r.purchases, purchaseValue: r.purchaseValue };
     const existing = await db.dailyMetric.findFirst({ where: { campaignId: c.id, adId: ad.id, date: new Date(r.date) } });
     if (existing) await db.dailyMetric.update({ where: { id: existing.id }, data });
     else await db.dailyMetric.create({ data: { campaignId: c.id, adId: ad.id, date: new Date(r.date), ...data } });
@@ -579,6 +580,35 @@ export async function syncMetaCampaign(campaignId: string) {
     const a = live.find((x) => x.id === r.id)!;
     if (!exists) await db.proposal.create({ data: { campaignId: c.id, kind: "PAUSE_AD", target: r.id, payload: {}, reason: `Pausar el anuncio de ${a.mediaType === "video" ? "vídeo" : "imagen"} «${(a.headlines as string[])[0] || ""}»: ${r.reason}` } });
   }
+
+  // Regla 4 · nuestros ganadores: propone guardarlos como referencia (una sola vez por anuncio; tú decides).
+  const asked = new Set((await db.proposal.findMany({ where: { campaignId: c.id, kind: "SAVE_WINNER" }, select: { target: true } })).map((x) => x.target));
+  for (const w of winnersToSave(c.ads.map((a) => ({ id: a.id, cost: totals.get(a.id)?.cost || 0, purchases: purch.get(a.id) || 0 })), b.cacCap, asked)) {
+    const a = c.ads.find((x) => x.id === w.id)!;
+    await db.proposal.create({ data: { campaignId: c.id, kind: "SAVE_WINNER", target: w.id, payload: { cac: w.cac, purchases: w.purchases }, reason: `Guardar como referencia nuestro anuncio de ${a.mediaType === "video" ? "vídeo" : "imagen"} «${(a.headlines as string[])[0] || ""}»: ${w.purchases} ventas a ${w.cac} ${b.currency} de CAC (escalado ${b.cacCap}). Las campañas nuevas partirán de él.` } });
+  }
+}
+
+// Convierte un anuncio nuestro que vende en una referencia de Meta: su imagen (o la tira del vídeo) y sus textos.
+async function saveWinnerAsReference(adId: string, info: { cac: number; purchases: number }) {
+  const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { business: true } } } });
+  const b = a.campaign.business;
+  if (!a.mediaUrl) throw new Error("El anuncio no tiene imagen ni vídeo guardado.");
+  const [headline] = a.headlines as string[]; const [message, description] = a.descriptions as string[];
+  const copy = `Titular: «${headline || ""}». Texto: «${message || ""}».${description ? ` Descripción: «${description}».` : ""} Enlace: ${a.finalUrl}.`;
+  const head = `NUESTRO GANADOR (${b.name}) · ${info.purchases} ventas a ${info.cac} ${b.currency} de CAC. Cálcalo casi igual; cambia solo lo necesario.`;
+  let image: string, note: string, video = false;
+  if (a.mediaType === "video") {
+    const v = await referenceFromVideo("meta", a.mediaUrl, "");
+    image = v.image; note = `${head} ${copy} ${v.note}`; video = true;
+  } else {
+    const buf = Buffer.from(await (await fetch(a.mediaUrl)).arrayBuffer());
+    image = "data:image/jpeg;base64," + (await sharp(buf).resize({ width: 1080, withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer()).toString("base64");
+    note = `${head} IMAGEN. ${copy}`;
+  }
+  const product = await db.product.findFirst({ where: { businessId: b.id, url: a.finalUrl } });
+  await db.reference.create({ data: { businessId: b.id, channel: "meta", note: note.slice(0, 2000), image, video, audio: video ? (b.musicUrl ? "La música del negocio (la misma de nuestro vídeo ganador)." : "Sin música propia: la que se use en el vídeo.") : null, productId: product?.id || null, runningSince: a.campaign.createdAt } });
+  await log(b.id, "REFERENCIA", `Meta: nuestro ganador «${headline || ""}» guardado como referencia (aprobado por ti).`);
 }
 
 // Sincronización diaria + reglas. Baja y pausa sola; subir siempre es propuesta.
@@ -737,6 +767,7 @@ export async function applyProposal(proposalId: string, decision: "APPROVED" | "
   const c = p.campaign, b = c.business, cid = b.googleCustomerId!;
   if (decision === "APPROVED" && p.kind === "PAUSE_AD") await setMetaAdStatus(p.target, "PAUSED");
   else if (decision === "APPROVED" && p.kind === "PAUSE_CAMPAIGN") await setStatus(c.id, "PAUSED");
+  else if (decision === "APPROVED" && p.kind === "SAVE_WINNER") await saveWinnerAsReference(p.target, p.payload as { cac: number; purchases: number });
   else if (decision === "APPROVED" && p.kind === "SET_BUDGET") { const x = p.payload as any; await setBudget(c.id, x.dailyBudget, x.totalCap); }
   else if (decision === "APPROVED" && p.kind === "MOVE_BUDGET") {
     // Mismo total del negocio: el diario baja en una campaña y sube en la otra; los topes totales no cambian.

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { validate } from "@/lib/validation";
 import { groupsWithoutAd } from "@/lib/googleGroups";
+import { funnelsOf } from "@/lib/funnel";
 
 type Metric = { date: string; cost: number; clicks: number; conversions: number; impressions: number; purchases?: number; adId?: string };
 type Keyword = { id: string; text: string; matchType: string; maxCpc: number; finalUrl?: string | null; adGroup?: string | null; estCpcLow?: number; estCpcHigh?: number; volume?: number; intent?: string; included: boolean; status: string; metrics: Metric[] };
@@ -499,6 +500,23 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
               <dt>CAC real</dt><dd className={v.cac != null && v.cac > data.cacCap ? "over" : ""}>{m(v.cac)} <span className="small">/ escalado {m(data.cacCap)} · validación {m(v.cacTest)} · Google {m(v.byChannel.google.cac)} · Meta {m(v.byChannel.meta.cac)}</span></dd>
               <dt>Embudo</dt><dd>{v.funnel.impressions} impresiones → {v.funnel.clicks} clics → {v.funnel.checkouts} clics a compra → {v.funnel.sales} ventas</dd>
             </dl>
+            {(() => {
+              // Dónde se pierde la gente, por canal y en los últimos 14 días.
+              const fs = funnelsOf(data.campaigns, data.sales);
+              const r = (x: number, y: number) => (y > 0 ? ` (${Math.round((x / y) * 1000) / 10} %)` : "");
+              const chs = (["meta", "google"] as const).filter((k) => data.campaigns.some((c) => (c.channel === "meta" ? "meta" : "google") === k && c.status !== "DRAFT"));
+              return chs.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <strong style={{ fontWeight: 500 }}>Dónde se pierde la gente</strong> <span className="small">· últimos 14 días</span>
+                  {chs.map((k) => { const f = fs[k]; return (
+                    <div key={k} style={{ marginTop: 6 }}>
+                      <div className="small">{k === "meta" ? "Meta" : "Google"}: {f.impressions} impresiones → {f.clicks} clics{r(f.clicks, f.impressions)}{k === "meta" ? <> → {f.visits} visitas{r(f.visits || 0, f.clicks)} → {f.checkouts} empiezan a pagar{r(f.checkouts || 0, f.visits || 0)}</> : null} → {f.purchases} compras{r(f.purchases, k === "meta" ? f.checkouts || 0 : f.clicks)}</div>
+                      <div className={f.diagnosis.code === "datos" ? "small muted" : ""} style={f.diagnosis.code !== "datos" && f.diagnosis.code !== "ok" ? { color: "var(--bad)" } : undefined}>{f.diagnosis.text}</div>
+                    </div>
+                  ); })}
+                </div>
+              );
+            })()}
             <p className="small" style={{ marginTop: 8 }}>Reglas: menos de 1 CAC de validación gastado = aún pronto · 3+ ventas con CAC ≤ escalado = escalar · 3 CAC de validación gastados sin ventas = parar · lo demás, iterar. Las ventas sin anuncio no cuentan para el CAC.</p>
           </div>
         );

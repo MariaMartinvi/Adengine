@@ -140,6 +140,7 @@ model DailyMetric {
   date        DateTime @db.Date
   impressions Int      @default(0)
   clicks      Int      @default(0)
+  visits      Int      @default(0)
   cost        Float    @default(0)
   conversions Float    @default(0)
   convValue   Float    @default(0)

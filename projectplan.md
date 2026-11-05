@@ -433,6 +433,27 @@ TODOs:
 - [x] Aviso y bloqueo si un grupo con palabras se queda sin anuncio (`googleGroups.ts`) → verificar: 3 tests.
 - Precio «Desde 300 €» en Formación IA: sale del campo Precio de la ficha (300); se corrige en la ficha, no en el código.
 
+## 29. ¿Falla el anuncio o la página? + aprender de nuestros ganadores (05/11/2026)
+
+**Por qué (objetivo 10.000 €/mes de EBITDA):** hoy vemos clics y ventas, pero no dónde se pierde la gente. Sin eso no sabemos si arreglar el anuncio, la página o el precio, y gastamos en cambiar lo que no está roto. Comparado con AdStellar, solo nos quedamos con esto (María: «solo las features que de verdad importan»). Fuera: cientos de combinaciones, agente que mueve dinero solo, sincronización cada hora, Slack, avatares (de momento).
+
+**Embudo por negocio (últimos 14 días):** impresiones → clics → visitas a la página → inicios de pago → compras.
+- Meta: todo sale de Meta (añadir `landing_page_view` a lo que ya leemos).
+- Google: impresiones, clics y ventas (Stripe con gclid). Sin visitas ni pagos iniciados.
+- Diagnóstico, solo con ≥100 clics (antes: «faltan datos»), con umbrales orientativos que se pueden ajustar:
+  - CTR bajo (Meta <0,8 %, Google <3 %) → «el anuncio no atrae: cambia la creatividad o el gancho».
+  - Visitas/clics <70 % (Meta) → «la página tarda o falla al abrir».
+  - Pagos iniciados/visitas bajo (<3 %) → «la página no convence: oferta, precio o confianza».
+  - Compras/pagos iniciados <30 % → «se caen en el pago: precio final, envío o formulario».
+  - Se muestra solo el cuello de botella más grave, en la ficha y en «Para hoy».
+
+TODOs:
+- [x] 29.1 Leer y guardar visitas a la página de Meta (`landing_page_view`) por día → verificar: test del lector de acciones + una campaña real muestra visitas.
+- [x] 29.2 `funnel.ts` (puro): totales del embudo y diagnóstico con los umbrales → verificar: tests (cada cuello de botella, «faltan datos» con <100 clics).
+- [x] 29.3 Ficha: bloque «Dónde se pierde la gente» (embudo con % entre pasos + la frase del diagnóstico) → verificar: se ve en Bebés/Caricaturea/Cuadros con sus datos.
+- [x] 29.4 Inicio, «Para hoy»: una línea por negocio con cuello de botella claro → verificar: aparece solo cuando hay ≥100 clics.
+- [x] 29.5 Ganadores propios: cuando un anuncio de Meta vende con CAC ≤ CAC de escalado (≥2 ventas), AdEngine propone guardarlo como referencia («nuestro ganador»); María lo acepta en «Para decidir» → verificar: test de la regla + la propuesta aparece y, al aceptar, la referencia queda con su imagen/vídeo y textos.
+
 ## Pendiente (después)
 - [x] Borrada la ruta de diagnóstico `src/app/api/debug/ideas` (01/10/2026)
 - [x] App OAuth de Google Cloud publicada ("In production") y Google Ads reconectado (01/10/2026)

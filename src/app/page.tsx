@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { validate, type Verdict } from "@/lib/validation";
 import { portfolio } from "@/lib/portfolio";
+import { funnelsOf } from "@/lib/funnel";
 import MonthlyBudget from "@/components/MonthlyBudget";
 import Decisions, { type Decision } from "@/components/Decisions";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,9 @@ export default async function Home({ searchParams }: { searchParams: { connected
   const stopped = searchParams.cartera === "paradas";
   const decisions: Decision[] = rows.flatMap((r) => r.pending.map(({ p, c }) => ({ id: p.id, businessId: r.b.id, business: r.b.name, channel: c.channel === "meta" ? "Meta" : "Google", reason: p.reason })));
   const autos = rows.flatMap((r) => r.b.actions.map((a) => ({ ...a, business: r.b.name }))).sort((x, y) => y.createdAt.getTime() - x.createdAt.getTime());
-  const alerts = rows.flatMap((r) => r.stalled.map((c) => `${r.b.name}: Meta lleva ${Math.round((Date.now() - c.createdAt.getTime()) / 3600000)} h activa sin publicar ningún anuncio (mira la columna «Entrega» en el Administrador de anuncios).`));
+  const alerts = rows.flatMap((r) => r.stalled.map((c) => `${r.b.name}: Meta lleva ${Math.round((Date.now() - c.createdAt.getTime()) / 3600000)} h activa sin publicar ningún anuncio (mira la columna «Entrega» en el Administrador de anuncios).`))
+    // Cuello de botella del embudo (solo con datos suficientes): qué arreglar primero en cada negocio activo.
+    .concat(rows.filter((r) => r.live.length).flatMap((r) => { const f = funnelsOf(r.b.campaigns, r.b.sales); return (["meta", "google"] as const).filter((k) => !["datos", "ok"].includes(f[k].diagnosis.code)).map((k) => `${r.b.name} (${k === "meta" ? "Meta" : "Google"}): ${f[k].diagnosis.text}`); }));
   const spentAll = rows.reduce((s, r) => s + r.v.spend, 0), salesAll = rows.reduce((s, r) => s + r.v.sales.ads, 0);
   const count = (k: Verdict["code"]) => rows.filter((r) => r.live.length && r.v.verdict.code === k).length;
 
