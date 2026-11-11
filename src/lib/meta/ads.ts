@@ -69,6 +69,12 @@ const goal = (o: MetaOptimize = "INITIATED_CHECKOUT", pixelId: string) => o === 
   : { optimization_goal: "OFFSITE_CONVERSIONS", promoted_object: { pixel_id: pixelId, custom_event_type: o } };
 const cents = (eur: number) => Math.round(eur * 100);
 
+// Público de un conjunto. Solo Facebook e Instagram: en Audience Network los clics eran accidentales
+// (nov 2026, Cuadros con Alma: 74 clics y 0 visitas a la web) y Meta, sin señal de compra, se iba a por ellos.
+export const adSetTargeting = (country: string, extra: Record<string, unknown>) => ({
+  geo_locations: { countries: [country] }, ...extra, publisher_platforms: ["facebook", "instagram"], targeting_automation: { advantage_audience: 0 },
+});
+
 // Conjunto con presupuesto TOTAL hasta una fecha de fin (freno nativo), optimizado según la ficha (ver MetaOptimize).
 async function createAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; targeting: Record<string, unknown>; optimize?: MetaOptimize }) {
   return (await call(`/${act(adAccountId)}/adsets`, {
@@ -76,7 +82,7 @@ async function createAdSet(adAccountId: string, campaignId: string, o: { name: s
     lifetime_budget: cents(o.total), end_time: o.endTime, billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP",
     ...goal(o.optimize, o.pixelId),
     dsa_beneficiary: o.advertiser, dsa_payor: o.advertiser,
-    targeting: { geo_locations: { countries: [o.country] }, ...o.targeting, targeting_automation: { advantage_audience: 0 } },
+    targeting: adSetTargeting(o.country, o.targeting),
   }, "POST")).id as string;
 }
 
@@ -154,7 +160,7 @@ export async function setAdSetBudget(adSetId: string, totalCap: number, endTime:
 }
 
 export async function setAdSetAudience(adSetId: string, country: string, ageMin: number, ageMax: number) {
-  await call(`/${adSetId}`, { targeting: { geo_locations: { countries: [country] }, age_min: ageMin, age_max: ageMax, targeting_automation: { advantage_audience: 0 } } }, "POST");
+  await call(`/${adSetId}`, { targeting: adSetTargeting(country, { age_min: ageMin, age_max: ageMax }) }, "POST");
 }
 
 

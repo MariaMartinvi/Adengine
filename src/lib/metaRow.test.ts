@@ -13,3 +13,10 @@ test("sin acciones: todo a cero", () => {
   const r = adDayRow({ ad_id: "2", date_start: "2026-11-04" });
   assert.equal(r.visits, 0); assert.equal(r.purchases, 0);
 });
+
+test("público del conjunto: solo Facebook e Instagram (sin Audience Network), con país y edades", async () => {
+  const { adSetTargeting } = await import("./meta/ads");
+  assert.deepEqual(adSetTargeting("ES", { age_min: 25, age_max: 60 }), {
+    geo_locations: { countries: ["ES"] }, age_min: 25, age_max: 60, publisher_platforms: ["facebook", "instagram"], targeting_automation: { advantage_audience: 0 },
+  });
+});

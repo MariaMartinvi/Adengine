@@ -475,3 +475,13 @@ un fallo de carga.
       y pago, y si Meta ve menos del 70 % de los clics se añade un aviso de que
       visitas y pagos están infracontados.
 - [x] Test actualizado (`funnel.test.ts`); 50/50 pasan, tipos sin errores.
+
+## Meta solo en Facebook e Instagram (11 nov)
+
+Desglose de Meta por ubicación: en Cuadros con Alma, Audience Network dio 74 de
+223 clics y 0 visitas a la web (clics accidentales). Sin señal de compra, Meta se
+va a por el clic más barato.
+
+- [x] `adSetTargeting`: todos los conjuntos (nuevos y al aplicar público) llevan
+      `publisher_platforms: facebook, instagram`. Test nuevo; 51/51 pasan.
+- [x] Aplicado con «aplicar público» a las campañas de Meta de Caricaturea, Bebés y Cuadros.
