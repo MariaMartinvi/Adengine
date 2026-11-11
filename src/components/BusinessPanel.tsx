@@ -579,6 +579,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
         {b.metaAdAccountId && <label className="field">Meta optimiza por (campañas nuevas)
           <select value={b.metaOptimize} onChange={(e) => set("metaOptimize", e.target.value)}>
             <option value="LANDING_PAGE_VIEWS">Visitas a la web (píxel sin datos: entrega desde el primer día)</option>
+            <option value="ADD_TO_CART">Añadir al carrito o paso previo (p. ej. sube su foto): señal frecuente cuando casi nadie llega al pago</option>
             <option value="INITIATED_CHECKOUT">Clic a compra (cuando el píxel ya registra varios a la semana)</option>
             <option value="PURCHASE">Compra (con unas 30-50 compras al mes)</option>
           </select>
@@ -668,7 +669,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
       {mDraft && !mLive && (
         <>
           <h2>Propuesta Meta · revisa y aprueba</h2>
-          <p className="muted">Nada existe en Meta hasta que pulses «Crear en pausa». Público: {b.country}, {data.ageMin}–{data.ageMax} años. Optimiza por {({ LANDING_PAGE_VIEWS: "visitas a la web", INITIATED_CHECKOUT: "clic a compra", PURCHASE: "compra" } as Record<string, string>)[data.metaOptimize]} (se cambia en la ficha). El gasto total es un tope que Meta respeta sola.</p>
+          <p className="muted">Nada existe en Meta hasta que pulses «Crear en pausa». Público: {b.country}, {data.ageMin}–{data.ageMax} años. Optimiza por {({ LANDING_PAGE_VIEWS: "visitas a la web", ADD_TO_CART: "añadir al carrito", INITIATED_CHECKOUT: "clic a compra", PURCHASE: "compra" } as Record<string, string>)[data.metaOptimize]} (se cambia en la ficha). El gasto total es un tope que Meta respeta sola.</p>
           <div className="row" style={{ margin: "10px 0 16px" }}>
             <label className="field">Presupuesto diario (aprox.)<input type="number" step="1" value={mBudget} onChange={(e) => setMBudget(+e.target.value)} style={{ width: 120 }} /></label>
             <label className="field">Gasto total máximo<input type="number" step="10" value={mCap} onChange={(e) => setMCap(+e.target.value)} style={{ width: 120 }} /></label>

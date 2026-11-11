@@ -485,3 +485,16 @@ va a por el clic más barato.
 - [x] `adSetTargeting`: todos los conjuntos (nuevos y al aplicar público) llevan
       `publisher_platforms: facebook, instagram`. Test nuevo; 51/51 pasan.
 - [x] Aplicado con «aplicar público» a las campañas de Meta de Caricaturea, Bebés y Cuadros.
+
+## Meta: optimizar por «añadir al carrito» y cambiar la optimización de una campaña viva (11 nov)
+
+Caricaturea: el píxel registra 60 «caricatura generada» y solo 2 pagos iniciados
+en 193 clics; optimizando por pago, Meta no tiene de qué aprender.
+
+- [x] Nueva opción de la ficha `ADD_TO_CART` (la web lo envía al generar la caricatura).
+- [x] `reoptimizeMeta` + `POST /api/campanas/:id/reoptimizar`: conjunto nuevo en la
+      misma campaña con la optimización de la ficha y el presupuesto restante,
+      anuncios copiados, conjunto anterior en pausa. La sincronización sigue
+      sumando el gasto de los anuncios antiguos (`extras.metaOldAdIds`).
+- [ ] Falta botón en la ficha (hoy se llama por API) y que el remarketing cambie también.
+- Verificación: tipos y 51 tests; aplicado a Caricaturea y comprobado en Meta.

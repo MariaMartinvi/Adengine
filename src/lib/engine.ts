@@ -511,6 +511,37 @@ export async function setBudget(campaignId: string, dailyBudget: number, totalCa
 }
 
 // Público de Meta: país y edad de la ficha aplicados al conjunto de una campaña viva.
+// Cambia por qué optimiza una campaña de Meta ya creada. Meta no deja editar el evento de un conjunto publicado, así que se crea
+// otro conjunto en la misma campaña con la optimización de la ficha y el presupuesto que quedaba, se copian los anuncios y se
+// pausa el anterior. Los ids antiguos de los anuncios se guardan para que la sincronización siga sumando su gasto.
+export async function reoptimizeMeta(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: true } });
+  if (c.channel !== "meta" || !c.metaCampaignId || !c.metaAdSetId) throw new Error("Solo se aplica a una campaña de Meta ya creada.");
+  const b = c.business;
+  const from = (c.metaOptimize || "INITIATED_CHECKOUT") as meta.MetaOptimize, to = b.metaOptimize as meta.MetaOptimize;
+  if (from === to) throw new Error("La campaña ya optimiza por eso.");
+  if ((from === "LANDING_PAGE_VIEWS") !== (to === "LANDING_PAGE_VIEWS")) throw new Error("Pasar de visitas a ventas (o al revés) necesita una campaña nueva.");
+  const left = await meta.adSetBudgetLeft(c.metaAdSetId);
+  if (!(left.remaining >= 5)) throw new Error("Al conjunto actual no le queda presupuesto: sube el gasto total antes de cambiar la optimización.");
+  const adSetId = await meta.createAdSet(b.metaAdAccountId!, c.metaCampaignId, {
+    name: `${c.name} · ${stamp()} · ${to}`, total: left.remaining, endTime: left.endTime, pixelId: b.metaPixelId!, advertiser: b.metaAdvertiser!,
+    country: b.country, targeting: { age_min: b.ageMin, age_max: b.ageMax }, optimize: to,
+  });
+  const extras = (c.extras || {}) as Record<string, any>;
+  const oldIds: Record<string, string> = { ...(extras.metaOldAdIds || {}) };
+  const copies: { id: string; metaAdId: string }[] = [];
+  try {
+    for (const a of c.ads) if (a.metaAdId) { copies.push({ id: a.id, metaAdId: await meta.copyAd(a.metaAdId, adSetId) }); oldIds[a.metaAdId] = a.id; }
+    if (!copies.length) throw new Error("La campaña no tiene anuncios que copiar.");
+  } catch (e) { await meta.deleteAdSet(adSetId).catch(() => {}); throw e; }
+  await meta.setAdSetStatus(c.metaAdSetId, "PAUSED");
+  await db.$transaction([
+    ...copies.map((x) => db.ad.update({ where: { id: x.id }, data: { metaAdId: x.metaAdId } })),
+    db.campaign.update({ where: { id: c.id }, data: { metaAdSetId: adSetId, metaOptimize: to, extras: { ...extras, metaOldAdIds: oldIds } } }),
+  ]);
+  await log(b.id, "OPTIMIZACION", `Campaña ${c.name}: Meta optimiza ahora por ${to} (antes ${from}). Conjunto nuevo con ${left.remaining.toFixed(2)} ${b.currency} y ${copies.length} anuncios copiados; el anterior queda en pausa.`);
+}
+
 export async function applyMetaAudience(campaignId: string) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true } });
   if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se aplica a una campaña de Meta ya creada.");
@@ -533,6 +564,8 @@ export async function syncMetaCampaign(campaignId: string) {
   // Cada anuncio puede estar en captación y en remarketing: se suman sus dos filas del día antes de guardar.
   const byMetaId = new Map<string, (typeof c.ads)[number]>();
   for (const a of c.ads) { if (a.metaAdId) byMetaId.set(a.metaAdId, a); if (a.metaRtAdId) byMetaId.set(a.metaRtAdId, a); }
+  // Anuncios copiados a otro conjunto al cambiar la optimización: su id anterior sigue contando para el mismo anuncio.
+  for (const [old, id] of Object.entries(((c.extras || {}) as Record<string, any>).metaOldAdIds || {})) { const a = c.ads.find((x) => x.id === id); if (a) byMetaId.set(old, a); }
   const daily = new Map<string, { ad: (typeof c.ads)[number]; date: string; impressions: number; clicks: number; visits: number; cost: number; conversions: number; purchases: number; purchaseValue: number }>();
   for (const r of rows) {
     const ad = byMetaId.get(r.adId);

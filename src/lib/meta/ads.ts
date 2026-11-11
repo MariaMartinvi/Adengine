@@ -63,7 +63,10 @@ export type MetaCampaignSpec = {
 };
 // Para qué optimiza Meta. Con un píxel sin historial, «visitas a la web» entrega desde el primer día; cuando el píxel ya
 // registra clics a compra (o compras), se optimiza por ellos. Las visitas van en campaña de tráfico; lo demás, de ventas.
-export type MetaOptimize = "LANDING_PAGE_VIEWS" | "INITIATED_CHECKOUT" | "PURCHASE";
+// ADD_TO_CART: paso intermedio frecuente que la web envía al píxel (p. ej. Caricaturea al generar la caricatura); da señal cuando
+// los pagos iniciados son demasiado pocos para que Meta aprenda.
+export type MetaOptimize = "LANDING_PAGE_VIEWS" | "ADD_TO_CART" | "INITIATED_CHECKOUT" | "PURCHASE";
+export const META_OPTIMIZE: MetaOptimize[] = ["LANDING_PAGE_VIEWS", "ADD_TO_CART", "INITIATED_CHECKOUT", "PURCHASE"];
 const goal = (o: MetaOptimize = "INITIATED_CHECKOUT", pixelId: string) => o === "LANDING_PAGE_VIEWS"
   ? { optimization_goal: "LANDING_PAGE_VIEWS" }
   : { optimization_goal: "OFFSITE_CONVERSIONS", promoted_object: { pixel_id: pixelId, custom_event_type: o } };
@@ -76,7 +79,7 @@ export const adSetTargeting = (country: string, extra: Record<string, unknown>) 
 });
 
 // Conjunto con presupuesto TOTAL hasta una fecha de fin (freno nativo), optimizado según la ficha (ver MetaOptimize).
-async function createAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; targeting: Record<string, unknown>; optimize?: MetaOptimize }) {
+export async function createAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; targeting: Record<string, unknown>; optimize?: MetaOptimize }) {
   return (await call(`/${act(adAccountId)}/adsets`, {
     name: o.name, campaign_id: campaignId, status: "ACTIVE",
     lifetime_budget: cents(o.total), end_time: o.endTime, billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP",
@@ -158,6 +161,17 @@ export async function setCampaignName(campaignId: string, name: string) {
 export async function setAdSetBudget(adSetId: string, totalCap: number, endTime: Date) {
   await call(`/${adSetId}`, { lifetime_budget: cents(totalCap), end_time: endTime.toISOString() }, "POST");
 }
+
+// Para cambiar la optimización de una campaña viva (Meta no deja editar el evento de un conjunto publicado).
+export async function adSetBudgetLeft(adSetId: string) {
+  const j = await call(`/${adSetId}`, { fields: "budget_remaining,end_time" });
+  return { remaining: Number(j.budget_remaining || 0) / 100, endTime: j.end_time as string };
+}
+export async function copyAd(adId: string, adSetId: string) {
+  return (await call(`/${adId}/copies`, { adset_id: adSetId, status_option: "INHERITED_FROM_SOURCE" }, "POST")).copied_ad_id as string;
+}
+export async function setAdSetStatus(adSetId: string, status: "ACTIVE" | "PAUSED") { await call(`/${adSetId}`, { status }, "POST"); }
+export async function deleteAdSet(adSetId: string) { await call(`/${adSetId}`, {}, "DELETE"); }
 
 export async function setAdSetAudience(adSetId: string, country: string, ageMin: number, ageMax: number) {
   await call(`/${adSetId}`, { targeting: adSetTargeting(country, { age_min: ageMin, age_max: ageMax }) }, "POST");
