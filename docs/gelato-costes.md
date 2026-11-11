@@ -4,7 +4,8 @@ Fuente única de costes de impresión y envío para las webs que imprimen con Ge
 (Regalo para Bebés, Caricaturea, Cuadros con Alma). Sirve para calcular márgenes y el
 `marginPct` de las fichas de AdEngine. Añadir aquí cada dato nuevo con su fecha y origen.
 
-Gelato factura a Comartinvi con IVA 0,00 €: los importes son netos. Los precios de las
+Los importes de la tabla son netos. La mayoría de pedidos llegan con IVA 0,00 €; el de la
+lámina con marco (enviada desde Alemania) llevó un 21 % de IVA, que es deducible. Los precios de las
 webs llevan IVA incluido (21 %), así que el margen se calcula sobre precio / 1,21.
 
 ## Datos reales (de pedidos)
@@ -15,7 +16,11 @@ webs llevan IVA incluido (21 %), así que el margen se calcula sobre precio / 1,
 
 | Premium Matte Poster 200 g (lámina sin marco) | 50 × 70 cm | 18,37 € | 7,39 € | 0,30 € | **26,06 €** | 2026-11 | Pedido de prueba «poster» (cancelado por un fallo del archivo; el precio es el que cotizó Gelato) |
 | Canvas, bastidor de madera slim (lienzo) | 20 × 30 cm | 11,89 € | 6,69 € | — | **18,58 €** | 2026-11-02 | Pedido HInft2zVHTvoGpTQWy2I6g (compra de prueba de María en Caricaturea) |
+| Premium Matte Paper Wooden Framed Poster (lámina con marco de madera natural, plexiglás) | 30 × 40 cm | 21,58 € | 6,63 € (DHL Global Parcel) | — | **28,21 €** + 5,92 € de IVA | 2026-10-30 | Pedido FM261029CE596A (prueba interna) |
 
+- UID lámina con marco 30 × 40: `frame_and_poster_product_frs_300x400-mm_frc_natural-wood_frm_wood_frp_w12xt22-mm_gt_plexiglass__pf_300x400-mm_pt_200-gsm-uncoated_cl_4-0_ct_none_prt_none_ver`.
+  Sale de Alemania por DHL: enviado el 30-oct, entregado el 5-nov (6 días, frente a 1-2 de láminas y lienzos).
+  El marco añade 13,68 € al coste de la lámina 30 × 40 (21,58 − 7,90).
 - UID lienzo 20 × 30: `canvas_200x300-mm-8x12-inch_canvas_wood-fsc-slim_4-0_ver`. Enviado el 2-nov y entregado el 3-nov (1 día).
 - UID 50 × 70: `flat_product_pf_500x700-mm_pt_200-gsm-uncoated_cl_4-0_ct_none_prt_none_sft_none_set_none_ver`
 - El envío «Package 48/72» cuesta lo mismo (7,39 € + 0,30 €) en 30 × 40 y en 50 × 70.
@@ -27,7 +32,7 @@ webs llevan IVA incluido (21 %), así que el margen se calcula sobre precio / 1,
 ## Pendiente de conocer
 
 - Lámina 70 × 100 (trillizos).
-- Lienzos de 30×40 en adelante y marcos.
+- Lienzos de 30×40 en adelante; marcos en 50×70 y otros colores.
 - Si el envío sube con el tamaño o con varias unidades.
 
 ## Margen con los datos que hay
@@ -42,3 +47,7 @@ Archivo digital a 19,90 €: 16,45 € sin IVA − ~0,55 € de Stripe ≈ **15,
 
 Lienzo 20 × 30 de Caricaturea a 35,90 € (IVA incluido):
 29,67 € sin IVA − 18,58 € de Gelato − ~0,80 € de Stripe ≈ **10,30 € (29 % del precio de venta)**.
+
+Lámina 30 × 40 con marco en Regalo para Bebés a 60,20 € (31,20 + 29, IVA incluido):
+49,75 € sin IVA − 28,21 € de Gelato − ~1,15 € de Stripe ≈ **20,40 € (34 %)**. El marco sube el
+margen de 9,50 € a 20,40 €, pero tarda 6 días en llegar.
