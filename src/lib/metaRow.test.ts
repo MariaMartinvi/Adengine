@@ -20,3 +20,11 @@ test("público del conjunto: solo Facebook e Instagram (sin Audience Network), c
     geo_locations: { countries: ["ES"] }, age_min: 25, age_max: 60, publisher_platforms: ["facebook", "instagram"], targeting_automation: { advantage_audience: 0 },
   });
 });
+
+test("limitar ubicaciones conserva el público del remarketing y quita Audience Network", async () => {
+  const { placementsOnly } = await import("./meta/ads");
+  const t = { geo_locations: { countries: ["ES"] }, age_min: 18, custom_audiences: [{ id: "1" }], excluded_custom_audiences: [{ id: "2" }],
+    publisher_platforms: ["facebook", "instagram", "audience_network", "messenger"], audience_network_positions: ["classic"], messenger_positions: ["story"] };
+  assert.deepEqual(placementsOnly(t), { geo_locations: { countries: ["ES"] }, age_min: 18, custom_audiences: [{ id: "1" }], excluded_custom_audiences: [{ id: "2" }],
+    publisher_platforms: ["facebook", "instagram"], targeting_automation: { advantage_audience: 0 } });
+});

@@ -179,6 +179,16 @@ export async function setAdSetAudience(adSetId: string, country: string, ageMin:
   await call(`/${adSetId}`, { targeting: adSetTargeting(country, { age_min: ageMin, age_max: ageMax }) }, "POST");
 }
 
+// Solo Facebook e Instagram en un conjunto ya publicado, sin tocar su público (p. ej. el de visitantes del remarketing).
+export const placementsOnly = (t: Record<string, any>) => {
+  const { audience_network_positions, messenger_positions, ...rest } = t;
+  return { ...rest, publisher_platforms: ["facebook", "instagram"], targeting_automation: { advantage_audience: 0 } };
+};
+export async function limitAdSetPlacements(adSetId: string) {
+  const t = (await call(`/${adSetId}`, { fields: "targeting" })).targeting || {};
+  await call(`/${adSetId}`, { targeting: placementsOnly(t) }, "POST");
+}
+
 
 export type AdDayRow = { adId: string; date: string; impressions: number; clicks: number; visits: number; cost: number; conversions: number; purchases: number; purchaseValue: number };
 // Conversión = clic de compra del píxel (InitiateCheckout). Clics = clics en el enlace, no "me gusta" ni ampliaciones.

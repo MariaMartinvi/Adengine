@@ -550,6 +550,15 @@ export async function applyMetaAudience(campaignId: string) {
   await log(b.id, "PUBLICO", `Campaña ${c.name}: ${b.country}, ${b.ageMin}–${b.ageMax} años.`);
 }
 
+// Limita a Facebook e Instagram los conjuntos de una campaña de Meta ya creada, conservando su público.
+export async function limitMetaPlacements(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId } });
+  if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se aplica a una campaña de Meta ya creada.");
+  const ids = [c.metaAdSetId, c.metaRtAdSetId].filter(Boolean) as string[];
+  for (const id of ids) await meta.limitAdSetPlacements(id);
+  await log(c.businessId, "PUBLICO", `Campaña ${c.name}: solo Facebook e Instagram en ${ids.length} conjunto(s).`);
+}
+
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 // Meta · regla de anuncio: gasta 2× el CAC tope sin ninguna conversión -> se pausa. Pura, para poder probarla.

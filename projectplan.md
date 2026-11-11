@@ -498,3 +498,14 @@ en 193 clics; optimizando por pago, Meta no tiene de qué aprender.
       sumando el gasto de los anuncios antiguos (`extras.metaOldAdIds`).
 - [ ] Falta botón en la ficha (hoy se llama por API) y que el remarketing cambie también.
 - Verificación: tipos y 51 tests; aplicado a Caricaturea y comprobado en Meta.
+
+## Limitar ubicaciones en conjuntos ya publicados (11 nov)
+
+Por qué: el remarketing de Caricaturea se creó antes de limitar a Facebook+Instagram y
+«cambiar público» no sirve (reescribe la segmentación y borraría el público de visitantes).
+
+- [x] `meta.placementsOnly` / `limitAdSetPlacements`: lee la segmentación del conjunto y
+      solo cambia las ubicaciones (quita Audience Network y Messenger), conservando público.
+- [x] `limitMetaPlacements` + `POST /api/campanas/:id/ubicaciones` (conjunto principal y remarketing).
+- [x] Test: conserva `custom_audiences`/`excluded_custom_audiences` y deja solo facebook+instagram.
+- Verificar: aplicado a Caricaturea, leer `targeting` del remarketing en la Graph API.
