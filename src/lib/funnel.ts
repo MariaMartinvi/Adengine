@@ -1,7 +1,7 @@
 // Embudo de un canal: dónde se pierde la gente entre ver el anuncio y comprar.
 // Umbrales orientativos para tiendas pequeñas en España; se ajustan cuando tengamos datos propios.
 export type Funnel = { impressions: number; clicks: number; visits?: number; checkouts?: number; purchases: number };
-export type Diagnosis = { code: "datos" | "anuncio" | "carga" | "pagina" | "pago" | "ok"; text: string };
+export type Diagnosis = { code: "datos" | "anuncio" | "pagina" | "pago" | "ok"; text: string };
 
 export const MIN_CLICKS = 100;
 const pct = (a: number, b: number) => (b > 0 ? a / b : 0);
@@ -18,12 +18,13 @@ export function diagnose(channel: "meta" | "google", f: Funnel): Diagnosis {
       : { code: "ok", text: `El embudo funciona: compra el ${p(conv)} de los que hacen clic.` };
   }
   const load = pct(f.visits || 0, f.clicks);
-  if (load < 0.7) return { code: "carga", text: `Se pierden al abrir la página (solo carga el ${p(load)} de los clics): la página tarda o falla en el móvil.` };
+  // Meta solo cuenta visitas y pagos de quien acepta las cookies: una «carga» baja no significa que la página falle.
+  const note = load < 0.7 ? ` Ojo: Meta solo ve el ${p(load)} de los clics (los que aceptan cookies), así que visitas y pagos están infracontados; contrasta con el embudo propio de la web.` : "";
   const start = pct(f.checkouts || 0, f.visits || 0);
-  if (start < 0.03) return { code: "pagina", text: `La página no convence (solo el ${p(start)} de las visitas empieza a pagar): oferta, precio o confianza.` };
+  if (start < 0.03) return { code: "pagina", text: `La página no convence (solo el ${p(start)} de las visitas empieza a pagar): oferta, precio o confianza.${note}` };
   const close = pct(f.purchases, f.checkouts || 0);
-  if ((f.checkouts || 0) >= 5 && close < 0.3) return { code: "pago", text: `Se caen en el pago (solo termina el ${p(close)} de los que empiezan): precio final, envío o formulario.` };
-  return { code: "ok", text: `El embudo funciona: compra el ${p(pct(f.purchases, f.clicks))} de los que hacen clic.` };
+  if ((f.checkouts || 0) >= 5 && close < 0.3) return { code: "pago", text: `Se caen en el pago (solo termina el ${p(close)} de los que empiezan): precio final, envío o formulario.${note}` };
+  return { code: "ok", text: `El embudo funciona: compra el ${p(pct(f.purchases, f.clicks))} de los que hacen clic.${note}` };
 }
 
 // Embudo de un negocio por canal en los últimos `days` días. Compras = ventas reales (Stripe) atribuidas a ese canal.

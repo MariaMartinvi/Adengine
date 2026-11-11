@@ -10,8 +10,11 @@ test("con menos de 100 clics no se diagnostica", () => {
 test("Meta: CTR bajo → el anuncio", () => {
   assert.equal(diagnose("meta", { ...base, impressions: 30000 }).code, "anuncio");
 });
-test("Meta: muchos clics que no cargan la página → carga", () => {
-  assert.equal(diagnose("meta", { ...base, visits: 80 }).code, "carga");
+test("Meta: pocas visitas contadas no es fallo de carga (cookies): se sigue diagnosticando y se avisa", () => {
+  const d = diagnose("meta", { ...base, visits: 80 });
+  assert.equal(d.code, "ok"); assert.match(d.text, /aceptan cookies/);
+  assert.equal(diagnose("meta", { ...base, visits: 80, checkouts: 1 }).code, "pagina");
+  assert.doesNotMatch(diagnose("meta", base).text, /cookies/);
 });
 test("Meta: visitas que no empiezan a pagar → página", () => {
   assert.equal(diagnose("meta", { ...base, checkouts: 2 }).code, "pagina");

@@ -463,3 +463,15 @@ TODOs:
 - Consent Mode en el banner de Rankcoworker (RGPD)
 - Cron: `0 6 * * *` es 08:00 solo en horario de verano
 - [x] Google Ads API v22 → v26 (02/11/2026): v22 ya rechazada por Google (400) y el permiso OAuth estaba revocado (`invalid_grant`, reconectado). Desde entonces el cron no leía Google: RankCoworker sin métricas ni frenos. Verificado: campos y enums usados existen en el discovery de v26
+
+## Embudo de Meta: el aviso «se pierden al abrir la página» era falso (11 nov)
+
+Meta solo cuenta visitas y pagos de quien acepta las cookies (las webs cargan el
+píxel tras el consentimiento). Con Clarity y pruebas de carga se comprobó que las
+tres webs abren bien (rendimiento 82-93/100), así que un % bajo de «visitas» no es
+un fallo de carga.
+
+- [x] `funnel.ts`: se quita el diagnóstico «carga»; se sigue diagnosticando página
+      y pago, y si Meta ve menos del 70 % de los clics se añade un aviso de que
+      visitas y pagos están infracontados.
+- [x] Test actualizado (`funnel.test.ts`); 50/50 pasan, tipos sin errores.
