@@ -531,7 +531,7 @@ export async function reoptimizeMeta(campaignId: string) {
   const oldIds: Record<string, string> = { ...(extras.metaOldAdIds || {}) };
   const copies: { id: string; metaAdId: string }[] = [];
   try {
-    for (const a of c.ads) if (a.metaAdId) { copies.push({ id: a.id, metaAdId: await meta.copyAd(a.metaAdId, adSetId) }); oldIds[a.metaAdId] = a.id; }
+    for (const a of c.ads) if (a.metaAdId) { copies.push({ id: a.id, metaAdId: await meta.copyAd(b.metaAdAccountId!, a.metaAdId, adSetId) }); oldIds[a.metaAdId] = a.id; }
     if (!copies.length) throw new Error("La campaña no tiene anuncios que copiar.");
   } catch (e) { await meta.deleteAdSet(adSetId).catch(() => {}); throw e; }
   await meta.setAdSetStatus(c.metaAdSetId, "PAUSED");

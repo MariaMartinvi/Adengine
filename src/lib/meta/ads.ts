@@ -167,8 +167,10 @@ export async function adSetBudgetLeft(adSetId: string) {
   const j = await call(`/${adSetId}`, { fields: "budget_remaining,end_time" });
   return { remaining: Number(j.budget_remaining || 0) / 100, endTime: j.end_time as string };
 }
-export async function copyAd(adId: string, adSetId: string) {
-  return (await call(`/${adId}/copies`, { adset_id: adSetId, status_option: "INHERITED_FROM_SOURCE" }, "POST")).copied_ad_id as string;
+// Mismo anuncio en otro conjunto: anuncio nuevo con la misma creatividad (la copia nativa de Meta falla por las «mejoras estándar» obsoletas).
+export async function copyAd(adAccountId: string, adId: string, adSetId: string) {
+  const src = await call(`/${adId}`, { fields: "name,status,creative{id}" });
+  return (await call(`/${act(adAccountId)}/ads`, { name: src.name, adset_id: adSetId, creative: { creative_id: src.creative.id }, status: src.status === "PAUSED" ? "PAUSED" : "ACTIVE" }, "POST")).id as string;
 }
 export async function setAdSetStatus(adSetId: string, status: "ACTIVE" | "PAUSED") { await call(`/${adSetId}`, { status }, "POST"); }
 export async function deleteAdSet(adSetId: string) { await call(`/${adSetId}`, {}, "DELETE"); }
