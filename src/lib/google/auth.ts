@@ -18,6 +18,9 @@ export function authUrl(state: string) {
   return `https://accounts.google.com/o/oauth2/v2/auth?${p}`;
 }
 
+// Google deja desmarcar permisos al conectar: sin el de Google Ads el token se renueva pero la API responde 401.
+export const missingAdsScope = (granted: string) => !granted.split(" ").includes("https://www.googleapis.com/auth/adwords");
+
 export async function exchangeCode(code: string) {
   const r = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -35,7 +38,7 @@ export async function exchangeCode(code: string) {
   const info = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
     headers: { Authorization: `Bearer ${j.access_token}` },
   }).then((x) => x.json());
-  return { refreshToken: j.refresh_token as string, email: info.email as string };
+  return { refreshToken: j.refresh_token as string, email: info.email as string, scope: (j.scope || "") as string };
 }
 
 let cache: { token: string; exp: number } | null = null;

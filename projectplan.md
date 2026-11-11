@@ -509,3 +509,20 @@ Por qué: el remarketing de Caricaturea se creó antes de limitar a Facebook+Ins
 - [x] `limitMetaPlacements` + `POST /api/campanas/:id/ubicaciones` (conjunto principal y remarketing).
 - [x] Test: conserva `custom_audiences`/`excluded_custom_audiences` y deja solo facebook+instagram.
 - Verificar: aplicado a Caricaturea, leer `targeting` del remarketing en la Graph API.
+
+## Google Ads: 401 en la sincronización y en la ficha (11 nov)
+
+Síntoma: «Google Ads (401): invalid authentication credentials» en la lista de cuentas y en
+12 sincronizaciones: AdEngine no ve gasto ni clics de Google. El token SÍ se renueva (si no,
+el error sería «Refresh: …»), así que Google rechaza un token válido.
+
+Hipótesis (no comprobadas: la base de datos no responde desde local):
+1. Al conectar se desmarcó el permiso de Google Ads (Google permite desmarcar casillas).
+2. Hay más de una conexión: reconectar actualiza la del email, pero `accessToken` usa la
+   CREADA más reciente, que no cambia al reconectar.
+
+- [x] `missingAdsScope`: si Google no concede `adwords`, la conexión no se guarda y se avisa.
+- [x] Al reconectar se renueva `createdAt`: la última conectada pasa a ser la que se usa.
+- [x] Test de `missingAdsScope` (53/53).
+- Pendiente (María): reconectar Google Ads marcando todas las casillas y comprobar que la
+  ficha lista las cuentas y la sincronización deja de dar 401.
