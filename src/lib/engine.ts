@@ -235,6 +235,39 @@ export async function addMetaImageAd(campaignId: string, imageUrl: string) {
   await log(b.id, "ANUNCIO_AÑADIDO", `Nueva portada en Meta (anuncio ${n}): ${imageUrl}`);
 }
 
+// Textos de una variante: lo que no se indique se hereda del anuncio base. Pura, para poder probarla.
+export type AdTexts = { headline?: string; message?: string; description?: string; link?: string };
+export function variantTexts(base: { headlines: unknown; descriptions: unknown; finalUrl: string | null }, t: AdTexts, fallbackUrl: string) {
+  const [h] = base.headlines as string[]; const [m, d] = base.descriptions as string[];
+  const pick = (x: string | undefined, y: string | undefined) => (x && x.trim()) || y || "";
+  return { headline: pick(t.headline, h), message: pick(t.message, m), description: pick(t.description, d), link: pick(t.link, base.finalUrl || fallbackUrl) };
+}
+
+// Variante de un anuncio de Meta: misma imagen o vídeo, otros textos (en Meta el texto de un anuncio publicado no se edita).
+// Con pauseBase el anuncio original queda en pausa (p. ej. para corregir un precio); sin él conviven (p. ej. otro mensaje).
+export async function addMetaAdVariant(campaignId: string, adId: string, t: AdTexts, pauseBase = false) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: { orderBy: { id: "asc" } } } });
+  const b = c.business;
+  if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se crean variantes en una campaña de Meta ya creada.");
+  const a = c.ads.find((x) => x.id === adId);
+  if (!a || !a.mediaRef) throw new Error("No encuentro ese anuncio en la campaña.");
+  const thumb = a.thumbRef || c.ads.find((x) => x.mediaType === "image")?.mediaRef || c.ads.find((x) => x.thumbRef)?.thumbRef;
+  if (!thumb) throw new Error("Falta una imagen de miniatura para el vídeo.");
+  const { headline, message, description, link } = variantTexts(a, t, b.url);
+  const n = c.ads.length + 1;
+  const page = { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link, thumbHash: thumb, cta: b.metaCta };
+  const spec = { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef, message, headline, description, link, thumbHash: a.thumbRef || undefined };
+  const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · ${a.mediaType} ${n}`, page, spec);
+  const metaRtAdId = c.metaRtAdSetId ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · ${a.mediaType} ${n}`, page, spec) : null;
+  if (pauseBase) {
+    if (a.metaRtAdId) await meta.setAdStatus(a.metaRtAdId, "PAUSED");
+    if (a.metaAdId) await meta.setAdStatus(a.metaAdId, "PAUSED");
+    await db.ad.update({ where: { id: a.id }, data: { status: "PAUSED" } });
+  }
+  await db.ad.create({ data: { campaignId: c.id, mediaType: a.mediaType, mediaUrl: a.mediaUrl, mediaRef: a.mediaRef, basedOn: a.basedOn, thumbRef: a.thumbRef, metaAdId, metaRtAdId, finalUrl: link, headlines: [headline], descriptions: [message, description] } });
+  await log(b.id, "ANUNCIO_AÑADIDO", `Campaña ${c.name}: variante del anuncio de ${a.mediaType === "video" ? "vídeo" : "imagen"} (anuncio ${n}) con el titular «${headline}»${pauseBase ? "; el original queda en pausa" : ""}.`);
+}
+
 // Remarketing en Meta: % del tope (campo de la ficha, 20 por defecto) para quien visitó la web y no compró. 0 = sin remarketing.
 const rtShare = (b: { metaRtShare: number }) => Math.min(50, Math.max(0, b.metaRtShare)) / 100;
 

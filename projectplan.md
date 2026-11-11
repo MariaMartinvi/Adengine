@@ -526,3 +526,14 @@ Hipótesis (no comprobadas: la base de datos no responde desde local):
 - [x] Test de `missingAdsScope` (53/53).
 - Pendiente (María): reconectar Google Ads marcando todas las casillas y comprobar que la
   ficha lista las cuentas y la sincronización deja de dar 401.
+
+## Variantes de anuncio con otros textos (11 nov)
+
+Por qué: (1) Bebés subió de 49 € a 63,20 € el 6-nov y sus anuncios siguen diciendo
+«Desde 49 €»; en Meta el texto no se edita. (2) El desglose por edad dice que quien más
+responde tiene más de 55 años: hacen falta anuncios que hablen a abuelos, y de Navidad.
+
+- [x] `variantTexts` (pura, con test) + `addMetaAdVariant`: misma imagen o vídeo, otros
+      textos; opcionalmente pausa el original. También crea el gemelo de remarketing.
+- [x] `POST /api/campanas/:id/variante {adId, headline?, message?, description?, link?, pauseBase?}`.
+- Verificar: variantes creadas en Bebés y Caricaturea visibles en Meta con el texto nuevo.

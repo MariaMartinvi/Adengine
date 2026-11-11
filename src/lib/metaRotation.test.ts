@@ -41,3 +41,10 @@ test("pausa automática: 1 CAC de validación gastado sin clics a compra", () =>
   // Con un CAC de validación de 20, ninguno todavía.
   assert.deepEqual(metaAdsToPause(ads, totals, 20), []);
 });
+
+test("variante de anuncio: hereda del original lo que no se indica", async () => {
+  const { variantTexts } = await import("./engine");
+  const base = { headlines: ["Titular"], descriptions: ["Mensaje", "Desde 49 €"], finalUrl: "https://x.es/p" };
+  assert.deepEqual(variantTexts(base, { description: "63,20 € · Envío gratis" }, "https://x.es"), { headline: "Titular", message: "Mensaje", description: "63,20 € · Envío gratis", link: "https://x.es/p" });
+  assert.deepEqual(variantTexts({ ...base, finalUrl: null }, { headline: " Nuevo ", message: "" }, "https://x.es"), { headline: "Nuevo", message: "Mensaje", description: "Desde 49 €", link: "https://x.es" });
+});
