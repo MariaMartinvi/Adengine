@@ -243,3 +243,11 @@ export async function uploadClickConversion(cid: string, conversionActionId: str
   if (j.partialFailureError) throw new Error(`Google Ads: ${j.partialFailureError.details?.[0]?.errors?.map((e: any) => e.message).join("; ") || j.partialFailureError.message}`);
   return j;
 }
+
+// Quita de la cuenta los teléfonos de llamada (recurso CALL a nivel de cuenta): salen en todos los anuncios.
+export async function removeAccountCallAssets(cid: string): Promise<number> {
+  const rows = await search(cid, `SELECT customer_asset.resource_name FROM customer_asset WHERE customer_asset.field_type = 'CALL' AND customer_asset.status != 'REMOVED'`);
+  if (!rows.length) return 0;
+  await call(`/customers/${cid}/customerAssets:mutate`, { operations: rows.map((r) => ({ remove: r.customerAsset.resourceName })) });
+  return rows.length;
+}

@@ -545,3 +545,8 @@ responde tiene más de 55 años: hacen falta anuncios que hablen a abuelos, y de
 ## Consulta de solo lectura a Google Ads (12-nov-2026)
 - [x] Ruta `POST /api/google/consulta {cid, query}`: solo acepta `SELECT` (usa `googleAds:search`, que no puede escribir). Motivo: en el anuncio de Bebés salía un teléfono que no ha puesto AdEngine y había que ver qué recursos tiene la cuenta.
 - Verificación: `npx tsc --noEmit` y consulta en producción de los recursos de llamada.
+
+## Teléfono ajeno en los anuncios de Google (12-nov-2026)
+- [x] La cuenta 8420690739 tenía dos recursos de llamada a nivel de cuenta con un número de Brasil, creados el 2-nov a las 15:21 desde la web de Google Ads (primer cambio de la cuenta). Salían en las tres campañas.
+- [x] `removeAccountCallAssets(cid)` + ruta `POST /api/google/quitar-telefono {cid}`: desvincula de la cuenta los recursos CALL.
+- Verificación: tras llamarla, `customer_asset` con `field_type = 'CALL'` no devuelve ninguno activo.
