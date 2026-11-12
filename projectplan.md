@@ -550,3 +550,7 @@ responde tiene más de 55 años: hacen falta anuncios que hablen a abuelos, y de
 - [x] La cuenta 8420690739 tenía dos recursos de llamada a nivel de cuenta con un número de Brasil, creados el 2-nov a las 15:21 desde la web de Google Ads (primer cambio de la cuenta). Salían en las tres campañas.
 - [x] `removeAccountCallAssets(cid)` + ruta `POST /api/google/quitar-telefono {cid}`: desvincula de la cuenta los recursos CALL.
 - Verificación: tras llamarla, `customer_asset` con `field_type = 'CALL'` no devuelve ninguno activo.
+
+## Palabras negativas directas (12-nov-2026)
+- [x] Ruta `POST /api/campanas/:id/negativas {texts: string[]}`: añade negativas de frase a una campaña de Google ya creada y lo anota en la actividad. Motivo: los términos de búsqueda reales (cestas, constelaciones, detalles de bautizo, regalos de cumpleaños genéricos) gastaban sin intención de compra y solo se podían añadir negativas al crear la campaña.
+- Verificación: `npx tsc --noEmit`, llamada en producción y consulta de `campaign_criterion` negativos.
