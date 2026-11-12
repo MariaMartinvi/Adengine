@@ -541,3 +541,7 @@ responde tiene más de 55 años: hacen falta anuncios que hablen a abuelos, y de
 ## Lectura manual de una campaña (12-nov-2026)
 - [x] Ruta `POST /api/campanas/:id/sincronizar`: llama a `syncCampaign`, igual que la tarea programada. Motivo: la lectura de las 06:00 falló con 401 de Google y no había forma de repetirla sin esperar a las 16:00.
 - Verificación: `npx tsc --noEmit` y llamada en producción a las dos campañas de Google.
+
+## Consulta de solo lectura a Google Ads (12-nov-2026)
+- [x] Ruta `POST /api/google/consulta {cid, query}`: solo acepta `SELECT` (usa `googleAds:search`, que no puede escribir). Motivo: en el anuncio de Bebés salía un teléfono que no ha puesto AdEngine y había que ver qué recursos tiene la cuenta.
+- Verificación: `npx tsc --noEmit` y consulta en producción de los recursos de llamada.
