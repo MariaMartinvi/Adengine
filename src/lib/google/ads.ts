@@ -1,10 +1,11 @@
 // Adaptador de Google Ads sobre la API REST. No hay nada de Google fuera de esta carpeta.
 import { accessToken } from "./auth";
+import { countriesOf } from "../markets";
 
 const V = () => process.env.GOOGLE_ADS_API_VERSION || "v26";
 const BASE = () => `https://googleads.googleapis.com/${V()}`;
 
-export const GEO: Record<string, string> = { ES: "2724", MX: "2484", FR: "2250", GB: "2826", US: "2840", CO: "2170", CL: "2152", AR: "2032", PE: "2604", PT: "2620", IT: "2380", DE: "2276" };
+export const GEO: Record<string, string> = { ES: "2724", MX: "2484", FR: "2250", GB: "2826", US: "2840", PR: "2630", CO: "2170", CL: "2152", AR: "2032", PE: "2604", PT: "2620", IT: "2380", DE: "2276" };
 export const LANG: Record<string, string> = { es: "1003", en: "1000", fr: "1002", pt: "1014", it: "1004", de: "1001" };
 
 export const toMicros = (eur: number) => Math.round(eur * 1_000_000).toString();
@@ -46,7 +47,7 @@ export type KeywordIdea = { text: string; volume: number; cpcLow: number; cpcHig
 export async function keywordIdeas(cid: string, seeds: string[], country: string, language: string, url?: string): Promise<KeywordIdea[]> {
   const body: any = {
     language: `languageConstants/${LANG[language] || LANG.es}`,
-    geoTargetConstants: [`geoTargetConstants/${GEO[country] || GEO.ES}`],
+    geoTargetConstants: countriesOf(country).map((c) => `geoTargetConstants/${GEO[c] || GEO.ES}`),
     keywordPlanNetwork: "GOOGLE_SEARCH",
     includeAdultKeywords: false,
     pageSize: 500,
@@ -88,7 +89,7 @@ export async function createSearchCampaign(cid: string, s: CampaignSpec) {
       geoTargetTypeSetting: { positiveGeoTargetType: "PRESENCE", negativeGeoTargetType: "PRESENCE" },
       containsEuPoliticalAdvertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
     } } },
-    { campaignCriterionOperation: { create: { campaign: C, location: { geoTargetConstant: `geoTargetConstants/${GEO[s.country] || GEO.ES}` } } } },
+    ...countriesOf(s.country).map((c) => ({ campaignCriterionOperation: { create: { campaign: C, location: { geoTargetConstant: `geoTargetConstants/${GEO[c] || GEO.ES}` } } } })),
     { campaignCriterionOperation: { create: { campaign: C, language: { languageConstant: `languageConstants/${LANG[s.language] || LANG.es}` } } } },
     ...groupNames.map((n) => ({ adGroupOperation: { create: { resourceName: G(n), name: `${s.name} · ${n}`, campaign: C, status: "ENABLED", type: "SEARCH_STANDARD" } } })),
   ];

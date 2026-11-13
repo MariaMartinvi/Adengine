@@ -1,5 +1,6 @@
 // Adaptador de Meta (Facebook + Instagram) sobre la Marketing API. No hay nada de Meta fuera de esta carpeta.
 // Acceso con el token de un usuario del sistema del porfolio (no caduca): META_ACCESS_TOKEN.
+import { countriesOf, needsSpanishLocale } from "../markets";
 
 const BASE = () => `https://graph.facebook.com/${process.env.META_API_VERSION || "v26.0"}`;
 export const act = (id: string) => (id.startsWith("act_") ? id : `act_${id}`);
@@ -75,8 +76,20 @@ const cents = (eur: number) => Math.round(eur * 100);
 // Público de un conjunto. Solo Facebook e Instagram: en Audience Network los clics eran accidentales
 // (nov 2026, Cuadros con Alma: 74 clics y 0 visitas a la web) y Meta, sin señal de compra, se iba a por ellos.
 export const adSetTargeting = (country: string, extra: Record<string, unknown>) => ({
-  geo_locations: { countries: [country] }, ...extra, publisher_platforms: ["facebook", "instagram"], targeting_automation: { advantage_audience: 0 },
+  geo_locations: { countries: countriesOf(country) }, ...extra, publisher_platforms: ["facebook", "instagram"], targeting_automation: { advantage_audience: 0 },
 });
+
+// Idiomas «español» de Meta (para EE. UU., ver needsSpanishLocale). Se piden a Meta en vez de fijar sus números.
+let spanish: number[] | null = null;
+async function spanishLocales(): Promise<number[]> {
+  if (!spanish) {
+    const j = await call("/search", { type: "adlocale", q: "Spanish" });
+    spanish = (j.data || []).filter((l: any) => /^spanish/i.test(l.name)).map((l: any) => Number(l.key));
+    if (!spanish!.length) throw new Error("Meta no devuelve el idioma español para segmentar.");
+  }
+  return spanish!;
+}
+const localeFor = async (country: string) => (needsSpanishLocale(country) ? { locales: await spanishLocales() } : {});
 
 // Conjunto con presupuesto TOTAL hasta una fecha de fin (freno nativo), optimizado según la ficha (ver MetaOptimize).
 export async function createAdSet(adAccountId: string, campaignId: string, o: { name: string; total: number; endTime: string; pixelId: string; advertiser: string; country: string; targeting: Record<string, unknown>; optimize?: MetaOptimize }) {
@@ -85,7 +98,7 @@ export async function createAdSet(adAccountId: string, campaignId: string, o: { 
     lifetime_budget: cents(o.total), end_time: o.endTime, billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP",
     ...goal(o.optimize, o.pixelId),
     dsa_beneficiary: o.advertiser, dsa_payor: o.advertiser,
-    targeting: adSetTargeting(o.country, o.targeting),
+    targeting: adSetTargeting(o.country, { ...(await localeFor(o.country)), ...o.targeting }),
   }, "POST")).id as string;
 }
 
@@ -176,7 +189,7 @@ export async function setAdSetStatus(adSetId: string, status: "ACTIVE" | "PAUSED
 export async function deleteAdSet(adSetId: string) { await call(`/${adSetId}`, {}, "DELETE"); }
 
 export async function setAdSetAudience(adSetId: string, country: string, ageMin: number, ageMax: number) {
-  await call(`/${adSetId}`, { targeting: adSetTargeting(country, { age_min: ageMin, age_max: ageMax }) }, "POST");
+  await call(`/${adSetId}`, { targeting: adSetTargeting(country, { ...(await localeFor(country)), age_min: ageMin, age_max: ageMax }) }, "POST");
 }
 
 // Solo Facebook e Instagram en un conjunto ya publicado, sin tocar su público (p. ej. el de visitantes del remarketing).

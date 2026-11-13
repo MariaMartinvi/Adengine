@@ -533,7 +533,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
         <label className="field">Qué vende<input value={b.sells} onChange={(e) => set("sells", e.target.value)} /></label>
         <label className="field">A quién<input value={b.audience} onChange={(e) => set("audience", e.target.value)} /></label>
-        <label className="field">País<input value={b.country} onChange={(e) => set("country", e.target.value.toUpperCase())} maxLength={2} /></label>
+        <label className="field">País (varios: US,PR)<input value={b.country} onChange={(e) => set("country", e.target.value.toUpperCase())} maxLength={20} /></label>
         <label className="field">Idioma<input value={b.language} onChange={(e) => set("language", e.target.value.toLowerCase())} maxLength={2} /></label>
         <label className="field">Venta que optimizamos<input value={b.saleEvent} onChange={(e) => set("saleEvent", e.target.value)} /></label>
         <label className="field">Precio de esa venta<input type="number" step="0.01" value={b.price} onChange={(e) => set("price", +e.target.value)} /></label>
