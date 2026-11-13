@@ -633,3 +633,26 @@ publica y se comprueba antes de empezar el siguiente.
 - Pendiente: B5 (variante «desde 19,90 €»), C5 (reactivar Cuadros con Alma, con OK de María) y una compra de prueba
   del archivo de Cuadros con Alma para ver el email y la descarga.
 - Aprendizaje: zsh no parte una variable con espacios en un for; usar arrays.
+
+## Preparar EE. UU. + Puerto Rico, México y Chile (13-nov-2026, María: «déjalo todo preparado»)
+
+Sin lanzar anuncios ni gastar. Lo que queda listo:
+- [x] AdEngine: el campo País admite varios («US,PR»); Meta y Google segmentan por todos. En EE. UU. Meta
+      solo enseña los anuncios a quien usa Facebook/Instagram en español (idiomas pedidos a Meta, no fijados).
+      Google: añadido Puerto Rico (2630). Tests 56/56 (`markets.test.ts`). Commit e281a06.
+- [x] Las tres webs: `adaptive_pricing` en Stripe Checkout → el cliente ve el precio en su moneda (USD, MXN,
+      CLP…) y nosotros cobramos en euros; Stripe suma un 2-4 % al cambio, que paga el cliente.
+      Puerto Rico añadido a los envíos. Verificado: Stripe crea el pago con el cambio (Cuadros físico y
+      digital, Bebés). NO verificado: la moneda que ve un cliente de fuera (la cuenta de Stripe de estas webs
+      no está en el conector) ni el pago de Caricaturea (necesita una caricatura generada).
+- México y Chile: solo archivo digital (Gelato no produce allí; Chile no está en los envíos).
+
+Pendiente de decisión de María:
+- Impuestos: vender digital a México obliga a registrarse allí (IVA, representante legal). Opción:
+  Managed Payments de Stripe (Stripe vende por ti y gestiona impuestos en México, EE. UU. y España, NO Chile;
+  el cliente ve «Sold through Link»; comisión extra; solo para pedidos solo digitales). Confirmar con gestor.
+- Ventas por país en AdEngine: cada web avisa de sus ventas a una sola ficha; una ficha aparte para EE. UU.
+  no vería sus ventas. Habría que repartir las ventas por el país del pago.
+- Textos de las webs para visitantes de fuera (precio en euros en la ficha, «Envío gratis a Península»,
+  fechas de entrega de España).
+- Gelato a Puerto Rico sin comprobar con un pedido real.
