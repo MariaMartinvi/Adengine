@@ -554,3 +554,82 @@ responde tiene más de 55 años: hacen falta anuncios que hablen a abuelos, y de
 ## Palabras negativas directas (12-nov-2026)
 - [x] Ruta `POST /api/campanas/:id/negativas {texts: string[]}`: añade negativas de frase a una campaña de Google ya creada y lo anota en la actividad. Motivo: los términos de búsqueda reales (cestas, constelaciones, detalles de bautizo, regalos de cumpleaños genéricos) gastaban sin intención de compra y solo se podían añadir negativas al crear la campaña.
 - Verificación: `npx tsc --noEmit`, llamada en producción y consulta de `campaign_criterion` negativos.
+
+## Ajustes tras el seguimiento del 13-nov-2026 (aprobado por María, hecho el 13-nov)
+
+Por qué: los anuncios de Meta traen clics baratos (0,13-0,21 €) pero casi nadie paga. En
+Clarity se ve a la gente generar su diseño, mirarlo y marcharse. María decide: dar mucho más
+protagonismo al archivo para imprimir (9,90 € en Caricaturea, 19,90 € en Bebés y, nuevo, en
+Cuadros con Alma), poner el botón de pedir en la vista ampliada, dejar menos anuncios y
+limpiar Google. Descartado: email obligatorio, simplificar el configurador de Bebés y subir
+el ticket de Bebés.
+
+Suposiciones (corregir si no es así):
+- «9. ponlo por 19,9» = descarga digital de Cuadros con Alma a 19,90 €.
+- Los textos de «bombo» solo prometen lo que el archivo cumple: antes de escribir «alta
+  resolución» o un tamaño máximo se mide el archivo real de cada web.
+- Los textos del archivo NO dicen que imprimirlo por tu cuenta sale barato: resta valor a
+  la lámina impresa y al lienzo (María, 13-nov).
+- Cambios de campañas, siempre desde AdEngine. Nada de esto toca el código de AdEngine.
+
+### A. Caricaturea (repo `caricaturas`, `app/static/producto.html`)
+- [x] A1. Medir el archivo digital que se entrega (píxeles) y fijar hasta qué tamaño se
+      puede imprimir bien. → verificar: dato anotado aquí; es la base de los textos.
+- [x] A2. Vista ampliada de la caricatura con botón fijo «Pedir · precio» y «Cerrar» (hoy
+      es una imagen a pantalla completa sin salida). → verificar: en móvil, desde la vista
+      ampliada se llega a Stripe en un toque; tocar fuera sigue cerrando.
+- [x] A3. Bajo las dos visualizaciones, bloque destacado «Archivo de calidad para imprimir
+      · 9,90 €» con su botón de compra directa, encima del desplegable de formatos.
+      → verificar: el botón abre Stripe con 9,90 € y se registra `begin_checkout`.
+- [x] A4. Arriba, en «Tipo y tamaño»: «Solo archivo (sin impresión)» pasa a «Archivo de
+      calidad para imprimir» con 3 ventajas cortas. → verificar: se ve en móvil sin empujar
+      el botón de subir foto fuera de la primera pantalla.
+
+### B. Regalo para Bebés (repo `poster-nacimiento`)
+- [x] B1. Medir el archivo digital (ya se genera con `PRINT_PX_MM`) y anotar resolución.
+- [x] B2. En el paso «Formato», «Archivo digital» pasa a «Archivo en alta calidad para
+      imprimir · 19,90 €» con sus ventajas, incluida la que ya existe en `upgrade.py`: si
+      luego la quieres impresa, se descuenta lo pagado. → verificar: se ve al entrar con
+      `?material=digital` (adonde llevan los anuncios) y el precio del carrito no cambia.
+- [x] B3. (AdEngine, sin código) Dejar 3 anuncios activos y pausar los otros 5.
+      Propuesta: las dos variantes del 12-nov con el precio correcto y «El regalo de los
+      abuelos esta Navidad». → verificar: 3 activos en el panel.
+- [x] B4. (AdEngine, sin código) Ficha: Meta optimiza por «Añadir al carrito» y aplicar a
+      la campaña. → verificar: el conjunto en Meta muestra ese objetivo.
+- [ ] B5. (AdEngine, opcional) Variante de anuncio que diga «desde 19,90 €».
+
+### C. Cuadros con Alma (repo `cuadrosconalma`, `fe/`)
+- [x] C1. Precio y opción «Archivo para imprimir · 19,90 €» en la página de producto, junto
+      a lienzo y lámina. → verificar: test de `price_eur("digital", …)` y se ve en móvil.
+- [x] C2. Carrito y Stripe sin dirección de envío cuando todo es digital; no se manda nada
+      a Gelato. → verificar: test del pedido solo digital.
+- [x] C3. Tras el pago, email con el enlace de descarga, válido solo para ese pedido
+      pagado. → verificar: test: pedido sin pagar o id ajeno devuelve 403/404.
+- [x] C4. Bloque de «bombo» del archivo en la página de producto (mismas ventajas, con la
+      resolución medida). → verificar: visual en móvil.
+- [ ] C5. (AdEngine, sin código) Reactivar Meta a 5 €/día con tope de 40-50 € y optimizar
+      por «Añadir al carrito». Solo con OK expreso de María tras ver C1-C4 en producción.
+- A revisar aparte (no se toca sin pedirlo): `/api/print/{slug}/{size}/{frame}.jpg` es la
+  dirección que lee Gelato; si es pública, el archivo de imprenta ya se puede bajar gratis.
+
+### D. Google (AdEngine, sin código)
+- [x] D1. Caricaturea: pausar las palabras genéricas de regalo que quedan activas
+      (aniversario, 40/50 cumpleaños, boda) y dejar caricatura/retrato de foto y mascota.
+- [x] D2. Bebés: pausar «regalo recién nacido», «regalo nacimiento», bautizo y «mamá
+      primeriza»; dejar lámina/cuadro/póster de nacimiento y mapa de estrellas.
+      → verificar ambas: consulta `keyword_view` con solo las de producto activas.
+
+Orden propuesto: A (es donde hay más tráfico) → B → D → C (lo más largo). Cada bloque se
+publica y se comprueba antes de empezar el siguiente.
+
+### Review (13-nov)
+- Caricaturea (commit 081af71), Bebés (3440645) y Cuadros con Alma (feffebf) publicados y comprobados en producción.
+- Medido: Caricaturea entrega 1152x1536 px → «hasta 20x30 cm»; Bebés, 150 ppp al tamaño de la lámina → «a tamaño real»;
+  Cuadros con Alma, original de 1536x1024 → «hasta 20x30 cm».
+- B3: activos en Bebés el vídeo «🖤 Diseña tu lámina…» (variante del 12-nov, el único con clic a compra), «La lámina
+  de nacimiento a tamaño real» (12-nov) y «El regalo de los abuelos esta Navidad». B4: Meta optimiza por ADD_TO_CART.
+- D: 58 palabras genéricas pausadas desde AdEngine. Quedan activas en Google 10 de Caricaturea («regalo 40 cumpleaños
+  original», «regalo personalizado jefe»…) que AdEngine no tiene registradas: no se tocan por fuera.
+- Pendiente: B5 (variante «desde 19,90 €»), C5 (reactivar Cuadros con Alma, con OK de María) y una compra de prueba
+  del archivo de Cuadros con Alma para ver el email y la descarga.
+- Aprendizaje: zsh no parte una variable con espacios en un for; usar arrays.
