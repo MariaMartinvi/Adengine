@@ -656,3 +656,15 @@ Pendiente de decisión de María:
 - Textos de las webs para visitantes de fuera (precio en euros en la ficha, «Envío gratis a Península»,
   fechas de entrega de España).
 - Gelato a Puerto Rico sin comprobar con un pedido real.
+
+### México con Managed Payments (13-nov, María: «actívalo solo para México»)
+- [x] Las tres webs: si la visita llega desde México (cabecera `cf-ipcountry` de Cloudflare) y el pedido es solo
+      digital, el pago se crea con `managed_payments` de Stripe y el código fiscal `txcd_10505001` (obra digital
+      descargada): Stripe es el vendedor y declara el IVA mexicano. Tarjetas regalo de Bebés y pedidos con impreso:
+      pago normal. Si Stripe rechaza Managed Payments, se cobra con el pago normal para no perder la venta.
+- Verificado: los mismos parámetros crean un pago con Managed Payments en el sandbox de Bebés; tests en las tres
+  webs (`tests/test_mexico.py`). Commits f76ea0d (Caricaturea), e58cd56 (Bebés), 1fe917b (Cuadros).
+- NO verificado: un pago real desde México (no se puede simular el país a través de Cloudflare), ni que la cuenta
+  live de Caricaturea/Cuadros tenga Managed Payments activado (si no, cae al pago normal y lo registra en el log).
+- Al cliente mexicano: «Sold through Link», recibo de Stripe además del nuestro, y el IVA de México (16 %) se
+  suma al precio en el pago.
