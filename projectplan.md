@@ -666,5 +666,5 @@ Pendiente de decisión de María:
   webs (`tests/test_mexico.py`). Commits f76ea0d (Caricaturea), e58cd56 (Bebés), 1fe917b (Cuadros).
 - NO verificado: un pago real desde México (no se puede simular el país a través de Cloudflare), ni que la cuenta
   live de Caricaturea/Cuadros tenga Managed Payments activado (si no, cae al pago normal y lo registra en el log).
-- Al cliente mexicano: «Sold through Link», recibo de Stripe además del nuestro, y el IVA de México (16 %) se
-  suma al precio en el pago.
+- Al cliente mexicano: «Sold through Link», recibo de Stripe además del nuestro, y el IVA de México (16 %); sin
+  comprobar si Stripe lo suma al precio o lo descuenta de lo que cobramos.
