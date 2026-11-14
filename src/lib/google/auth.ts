@@ -56,6 +56,7 @@ export async function accessToken() {
       refresh_token: decrypt(conn.refreshTokenEnc),
       grant_type: "refresh_token",
     }),
+    cache: "no-store", // si no, Next.js guarda la respuesta y devuelve un token ya caducado (401 en la tarea programada)
   });
   const j = await r.json();
   if (!r.ok) throw new Error(`Refresh: ${JSON.stringify(j)}`);

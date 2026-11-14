@@ -668,3 +668,15 @@ Pendiente de decisión de María:
   live de Caricaturea/Cuadros tenga Managed Payments activado (si no, cae al pago normal y lo registra en el log).
 - Al cliente mexicano: «Sold through Link», recibo de Stripe además del nuestro, y el IVA de México (16 %); sin
   comprobar si Stripe lo suma al precio o lo descuenta de lo que cobramos.
+
+## 401 de Google en la sincronización automática (14-nov-2026, revisión programada)
+- Causa: `/api/cron/sync` es una ruta GET y Next.js 14 guarda por defecto en su caché permanente (Data Cache) los
+  `fetch` de esas rutas, también los POST. La petición del token (`oauth2.googleapis.com/token`, mismo cuerpo
+  siempre) devolvía el token guardado, caducado a la hora → `Google Ads (401)` en cada lectura de las 06:00 y las
+  16:00 (12-nov 16:56, 13-nov 06:54 y 16:56, 14-nov 06:54). Las rutas POST (lectura manual, consultas) no usan esa
+  caché: por eso funcionaban y reconectar no lo arreglaba.
+- [x] `fetchCache = "force-no-store"` en `/api/cron/sync` (cubre también las lecturas de Meta y los cambios que hace
+  la tarea) y `cache: "no-store"` en la petición del token (`src/lib/google/auth.ts`).
+- Verificación: test nuevo en `googleAuth.test.ts` (57/57), `npx tsc --noEmit`. Pendiente: que la lectura de las
+  16:00 UTC del 14-nov no deje «error sync» en la actividad.
+- Aprendizaje: en Next 14, `dynamic = "force-dynamic"` no impide la caché de `fetch` en una ruta solo GET.

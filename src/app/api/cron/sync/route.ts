@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { proposeBudgetMoves, syncCampaign } from "@/lib/engine";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
+// Ruta GET: sin esto Next.js 14 guarda los fetch (token, lecturas y cambios de Google/Meta) en su caché permanente.
+export const fetchCache = "force-no-store";
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization");
   if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
