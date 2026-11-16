@@ -680,3 +680,17 @@ Pendiente de decisión de María:
 - Verificación: test nuevo en `googleAuth.test.ts` (57/57), `npx tsc --noEmit`. Pendiente: que la lectura de las
   16:00 UTC del 14-nov no deje «error sync» en la actividad.
 - Aprendizaje: en Next 14, `dynamic = "force-dynamic"` no impide la caché de `fetch` en una ruta solo GET.
+
+## Webs por país: México/Chile solo para imprimir, EE. UU. sin «Península» (16-nov-2026, María: «adelante ya, hazlo»)
+Por qué: abrir anuncios en EE. UU. + Puerto Rico, México y Chile. Chile sale ya sin registro fiscal (María: «esperamos
+a tener volumen»); ventas por país en AdEngine no hacen falta; Gelato a Puerto Rico se da por bueno.
+Cómo: el país llega en la cabecera `cf-ipcountry` de Cloudflare. MX/CL → solo la versión para imprimir, ya elegida;
+US/PR → «Envío gratis a EE. UU.»; resto → como ahora. Al pagar, un pedido impreso desde MX/CL se rechaza con un aviso.
+- [x] Bebés (poster-nacimiento): `bp/market.py`; en MX/CL solo «Lámina para imprimir» en la de nacimiento y aviso en las demás. Tests 29/29 (`tests/test_paises.py`). Commit e01c1f5.
+- [x] Caricaturea (caricaturas): `app/market.py`; en MX/CL la ficha solo ofrece la descarga. Tests 14/14. Commit e50e5b0 (rebasado sobre 60a86d1, que llegó a la vez).
+- [x] Cuadros con Alma (cuadrosconalma): `fe/market.py`; en MX/CL se ocultan marco, tamaño y carrito, precio 19,90 €. Tests 12/12. Commit 52ab835.
+- [x] Publicado en las tres (Render). Producción desde España: igual que antes y con el código nuevo
+      (Cuadros `if (false)`, Caricaturea `MARKET = "es"`, Bebés con lámina/lienzo y digiBox visibles).
+      NO verificado en producción la vista de México/EE. UU.: Cloudflare pone el país real y no se puede simular.
+- Pendiente de María: campaña de México. No cambiar el país de la ficha actual (reoptimizar o «Aplicar público»
+  pasarían la campaña de España a México); ficha aparte «Regalo para Bebés · México» con país MX.
