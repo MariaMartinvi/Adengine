@@ -6,3 +6,6 @@ export const countriesOf = (country: string): string[] => {
 
 // En EE. UU. la mayoría no habla español: los anuncios en español van solo a quien usa Facebook/Instagram en español.
 export const needsSpanishLocale = (country: string) => countriesOf(country).includes("US");
+
+// Nombre de un idioma de Meta que es español. Meta puede devolverlos en el idioma de la cuenta («Español (España)»).
+export const isSpanishLocale = (name: string) => /^(spanish|español)/i.test((name || "").trim());

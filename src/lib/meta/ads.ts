@@ -1,6 +1,6 @@
 // Adaptador de Meta (Facebook + Instagram) sobre la Marketing API. No hay nada de Meta fuera de esta carpeta.
 // Acceso con el token de un usuario del sistema del porfolio (no caduca): META_ACCESS_TOKEN.
-import { countriesOf, needsSpanishLocale } from "../markets";
+import { countriesOf, isSpanishLocale, needsSpanishLocale } from "../markets";
 
 const BASE = () => `https://graph.facebook.com/${process.env.META_API_VERSION || "v26.0"}`;
 export const act = (id: string) => (id.startsWith("act_") ? id : `act_${id}`);
@@ -83,8 +83,9 @@ export const adSetTargeting = (country: string, extra: Record<string, unknown>) 
 let spanish: number[] | null = null;
 async function spanishLocales(): Promise<number[]> {
   if (!spanish) {
-    const j = await call("/search", { type: "adlocale", q: "Spanish" });
-    spanish = (j.data || []).filter((l: any) => /^spanish/i.test(l.name)).map((l: any) => Number(l.key));
+    // locale en_US: sin él, Meta busca y responde en el idioma de la cuenta y «Spanish» no encuentra nada.
+    const j = await call("/search", { type: "adlocale", q: "Spanish", locale: "en_US" });
+    spanish = (j.data || []).filter((l: any) => isSpanishLocale(l.name)).map((l: any) => Number(l.key));
     if (!spanish!.length) throw new Error("Meta no devuelve el idioma español para segmentar.");
   }
   return spanish!;
