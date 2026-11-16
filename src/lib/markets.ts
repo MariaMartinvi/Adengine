@@ -9,3 +9,9 @@ export const needsSpanishLocale = (country: string) => countriesOf(country).incl
 
 // Nombre de un idioma de Meta que es español. Meta puede devolverlos en el idioma de la cuenta («Español (España)»).
 export const isSpanishLocale = (name: string) => /^(spanish|español)/i.test((name || "").trim());
+
+// Qué zonas añadir y quitar para que una campaña quede exactamente con las que se quieren.
+export const locationChanges = (have: string[], want: string[]) => ({
+  add: want.filter((w) => !have.includes(w)),
+  remove: have.filter((h) => !want.includes(h)),
+});

@@ -583,6 +583,15 @@ export async function applyMetaAudience(campaignId: string) {
   await log(b.id, "PUBLICO", `Campaña ${c.name}: ${b.country}, ${b.ageMin}–${b.ageMax} años.`);
 }
 
+// Países de la ficha en una campaña de Google ya creada (el idioma no cambia: el de la ficha al crearla).
+export async function applyGoogleCountries(campaignId: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true } });
+  if (c.channel !== "google" || !c.googleCampaignId) throw new Error("Solo se aplica a una campaña de Google ya creada.");
+  const b = c.business;
+  const r = await ads.setCampaignCountries(b.googleCustomerId!, c.googleCampaignId, b.country);
+  await log(b.id, "PUBLICO", `Campaña ${c.name}: ${b.country}${r.add.length || r.remove.length ? "" : " (ya estaba así)"}.`);
+}
+
 // Limita a Facebook e Instagram los conjuntos de una campaña de Meta ya creada, conservando su público.
 export async function limitMetaPlacements(campaignId: string) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId } });

@@ -1,6 +1,6 @@
 // Adaptador de Google Ads sobre la API REST. No hay nada de Google fuera de esta carpeta.
 import { accessToken } from "./auth";
-import { countriesOf } from "../markets";
+import { countriesOf, locationChanges } from "../markets";
 
 const V = () => process.env.GOOGLE_ADS_API_VERSION || "v26";
 const BASE = () => `https://googleads.googleapis.com/${V()}`;
@@ -243,6 +243,21 @@ export async function uploadClickConversion(cid: string, conversionActionId: str
   });
   if (j.partialFailureError) throw new Error(`Google Ads: ${j.partialFailureError.details?.[0]?.errors?.map((e: any) => e.message).join("; ") || j.partialFailureError.message}`);
   return j;
+}
+
+// Países de una campaña ya creada: deja exactamente los de la ficha (añade los que faltan y quita los que sobran).
+export async function setCampaignCountries(cid: string, campaignId: string, country: string) {
+  const want = countriesOf(country).map((c) => GEO[c]).filter(Boolean);
+  if (!want.length) throw new Error(`Ningún país de «${country}» está en la lista de Google de AdEngine.`);
+  const rows = await search(cid, `SELECT campaign_criterion.resource_name, campaign_criterion.location.geo_target_constant FROM campaign_criterion WHERE campaign.id = ${campaignId} AND campaign_criterion.type = 'LOCATION' AND campaign_criterion.negative = FALSE`);
+  const have = rows.map((r) => ({ rn: r.campaignCriterion.resourceName as string, id: String(r.campaignCriterion.location.geoTargetConstant).split("/").pop()! }));
+  const { add, remove } = locationChanges(have.map((h) => h.id), want);
+  if (!add.length && !remove.length) return { add, remove };
+  await call(`/customers/${cid}/campaignCriteria:mutate`, { operations: [
+    ...add.map((g) => ({ create: { campaign: `customers/${cid}/campaigns/${campaignId}`, location: { geoTargetConstant: `geoTargetConstants/${g}` } } })),
+    ...have.filter((h) => remove.includes(h.id)).map((h) => ({ remove: h.rn })),
+  ] });
+  return { add, remove };
 }
 
 // Quita de la cuenta los teléfonos de llamada (recurso CALL a nivel de cuenta): salen en todos los anuncios.

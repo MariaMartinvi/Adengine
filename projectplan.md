@@ -694,3 +694,12 @@ US/PR → «Envío gratis a EE. UU.»; resto → como ahora. Al pagar, un pedido
       NO verificado en producción la vista de México/EE. UU.: Cloudflare pone el país real y no se puede simular.
 - Pendiente de María: campaña de México. No cambiar el país de la ficha actual (reoptimizar o «Aplicar público»
   pasarían la campaña de España a México); ficha aparte «Regalo para Bebés · México» con país MX.
+
+## Bebés en ES, US, MX, CL y PR (16-nov-2026, María: «todo en la campaña actual», 10 €/día, «Google mantenemos Bebés y ampliamos»)
+- [x] Ficha de Bebés: país `ES,US,MX,CL,PR`. Meta: público aplicado a la campaña actual (idioma español, que en Meta vale
+      para todos los países del conjunto) y 10 €/día con el mismo tope de 150 €. Google de Caricaturea en pausa.
+- [x] Meta no devolvía los idiomas «Spanish» (responde en el idioma de la cuenta): `locale=en_US` y se acepta «Español»
+      (`isSpanishLocale`, test). Commit 592e503.
+- [x] Google: `POST /api/campanas/:id/publico` también vale para campañas de Google: deja exactamente los países de la ficha
+      (`setCampaignCountries`, `locationChanges` con test). El idioma (español) no cambia.
+- Pendiente: textos de los anuncios de Google que dicen «Entrega en toda España».
