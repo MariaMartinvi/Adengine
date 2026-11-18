@@ -709,6 +709,6 @@ US/PR → «Envío gratis a EE. UU.»; resto → como ahora. Al pagar, un pedido
 - [x] Bebés: la lámina para imprimir sale a 300 ppp a tamaño real (PNG con paleta, ~125 MB de memoria). Probado con el pedido real de Leo: 5906 × 8268 px. Commit 3b76c0e.
 - [x] Caricaturea: ampliación con IA (Real-ESRGAN en Replicate) al pagar; A4 a 300 ppp. Commit 1101aa8. Inactiva hasta poner la clave.
 - [x] Cuadros: ampliación con IA una vez por cuadro, A4 a 300 ppp. Commit 023d60d. Inactiva hasta poner la clave.
-- [ ] María: crear cuenta en Replicate y poner `REPLICATE_API_TOKEN` en Render (Caricaturea y Cuadros).
-- [ ] Con la clave puesta: probar una compra de cada una y cambiar los textos («tamaño folio», «hasta 20x30 cm», «300 dpi»).
+- [x] María puso `REPLICATE_API_TOKEN` en Render (Caricaturea y Cuadros) y saldo. Probado con Replicate: Cuadros 3508×2339 y Caricaturea 3130×3508 a 300 ppp, ~20 s.
+- [x] Textos cambiados a «300 ppp en A4» (Caricaturea 8591755, Cuadros 0bf2b3a). Falta ver la primera compra real.
 - [ ] Cuadros: la obra original (`fe/<slug>/art.jpg`) es pública en Supabase; se puede descargar sin pagar.
