@@ -17,6 +17,7 @@ import { portfolio } from "./portfolio";
 import { groupsWithoutAd } from "./googleGroups";
 import { winnersToSave } from "./winners";
 import { checkMarket, mainCountries, marketsOf, splitBudget, type MetaMarket } from "./metaMarkets";
+import { countriesOf } from "./markets";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -644,13 +645,17 @@ export async function applyMetaAudience(campaignId: string) {
   await log(b.id, "PUBLICO", `Campaña ${c.name}: ${main}${markets.map((m) => ` · ${m.label}: ${m.countries}`).join("")}, ${b.ageMin}–${b.ageMax} años.`);
 }
 
-// Países de la ficha en una campaña de Google ya creada (el idioma no cambia: el de la ficha al crearla).
-export async function applyGoogleCountries(campaignId: string) {
+// Países de una campaña de Google ya creada (el idioma no cambia: el de la ficha al crearla). Por defecto los de la ficha;
+// con «countries», los propios de esta campaña (p. ej. Google solo en España mientras Meta llega a más países), que se guardan.
+export async function applyGoogleCountries(campaignId: string, countries?: string) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true } });
   if (c.channel !== "google" || !c.googleCampaignId) throw new Error("Solo se aplica a una campaña de Google ya creada.");
   const b = c.business;
-  const r = await ads.setCampaignCountries(b.googleCustomerId!, c.googleCampaignId, b.country);
-  await log(b.id, "PUBLICO", `Campaña ${c.name}: ${b.country}${r.add.length || r.remove.length ? "" : " (ya estaba así)"}.`);
+  const extras = (c.extras || {}) as Record<string, any>;
+  const want = countries?.trim() ? countriesOf(countries).join(",") : extras.countries || b.country;
+  const r = await ads.setCampaignCountries(b.googleCustomerId!, c.googleCampaignId, want);
+  if (countries?.trim()) await db.campaign.update({ where: { id: c.id }, data: { extras: { ...extras, countries: want } } });
+  await log(b.id, "PUBLICO", `Campaña ${c.name}: ${want}${r.add.length || r.remove.length ? "" : " (ya estaba así)"}.`);
 }
 
 // Limita a Facebook e Instagram los conjuntos de una campaña de Meta ya creada, conservando su público.

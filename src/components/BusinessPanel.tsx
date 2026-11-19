@@ -63,6 +63,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   const [mFeedback, setMFeedback] = useState<Record<string, string>>({});
   const [prodForm, setProdForm] = useState({ name: "", url: "", image: "" });
   const [newCover, setNewCover] = useState("");
+  const [gCountries, setGCountries] = useState<Record<string, string>>({});
   const [mkt, setMkt] = useState({ label: "", countries: "", sharePct: 30, headline: "", message: "", description: "" });
   const [adLinks, setAdLinks] = useState<Record<string, string>>({});
   const [refForm, setRefForm] = useState<Record<string, { note: string; image: string; video: boolean; audio: string; product: string; since?: string }>>({});
@@ -130,6 +131,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
     if (j) { r.push("/"); r.refresh(); } else window.scrollTo(0, 0);
   }
   async function saveBudget(c: Campaign) { setBusy("presupuesto"); const j = await api(`/api/campanas/${c.id}/presupuesto`, { dailyBudget: lb(c).d, totalCap: lb(c).t }); setBusy(""); if (j) r.refresh(); }
+  async function applyGCountries(c: Campaign) { setBusy("paises"); const j = await api(`/api/campanas/${c.id}/publico`, { countries: gCountries[c.id] ?? (c.extras?.countries || data.country) }); setBusy(""); if (j) r.refresh(); }
   async function applyAudience(c: Campaign) { setBusy("publico"); await api(`/api/campanas/${c.id}/publico`); setBusy(""); r.refresh(); }
   async function addRef(ch: string) {
     const f = refForm[ch];
@@ -358,6 +360,8 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
             {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => photos(live)} disabled={!!busy}>{busy === "fotos" ? "Subiendo fotos…" : "Añadir fotos"}</button>}
             {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => schedule(live)} disabled={!!busy}>{busy === "horario" ? "Aplicando…" : `Aplicar horario de la ficha (${data.googleWeekdaysOnly ? "laborables 8-20" : "todos los días"})`}</button>}
             {live.channel === "meta" && !live.metaRtAdSetId && data.metaRtShare > 0 && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => addRt(live)} disabled={!!busy}>{busy === "remarketing" ? "Creando remarketing…" : `Añadir remarketing (${data.metaRtShare} %)`}</button>}
+            {live.channel !== "meta" && <label className="field">Países de esta campaña (la ficha: {data.country})<input value={gCountries[live.id] ?? (live.extras?.countries || data.country)} onChange={(e) => setGCountries({ ...gCountries, [live.id]: e.target.value.toUpperCase() })} style={{ width: 140 }} /></label>}
+            {live.channel !== "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => applyGCountries(live)} disabled={!!busy}>{busy === "paises" ? "Aplicando…" : "Aplicar países"}</button>}
             {live.channel === "meta" && <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={() => applyAudience(live)} disabled={!!busy}>{busy === "publico" ? "Aplicando…" : `Aplicar público de la ficha (${data.country}, ${data.ageMin}–${data.ageMax} años)`}</button>}
           </div>
           {live.channel === "meta" && (
