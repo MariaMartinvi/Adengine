@@ -63,6 +63,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   const [mFeedback, setMFeedback] = useState<Record<string, string>>({});
   const [prodForm, setProdForm] = useState({ name: "", url: "", image: "" });
   const [newCover, setNewCover] = useState("");
+  const [mkt, setMkt] = useState({ label: "", countries: "", sharePct: 30, headline: "", message: "", description: "" });
   const [adLinks, setAdLinks] = useState<Record<string, string>>({});
   const [refForm, setRefForm] = useState<Record<string, { note: string; image: string; video: boolean; audio: string; product: string; since?: string }>>({});
   const refsOf = (ch: string) => data.references.filter((x) => x.channel === ch);
@@ -112,6 +113,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   async function delProduct(id: string) { setBusy("producto"); await api(`/api/productos/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
   async function setRefProduct(id: string, productId: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { productId }, "PATCH"); setBusy(""); r.refresh(); }
   async function setRefSince(id: string, runningSince: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { runningSince }, "PATCH"); setBusy(""); r.refresh(); }
+  async function addMarket() { setBusy("mercado"); const j = await api(`/api/campanas/${mLive!.id}/mercados`, mkt); setBusy(""); if (j) { setMkt({ label: "", countries: "", sharePct: 30, headline: "", message: "", description: "" }); r.refresh(); } }
   async function addCover() { setBusy("portada"); const j = await api(`/api/campanas/${mLive!.id}/anuncios`, { imageUrl: newCover }); setBusy(""); if (j) { setNewCover(""); r.refresh(); } }
   async function approve(d: Campaign) {
     setBusy("aprobar");
@@ -364,6 +366,23 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
               <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={addCover} disabled={!!busy || !newCover}>{busy === "portada" ? "Subiendo a Meta…" : "Añadir portada"}</button>
               <span className="small" style={{ alignSelf: "end" }}>Mismos textos y mismo presupuesto; Meta reparte entre todas.</span>
             </div>
+          )}
+          {live.channel === "meta" && (
+            <details className="card" style={{ marginBottom: 12 }}>
+              <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Separar países</strong> <span className="small">· {(live.extras?.markets || []).length ? (live.extras.markets as any[]).map((m) => `${m.label}: ${m.countries} (${Math.round(m.share * 100)} %)`).join(" · ") : "un conjunto con sus propios textos dentro de esta campaña"} · pulsa para abrir</span></summary>
+              <p className="small">Crea en esta misma campaña un conjunto solo para esos países, con su parte del presupuesto y los anuncios activos con estos textos (p. ej. el precio en su moneda). El conjunto principal se queda con el resto de países de la ficha ({data.country}). Lo que dejes vacío usa el texto actual.</p>
+              <div className="row">
+                <label className="field">Nombre<input value={mkt.label} onChange={(e) => setMkt({ ...mkt, label: e.target.value })} placeholder="México y Chile" /></label>
+                <label className="field">Países<input value={mkt.countries} onChange={(e) => setMkt({ ...mkt, countries: e.target.value.toUpperCase() })} placeholder="MX,CL" style={{ width: 110 }} /></label>
+                <label className="field">% del presupuesto de la campaña<input type="number" min={5} max={90} step={5} value={mkt.sharePct} onChange={(e) => setMkt({ ...mkt, sharePct: Math.round(+e.target.value) })} style={{ width: 90 }} /></label>
+              </div>
+              <label className="field" style={{ marginTop: 8 }}>Texto principal<textarea rows={3} value={mkt.message} onChange={(e) => setMkt({ ...mkt, message: e.target.value })} /></label>
+              <div className="row" style={{ marginTop: 8 }}>
+                <label className="field">Titular<input value={mkt.headline} onChange={(e) => setMkt({ ...mkt, headline: e.target.value })} style={{ width: 320 }} /></label>
+                <label className="field">Descripción<input value={mkt.description} onChange={(e) => setMkt({ ...mkt, description: e.target.value })} style={{ width: 320 }} /></label>
+                <button className="btn-secondary" style={{ alignSelf: "end" }} onClick={addMarket} disabled={!!busy || !mkt.label || !mkt.countries}>{busy === "mercado" ? "Creando en Meta…" : "Separar países"}</button>
+              </div>
+            </details>
           )}
           {live.channel === "meta" && (
             <details className="card" style={{ marginBottom: 12 }}>

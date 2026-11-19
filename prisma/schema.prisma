@@ -127,6 +127,7 @@ model Ad {
   included     Boolean  @default(true)
   refId        String?
   videoPlan    Json?
+  market       String?  // conjunto de mercado de Meta (Campaign.extras.markets[].key); vacío = conjunto principal
   status       String   @default("ENABLED")
 }
 

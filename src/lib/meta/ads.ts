@@ -193,6 +193,19 @@ export async function setAdSetAudience(adSetId: string, country: string, ageMin:
   await call(`/${adSetId}`, { targeting: adSetTargeting(country, { ...(await localeFor(country)), age_min: ageMin, age_max: ageMax }) }, "POST");
 }
 
+// Países de un conjunto ya publicado, sin tocar el resto de su público (edad, plataformas…). Idioma español solo si entra EE. UU.
+export async function setAdSetCountries(adSetId: string, country: string) {
+  const t = (await call(`/${adSetId}`, { fields: "targeting" })).targeting || {};
+  const { locales, ...rest } = t;
+  await call(`/${adSetId}`, { targeting: { ...rest, geo_locations: { ...(t.geo_locations || {}), countries: countriesOf(country) }, ...(await localeFor(country)) } }, "POST");
+}
+
+// Lo gastado por un conjunto con presupuesto total (lo que lleva consumido de su lifetime_budget).
+export async function adSetSpent(adSetId: string) {
+  const j = await call(`/${adSetId}`, { fields: "lifetime_budget,budget_remaining,end_time" });
+  return { spent: (Number(j.lifetime_budget || 0) - Number(j.budget_remaining || 0)) / 100, remaining: Number(j.budget_remaining || 0) / 100, endTime: j.end_time as string };
+}
+
 // Solo Facebook e Instagram en un conjunto ya publicado, sin tocar su público (p. ej. el de visitantes del remarketing).
 export const placementsOnly = (t: Record<string, any>) => {
   const { audience_network_positions, messenger_positions, ...rest } = t;

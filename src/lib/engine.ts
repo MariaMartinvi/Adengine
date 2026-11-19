@@ -16,6 +16,7 @@ import { budgetMoves } from "./budgetMoves";
 import { portfolio } from "./portfolio";
 import { groupsWithoutAd } from "./googleGroups";
 import { winnersToSave } from "./winners";
+import { checkMarket, mainCountries, marketsOf, splitBudget, type MetaMarket } from "./metaMarkets";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -224,7 +225,8 @@ export async function addMetaImageAd(campaignId: string, imageUrl: string) {
   const b = c.business;
   if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se pueden añadir portadas a una campaña de Meta ya creada.");
   if (!imageUrl) throw new Error("Falta la URL de la imagen.");
-  const base = c.ads.find((a) => a.mediaType === "image") || c.ads[0];
+  const own = c.ads.filter((a) => !a.market);   // textos del conjunto principal, no los de un grupo de países
+  const base = own.find((a) => a.mediaType === "image") || own[0];
   const [headline] = base.headlines as string[];
   const [message, description] = base.descriptions as string[];
   const hash = await meta.uploadImage(b.metaAdAccountId!, imageUrl);
@@ -257,15 +259,62 @@ export async function addMetaAdVariant(campaignId: string, adId: string, t: AdTe
   const n = c.ads.length + 1;
   const page = { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link, thumbHash: thumb, cta: b.metaCta };
   const spec = { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef, message, headline, description, link, thumbHash: a.thumbRef || undefined };
-  const metaAdId = await meta.createAd(b.metaAdAccountId!, c.metaAdSetId, `${c.name} · ${a.mediaType} ${n}`, page, spec);
-  const metaRtAdId = c.metaRtAdSetId ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · ${a.mediaType} ${n}`, page, spec) : null;
+  const mk = a.market ? marketsOf(c.extras).find((x) => x.key === a.market) : null;   // anuncio de un grupo de países: en su conjunto
+  const metaAdId = await meta.createAd(b.metaAdAccountId!, mk ? mk.adSetId : c.metaAdSetId, `${c.name} · ${mk ? mk.label + " · " : ""}${a.mediaType} ${n}`, page, spec);
+  const metaRtAdId = c.metaRtAdSetId && !mk ? await meta.createAd(b.metaAdAccountId!, c.metaRtAdSetId, `${c.name} · remarketing · ${a.mediaType} ${n}`, page, spec) : null;
   if (pauseBase) {
     if (a.metaRtAdId) await meta.setAdStatus(a.metaRtAdId, "PAUSED");
     if (a.metaAdId) await meta.setAdStatus(a.metaAdId, "PAUSED");
     await db.ad.update({ where: { id: a.id }, data: { status: "PAUSED" } });
   }
-  await db.ad.create({ data: { campaignId: c.id, mediaType: a.mediaType, mediaUrl: a.mediaUrl, mediaRef: a.mediaRef, basedOn: a.basedOn, thumbRef: a.thumbRef, metaAdId, metaRtAdId, finalUrl: link, headlines: [headline], descriptions: [message, description] } });
+  await db.ad.create({ data: { campaignId: c.id, market: a.market, mediaType: a.mediaType, mediaUrl: a.mediaUrl, mediaRef: a.mediaRef, basedOn: a.basedOn, thumbRef: a.thumbRef, metaAdId, metaRtAdId, finalUrl: link, headlines: [headline], descriptions: [message, description] } });
   await log(b.id, "ANUNCIO_AÑADIDO", `Campaña ${c.name}: variante del anuncio de ${a.mediaType === "video" ? "vídeo" : "imagen"} (anuncio ${n}) con el titular «${headline}»${pauseBase ? "; el original queda en pausa" : ""}.`);
+}
+
+// Grupo de países dentro de la misma campaña de Meta: conjunto propio con esos países, una parte del presupuesto que le queda
+// al principal y los anuncios activos del principal con sus propios textos (p. ej. el precio en su moneda). El principal se
+// queda con el resto de países. La suma de los conjuntos sigue siendo el tope.
+export async function addMetaMarket(campaignId: string, m: { key: string; label: string; countries: string; share: number }, t: AdTexts) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: { orderBy: { id: "asc" } } } });
+  const b = c.business;
+  if (c.channel !== "meta" || !c.metaCampaignId || !c.metaAdSetId) throw new Error("Solo para campañas de Meta ya creadas.");
+  const markets = marketsOf(c.extras);
+  checkMarket(b.country, markets, m);
+  const active = c.ads.filter((a) => a.status === "ENABLED" && a.metaAdId && !a.market);
+  if (!active.length) throw new Error("No hay anuncios activos en el conjunto principal que copiar.");
+  const thumb = c.ads.find((a) => a.mediaType === "image")?.mediaRef || c.ads.find((a) => a.thumbRef)?.thumbRef;
+  if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
+  const main = await meta.adSetSpent(c.metaAdSetId);
+  // «share» es la parte de lo que le queda a TODA la campaña (como en setBudget); sale del principal, así el tope no cambia
+  const others = await Promise.all([c.metaRtAdSetId, ...markets.map((x) => x.adSetId)].filter(Boolean).map((id) => meta.adSetSpent(id!)));
+  const give = Math.floor((main.remaining + others.reduce((s, x) => s + x.remaining, 0)) * m.share * 100) / 100;
+  if (give >= main.remaining) throw new Error("El conjunto principal no tiene tanto presupuesto: baja el % o sube el gasto total.");
+  if (!(give >= 5)) throw new Error("Al conjunto principal le queda muy poco presupuesto: sube el gasto total antes de separar países.");
+  const keep = mainCountries(b.country, [...markets, m]).join(",");
+  await meta.setAdSetBudget(c.metaAdSetId, main.spent + main.remaining - give, new Date(main.endTime));
+  let adSetId: string | null = null;
+  try {
+    adSetId = await meta.createAdSet(b.metaAdAccountId!, c.metaCampaignId, { name: `${c.name} · ${m.label}`, total: give, endTime: main.endTime, pixelId: b.metaPixelId!,
+      advertiser: b.metaAdvertiser!, country: m.countries, targeting: { age_min: b.ageMin, age_max: b.ageMax }, optimize: (c.metaOptimize || "INITIATED_CHECKOUT") as meta.MetaOptimize });
+    const created: { a: (typeof active)[number]; id: string; headline: string; message: string; description: string; link: string }[] = [];
+    for (const [i, a] of active.entries()) {
+      const { headline, message, description, link } = variantTexts(a, t, b.url);
+      const id = await meta.createAd(b.metaAdAccountId!, adSetId, `${c.name} · ${m.label} · ${a.mediaType} ${i + 1}`, { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link, thumbHash: thumb, cta: b.metaCta },
+        { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description, link, thumbHash: a.thumbRef || undefined });
+      created.push({ a, id, headline, message, description, link });
+    }
+    await meta.setAdSetCountries(c.metaAdSetId, keep);   // al final: si algo falla antes, el principal sigue con todos sus países
+    const market: MetaMarket = { key: m.key, label: m.label, countries: m.countries, adSetId, share: m.share };
+    await db.$transaction([
+      ...created.map((x) => db.ad.create({ data: { campaignId: c.id, market: m.key, mediaType: x.a.mediaType, mediaUrl: x.a.mediaUrl, mediaRef: x.a.mediaRef, basedOn: x.a.basedOn, thumbRef: x.a.thumbRef, metaAdId: x.id, finalUrl: x.link, headlines: [x.headline], descriptions: [x.message, x.description] } })),
+      db.campaign.update({ where: { id: c.id }, data: { extras: { ...((c.extras || {}) as object), markets: [...markets, market] } } }),
+    ]);
+  } catch (e) {
+    if (adSetId) await meta.deleteAdSet(adSetId).catch(() => {});
+    await meta.setAdSetBudget(c.metaAdSetId, main.spent + main.remaining, new Date(main.endTime)).catch(() => {});
+    throw e;
+  }
+  await log(b.id, "MERCADO", `Campaña ${c.name}: conjunto «${m.label}» (${m.countries}) con ${give.toFixed(2)} ${b.currency} y ${active.length} anuncios con sus textos («${t.headline || "titular de siempre"}»). El principal se queda con ${keep}.`);
 }
 
 // Remarketing en Meta: % del tope (campo de la ficha, 20 por defecto) para quien visitó la web y no compró. 0 = sin remarketing.
@@ -286,7 +335,7 @@ export async function rebuildMetaAds(campaignId: string, links: Record<string, s
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: { orderBy: { id: "asc" } } } });
   const b = c.business;
   if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se rehacen anuncios de una campaña de Meta ya creada.");
-  const active = c.ads.filter((a) => a.status === "ENABLED" && a.metaAdId);
+  const active = c.ads.filter((a) => a.status === "ENABLED" && a.metaAdId && !a.market);
   if (!active.length) throw new Error("No hay anuncios activos que rehacer.");
   const thumb = c.ads.find((a) => a.mediaType === "image")?.mediaRef || c.ads.find((a) => a.thumbRef)?.thumbRef;
   if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
@@ -369,7 +418,7 @@ export async function addRemarketing(campaignId: string) {
   if (c.metaRtAdSetId) throw new Error("Esta campaña ya tiene remarketing.");
   const share = rtShare(b);
   if (!share) throw new Error("Pon un % de remarketing en la ficha.");
-  const active = c.ads.filter((a) => a.status === "ENABLED" && a.metaAdId);
+  const active = c.ads.filter((a) => a.status === "ENABLED" && a.metaAdId && !a.market);
   if (!active.length) throw new Error("No hay anuncios activos que copiar al remarketing.");
   const thumb = c.ads.find((a) => a.mediaType === "image")?.mediaRef || c.ads.find((a) => a.thumbRef)?.thumbRef;
   if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
@@ -533,8 +582,17 @@ export async function setBudget(campaignId: string, dailyBudget: number, totalCa
     const days = Math.max(1, Math.ceil((totalCap - spent) / dailyBudget));
     const end = new Date(Date.now() + days * 86400000);
     const share = rtShare(c.business);
+    const markets = marketsOf(c.extras);
+    if (markets.length) {   // con grupos de países: cada conjunto conserva lo gastado y se lleva su parte de lo que queda
+      const sets = [{ id: c.metaAdSetId, share: 1 - share - markets.reduce((s, m) => s + m.share, 0) },
+        ...(c.metaRtAdSetId ? [{ id: c.metaRtAdSetId, share }] : []), ...markets.map((m) => ({ id: m.adSetId, share: m.share }))];
+      const spentBy = await Promise.all(sets.map(async (x) => ({ ...x, spent: (await meta.adSetSpent(x.id)).spent })));
+      const totals = splitBudget(totalCap, spentBy);
+      for (const x of sets) await meta.setAdSetBudget(x.id, totals[x.id], end);
+    } else {
     await meta.setAdSetBudget(c.metaAdSetId, c.metaRtAdSetId ? totalCap * (1 - share) : totalCap, end);
     if (c.metaRtAdSetId) await meta.setAdSetBudget(c.metaRtAdSetId, totalCap * share, end);
+    }
   } else {
     if (!c.googleBudgetId) throw new Error("La campaña aún no existe en Google Ads.");
     await ads.setDailyBudget(c.business.googleCustomerId!, c.googleBudgetId, dailyBudget);
@@ -564,7 +622,7 @@ export async function reoptimizeMeta(campaignId: string) {
   const oldIds: Record<string, string> = { ...(extras.metaOldAdIds || {}) };
   const copies: { id: string; metaAdId: string }[] = [];
   try {
-    for (const a of c.ads) if (a.metaAdId) { copies.push({ id: a.id, metaAdId: await meta.copyAd(b.metaAdAccountId!, a.metaAdId, adSetId) }); oldIds[a.metaAdId] = a.id; }
+    for (const a of c.ads) if (a.metaAdId && !a.market) { copies.push({ id: a.id, metaAdId: await meta.copyAd(b.metaAdAccountId!, a.metaAdId, adSetId) }); oldIds[a.metaAdId] = a.id; }
     if (!copies.length) throw new Error("La campaña no tiene anuncios que copiar.");
   } catch (e) { await meta.deleteAdSet(adSetId).catch(() => {}); throw e; }
   await meta.setAdSetStatus(c.metaAdSetId, "PAUSED");
@@ -579,8 +637,11 @@ export async function applyMetaAudience(campaignId: string) {
   const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true } });
   if (c.channel !== "meta" || !c.metaAdSetId) throw new Error("Solo se aplica a una campaña de Meta ya creada.");
   const b = c.business;
-  await meta.setAdSetAudience(c.metaAdSetId, b.country, b.ageMin, b.ageMax);
-  await log(b.id, "PUBLICO", `Campaña ${c.name}: ${b.country}, ${b.ageMin}–${b.ageMax} años.`);
+  const markets = marketsOf(c.extras);
+  const main = mainCountries(b.country, markets).join(",");   // los países con grupo propio siguen en su conjunto
+  await meta.setAdSetAudience(c.metaAdSetId, main, b.ageMin, b.ageMax);
+  for (const m of markets) await meta.setAdSetAudience(m.adSetId, m.countries, b.ageMin, b.ageMax);
+  await log(b.id, "PUBLICO", `Campaña ${c.name}: ${main}${markets.map((m) => ` · ${m.label}: ${m.countries}`).join("")}, ${b.ageMin}–${b.ageMax} años.`);
 }
 
 // Países de la ficha en una campaña de Google ya creada (el idioma no cambia: el de la ficha al crearla).
