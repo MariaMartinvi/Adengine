@@ -727,15 +727,18 @@ Diseño (sin migración de base de datos salvo un campo):
 - El presupuesto total se reparte entre conjuntos por `share` (como ya se hace con el remarketing).
 
 TODOs:
-- [ ] 1. `lib/meta`: crear conjunto de mercado copiando la segmentación del principal con otros países, y quitar esos países
+- [x] 1. `lib/meta`: crear conjunto de mercado copiando la segmentación del principal con otros países, y quitar esos países
       del principal → verificar: test de la segmentación resultante (función pura).
-- [ ] 2. Motor: `addMarket(campaignId, {key, countries, share})` + reparto de presupuesto (incluido `/presupuesto`) → verificar: test del reparto.
-- [ ] 3. Anuncios por mercado: duplicar las portadas activas del principal en el conjunto nuevo con el texto propio del mercado
+- [x] 2. Motor: `addMarket(campaignId, {key, countries, share})` + reparto de presupuesto (incluido `/presupuesto`) → verificar: test del reparto.
+- [x] 3. Anuncios por mercado: duplicar las portadas activas del principal en el conjunto nuevo con el texto propio del mercado
       (mensaje, titular, descripción) → verificar: test de que se crean con su texto y `market`.
-- [ ] 4. API + ficha de AdEngine: botón «Separar países» con países, reparto y textos → verificar: test de la ruta + prueba en la web.
-- [ ] 5. Aplicarlo en Bebés (tras OK de los textos) y comprobar en Meta los conjuntos, países, presupuestos y anuncios.
+- [x] 4. API + ficha de AdEngine: botón «Separar países» con países, reparto y textos → verificar: test de la ruta + prueba en la web.
+- [x] 5. Aplicarlo en Bebés (tras OK de los textos) y comprobar en Meta los conjuntos, países, presupuestos y anuncios.
 
-Propuesta para Bebés (pendiente de OK de María):
+Aplicado en Bebés el 19-nov (OK de María). Commit 8cf26b6, tests 62/62.
+Resultado en Meta (lo que queda por gastar): España 28,72 € + remarketing 17,02 € · México y Chile 32,01 € · EE. UU. 13,72 €.
+Límites: las portadas nuevas solo van al principal; reoptimizar no toca los conjuntos de mercado.
+Propuesta para Bebés:
 - España (principal): como ahora. ~50 % del presupuesto.
 - EE. UU. + Puerto Rico: «Lámina de nacimiento a tamaño real · Desde $22.90 USD · Envío gratis a EE. UU.». ~15 %.
 - México + Chile: sin precio en el texto (México va en pesos mexicanos y Chile en chilenos):
