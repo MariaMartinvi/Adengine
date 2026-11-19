@@ -114,6 +114,7 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
   async function delProduct(id: string) { setBusy("producto"); await api(`/api/productos/${id}`, undefined, "DELETE"); setBusy(""); r.refresh(); }
   async function setRefProduct(id: string, productId: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { productId }, "PATCH"); setBusy(""); r.refresh(); }
   async function setRefSince(id: string, runningSince: string) { setBusy("ref"); await api(`/api/referencias/${id}`, { runningSince }, "PATCH"); setBusy(""); r.refresh(); }
+  async function copyToMarket(key: string) { setBusy(`copiar-${key}`); const j = await api(`/api/campanas/${mLive!.id}/mercados/anuncios`, { market: key }); setBusy(""); if (j) r.refresh(); }
   async function addMarket() { setBusy("mercado"); const j = await api(`/api/campanas/${mLive!.id}/mercados`, mkt); setBusy(""); if (j) { setMkt({ label: "", countries: "", sharePct: 30, headline: "", message: "", description: "" }); r.refresh(); } }
   async function addCover() { setBusy("portada"); const j = await api(`/api/campanas/${mLive!.id}/anuncios`, { imageUrl: newCover }); setBusy(""); if (j) { setNewCover(""); r.refresh(); } }
   async function approve(d: Campaign) {
@@ -374,6 +375,12 @@ export default function BusinessPanel({ data, accounts, accountsError, salesKey,
           {live.channel === "meta" && (
             <details className="card" style={{ marginBottom: 12 }}>
               <summary style={{ cursor: "pointer" }}><strong style={{ fontWeight: 500 }}>Separar países</strong> <span className="small">· {(live.extras?.markets || []).length ? (live.extras.markets as any[]).map((m) => `${m.label}: ${m.countries} (${Math.round(m.share * 100)} %)`).join(" · ") : "un conjunto con sus propios textos dentro de esta campaña"} · pulsa para abrir</span></summary>
+              {(live.extras?.markets || []).map((m: any) => (
+                <div key={m.key} className="row" style={{ marginBottom: 8 }}>
+                  <span className="small" style={{ alignSelf: "center" }}><strong style={{ fontWeight: 500 }}>{m.label}</strong> ({m.countries}) · {live.ads.filter((a) => a.market === m.key && a.status === "ENABLED").length} anuncios activos</span>
+                  <button className="btn-secondary" onClick={() => copyToMarket(m.key)} disabled={!!busy}>{busy === `copiar-${m.key}` ? "Copiando…" : "Copiar los anuncios activos del principal que le faltan"}</button>
+                </div>
+              ))}
               <p className="small">Crea en esta misma campaña un conjunto solo para esos países, con su parte del presupuesto y los anuncios activos con estos textos (p. ej. el precio en su moneda). El conjunto principal se queda con el resto de países de la ficha ({data.country}). Lo que dejes vacío usa el texto actual.</p>
               <div className="row">
                 <label className="field">Nombre<input value={mkt.label} onChange={(e) => setMkt({ ...mkt, label: e.target.value })} placeholder="México y Chile" /></label>

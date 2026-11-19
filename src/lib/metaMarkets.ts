@@ -42,3 +42,9 @@ export const lastActiveInSet = (ads: { id: string; status: string; metaAdId: str
 
 // Nombre interno de un grupo de países a partir de su nombre visible («México y Chile» → «mexico-y-chile»). Pura.
 export const marketKey = (label: string) => label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+// Anuncios activos del principal que aún no tiene un grupo (misma imagen o vídeo = mismo mediaRef). Pura.
+export const missingInMarket = <T extends { status: string; metaAdId: string | null; market: string | null; mediaRef: string | null }>(ads: T[], key: string) => {
+  const have = new Set(ads.filter((a) => a.market === key).map((a) => a.mediaRef));
+  return ads.filter((a) => !a.market && a.status === "ENABLED" && a.metaAdId && a.mediaRef && !have.has(a.mediaRef));
+};

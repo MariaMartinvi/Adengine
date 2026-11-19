@@ -39,3 +39,15 @@ test("nombre interno sin tildes", () => {
   assert.equal(marketKey("México y Chile"), "mexico-y-chile");
   assert.equal(marketKey("EE. UU."), "ee-uu");
 });
+
+import { missingInMarket } from "./metaMarkets";
+
+test("al grupo solo se copian los activos del principal que le faltan", () => {
+  const ads = [
+    { id: "es11", status: "ENABLED", metaAdId: "1", market: null, mediaRef: "img11" },
+    { id: "es3", status: "ENABLED", metaAdId: "2", market: null, mediaRef: "img3" },
+    { id: "es13", status: "PAUSED", metaAdId: "3", market: null, mediaRef: "vid13" },
+    { id: "mx11", status: "ENABLED", metaAdId: "4", market: "mx", mediaRef: "img11" },
+  ];
+  assert.deepEqual(missingInMarket(ads, "mx").map((a) => a.id), ["es3"]);
+});

@@ -16,7 +16,7 @@ import { budgetMoves } from "./budgetMoves";
 import { portfolio } from "./portfolio";
 import { groupsWithoutAd } from "./googleGroups";
 import { winnersToSave } from "./winners";
-import { checkMarket, lastActiveInSet, mainCountries, marketsOf, splitBudget, type MetaMarket } from "./metaMarkets";
+import { checkMarket, lastActiveInSet, mainCountries, marketsOf, missingInMarket, splitBudget, type MetaMarket } from "./metaMarkets";
 import { countriesOf } from "./markets";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
@@ -316,6 +316,31 @@ export async function addMetaMarket(campaignId: string, m: { key: string; label:
     throw e;
   }
   await log(b.id, "MERCADO", `Campaña ${c.name}: conjunto «${m.label}» (${m.countries}) con ${give.toFixed(2)} ${b.currency} y ${active.length} anuncios con sus textos («${t.headline || "titular de siempre"}»). El principal se queda con ${keep}.`);
+}
+
+// Copia a un grupo de países los anuncios activos del principal que aún no tiene, con los textos que ya usa ese grupo.
+export async function copyAdsToMarket(campaignId: string, key: string) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId }, include: { business: true, ads: { orderBy: { id: "asc" } } } });
+  const b = c.business;
+  const mk = marketsOf(c.extras).find((x) => x.key === key);
+  if (c.channel !== "meta" || !mk) throw new Error("No encuentro ese grupo de países en la campaña.");
+  const model = c.ads.find((a) => a.market === key);   // de aquí salen los textos del grupo
+  if (!model) throw new Error("El grupo no tiene ningún anuncio del que copiar los textos.");
+  const todo = missingInMarket(c.ads, key);
+  if (!todo.length) throw new Error("El grupo ya tiene todos los anuncios activos del principal.");
+  const thumb = c.ads.find((a) => a.mediaType === "image")?.mediaRef || c.ads.find((a) => a.thumbRef)?.thumbRef;
+  if (!thumb) throw new Error("Falta una imagen de miniatura para los vídeos.");
+  const [headline] = model.headlines as string[];
+  const [message, description] = model.descriptions as string[];
+  const n = c.ads.filter((a) => a.market === key).length;
+  for (const [i, a] of todo.entries()) {
+    const link = a.finalUrl || b.url;
+    const metaAdId = await meta.createAd(b.metaAdAccountId!, mk.adSetId, `${c.name} · ${mk.label} · ${a.mediaType} ${n + i + 1}`, { pageId: b.metaPageId!, instagramId: b.metaInstagramId, link, thumbHash: thumb, cta: b.metaCta },
+      { mediaType: a.mediaType as "image" | "video", mediaRef: a.mediaRef!, message, headline, description: description || "", link, thumbHash: a.thumbRef || undefined });
+    await db.ad.create({ data: { campaignId: c.id, market: key, mediaType: a.mediaType, mediaUrl: a.mediaUrl, mediaRef: a.mediaRef, basedOn: a.basedOn, thumbRef: a.thumbRef, metaAdId, finalUrl: link, headlines: [headline], descriptions: [message, description || ""] } });
+  }
+  await log(b.id, "ANUNCIO_AÑADIDO", `Campaña ${c.name}: ${todo.length} anuncio(s) del principal copiados a «${mk.label}» con sus textos.`);
+  return todo.length;
 }
 
 // Remarketing en Meta: % del tope (campo de la ficha, 20 por defecto) para quien visitó la web y no compró. 0 = sin remarketing.
