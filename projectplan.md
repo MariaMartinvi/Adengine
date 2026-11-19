@@ -712,3 +712,31 @@ US/PR → «Envío gratis a EE. UU.»; resto → como ahora. Al pagar, un pedido
 - [x] María puso `REPLICATE_API_TOKEN` en Render (Caricaturea y Cuadros) y saldo. Probado con Replicate: Cuadros 3508×2339 y Caricaturea 3130×3508 a 300 ppp, ~20 s.
 - [x] Textos cambiados a «300 ppp en A4» (Caricaturea 8591755, Cuadros 0bf2b3a). Falta ver la primera compra real.
 - [ ] Cuadros: la obra original (`fe/<slug>/art.jpg`) es pública en Supabase; se puede descargar sin pagar.
+
+## Meta: conjuntos por país dentro de la misma campaña, con textos en su moneda (19-nov-2026, María)
+
+Por qué: el conjunto de Bebés se enseña en ES, US, PR, MX y CL con el mismo texto («63,20 € · Envío gratis», «Desde 19,90 €»).
+Un mexicano ve euros y «envío gratis» (a México no enviamos impresas) y al entrar ve $399 MXN. María: misma cuenta y misma
+campaña, sin campañas separadas por país.
+
+Diseño (sin migración de base de datos salvo un campo):
+- Una campaña de Meta = conjunto principal + (opcional) remarketing + conjuntos de mercado. Los mercados se guardan en
+  `Campaign.extras.markets = [{key, countries, adSetId, share}]`; el principal se queda con los países que no estén en ningún mercado.
+- `Ad.market` (nuevo, opcional): a qué conjunto pertenece el anuncio (vacío = principal). Así las reglas de pausa y las
+  métricas por anuncio siguen funcionando igual.
+- El presupuesto total se reparte entre conjuntos por `share` (como ya se hace con el remarketing).
+
+TODOs:
+- [ ] 1. `lib/meta`: crear conjunto de mercado copiando la segmentación del principal con otros países, y quitar esos países
+      del principal → verificar: test de la segmentación resultante (función pura).
+- [ ] 2. Motor: `addMarket(campaignId, {key, countries, share})` + reparto de presupuesto (incluido `/presupuesto`) → verificar: test del reparto.
+- [ ] 3. Anuncios por mercado: duplicar las portadas activas del principal en el conjunto nuevo con el texto propio del mercado
+      (mensaje, titular, descripción) → verificar: test de que se crean con su texto y `market`.
+- [ ] 4. API + ficha de AdEngine: botón «Separar países» con países, reparto y textos → verificar: test de la ruta + prueba en la web.
+- [ ] 5. Aplicarlo en Bebés (tras OK de los textos) y comprobar en Meta los conjuntos, países, presupuestos y anuncios.
+
+Propuesta para Bebés (pendiente de OK de María):
+- España (principal): como ahora. ~50 % del presupuesto.
+- EE. UU. + Puerto Rico: «Lámina de nacimiento a tamaño real · Desde $22.90 USD · Envío gratis a EE. UU.». ~15 %.
+- México + Chile: sin precio en el texto (México va en pesos mexicanos y Chile en chilenos):
+  «Tu lámina de nacimiento para imprimir · Te llega al momento por email · Pagas en tu moneda». ~35 %.
