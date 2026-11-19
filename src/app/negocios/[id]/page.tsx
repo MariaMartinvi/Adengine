@@ -12,7 +12,7 @@ export default async function Page({ params }: { params: { id: string } }) {
   const b = await db.business.findUnique({
     where: { id: params.id },
     include: {
-      campaigns: { orderBy: { createdAt: "desc" }, include: { keywords: { orderBy: { volume: "desc" }, include: { metrics: true } }, ads: true, metrics: true, proposals: { where: { status: "PENDING" }, orderBy: { createdAt: "desc" } } } },
+      campaigns: { orderBy: { createdAt: "desc" }, include: { keywords: { orderBy: { volume: "desc" }, include: { metrics: true } }, ads: { orderBy: { id: "asc" } }, metrics: true, proposals: { where: { status: "PENDING" }, orderBy: { createdAt: "desc" } } } },
       actions: { orderBy: { createdAt: "desc" }, take: 40 },
       sales: { orderBy: { createdAt: "desc" } }, // todas: el CAC real se calcula con ellas
       references: { orderBy: { createdAt: "desc" } },

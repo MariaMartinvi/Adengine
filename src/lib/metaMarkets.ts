@@ -33,3 +33,12 @@ export function splitBudget(totalCap: number, sets: { id: string; spent: number;
   const shares = sets.reduce((s, x) => s + x.share, 0) || 1;
   return Object.fromEntries(sets.map((x) => [x.id, Math.round((x.spent + (left * x.share) / shares) * 100) / 100]));
 }
+
+// ¿Es el último anuncio activo de su conjunto (principal o grupo de países)? Pausarlo dejaría ese conjunto, y esos países, sin anuncios. Pura.
+export const lastActiveInSet = (ads: { id: string; status: string; metaAdId: string | null; market: string | null }[], adId: string) => {
+  const a = ads.find((x) => x.id === adId);
+  return !!a && !ads.some((x) => x.id !== adId && x.status === "ENABLED" && x.metaAdId && (x.market || null) === (a.market || null));
+};
+
+// Nombre interno de un grupo de países a partir de su nombre visible («México y Chile» → «mexico-y-chile»). Pura.
+export const marketKey = (label: string) => label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

@@ -16,7 +16,7 @@ import { budgetMoves } from "./budgetMoves";
 import { portfolio } from "./portfolio";
 import { groupsWithoutAd } from "./googleGroups";
 import { winnersToSave } from "./winners";
-import { checkMarket, mainCountries, marketsOf, splitBudget, type MetaMarket } from "./metaMarkets";
+import { checkMarket, lastActiveInSet, mainCountries, marketsOf, splitBudget, type MetaMarket } from "./metaMarkets";
 import { countriesOf } from "./markets";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
@@ -402,7 +402,10 @@ export async function setMetaAdStatus(adId: string, status: "ENABLED" | "PAUSED"
   const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { ads: true } } } });
   const c = a.campaign;
   if (c.channel !== "meta" || !a.metaAdId) throw new Error("Solo se pausan anuncios de una campaña de Meta ya creada.");
-  if (status === "PAUSED" && !c.ads.some((x) => x.id !== a.id && x.status === "ENABLED" && x.metaAdId)) throw new Error("Es el último anuncio activo: pausa la campaña entera si quieres pararla.");
+  if (status === "PAUSED" && lastActiveInSet(c.ads, a.id)) {   // por conjunto: pausarlo dejaría sin anuncios a esos países
+    const mk = a.market ? marketsOf(c.extras).find((x) => x.key === a.market) : null;
+    throw new Error(`Es el último anuncio activo ${mk ? `de «${mk.label}»` : "del conjunto principal"}: esos países se quedarían sin anuncios. Reactiva antes otro o pausa la campaña entera.`);
+  }
   const s = status === "ENABLED" ? "ACTIVE" : "PAUSED";
   await meta.setAdStatus(a.metaAdId, s);
   if (a.metaRtAdId) await meta.setAdStatus(a.metaRtAdId, s);

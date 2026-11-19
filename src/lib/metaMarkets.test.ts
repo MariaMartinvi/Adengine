@@ -22,3 +22,20 @@ test("el tope se reparte sin dejar a nadie por debajo de su gasto", () => {
   assert.equal(Object.values(r).reduce((s, x) => s + x, 0), 150);
   assert.deepEqual(splitBudget(50, [{ id: "a", spent: 60, share: 1 }]), { a: 60 });   // tope ya superado: no baja del gasto
 });
+
+import { lastActiveInSet, marketKey } from "./metaMarkets";
+
+test("no se puede dejar un conjunto sin anuncios aunque otros conjuntos tengan", () => {
+  const ads = [
+    { id: "es1", status: "ENABLED", metaAdId: "1", market: null }, { id: "es2", status: "PAUSED", metaAdId: "2", market: null },
+    { id: "mx1", status: "ENABLED", metaAdId: "3", market: "mexico-y-chile" }, { id: "mx2", status: "ENABLED", metaAdId: "4", market: "mexico-y-chile" },
+  ];
+  assert.equal(lastActiveInSet(ads, "es1"), true);    // España se quedaría sin nada aunque México tenga dos
+  assert.equal(lastActiveInSet(ads, "mx1"), false);
+  assert.equal(lastActiveInSet([...ads, { id: "es3", status: "ENABLED", metaAdId: "5", market: null }], "es1"), false);
+});
+
+test("nombre interno sin tildes", () => {
+  assert.equal(marketKey("México y Chile"), "mexico-y-chile");
+  assert.equal(marketKey("EE. UU."), "ee-uu");
+});
