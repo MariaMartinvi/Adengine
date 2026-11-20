@@ -147,6 +147,7 @@ model DailyMetric {
   convValue   Float    @default(0)
   purchases   Float    @default(0)
   purchaseValue Float  @default(0)
+  addToCarts  Int      @default(0)
   @@unique([campaignId, keywordId, date])
 }
 

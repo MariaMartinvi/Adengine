@@ -3,11 +3,14 @@
 // han gastado al menos 1 CAC tope y cuestan más del doble por resultado que el mejor, o no tienen ninguno. El mejor nunca.
 type AdTotals = { id: string; cost: number; conversions: number; purchases: number };
 
-// Pausa automática: anuncio activo que ha gastado 1 CAC de validación sin ningún clic a compra.
-export function metaAdsToPause<T extends { id: string; status: string }>(ads: T[], totals: Map<string, { cost: number; conversions: number }>, cacTest: number) {
+// Pausa automática: anuncio activo que ha gastado 1 CAC de validación sin ningún clic a compra. Si la campaña entera aún
+// no tiene ninguno, se mira el carrito: si no, acabaría pausando también los anuncios que mejor enganchan.
+export function metaAdsToPause<T extends { id: string; status: string }>(ads: T[], totals: Map<string, { cost: number; conversions: number; addToCarts?: number }>, cacTest: number) {
+  const anyCheckout = [...totals.values()].some((t) => t.conversions > 0);
   return ads.filter((a) => {
     const t = totals.get(a.id);
-    return a.status === "ENABLED" && !!t && t.conversions === 0 && t.cost >= cacTest;
+    const signal = anyCheckout ? t?.conversions : t?.addToCarts || 0;
+    return a.status === "ENABLED" && !!t && signal === 0 && t.cost >= cacTest;
   });
 }
 

@@ -711,18 +711,18 @@ export async function syncMetaCampaign(campaignId: string) {
   for (const a of c.ads) { if (a.metaAdId) byMetaId.set(a.metaAdId, a); if (a.metaRtAdId) byMetaId.set(a.metaRtAdId, a); }
   // Anuncios copiados a otro conjunto al cambiar la optimización: su id anterior sigue contando para el mismo anuncio.
   for (const [old, id] of Object.entries(((c.extras || {}) as Record<string, any>).metaOldAdIds || {})) { const a = c.ads.find((x) => x.id === id); if (a) byMetaId.set(old, a); }
-  const daily = new Map<string, { ad: (typeof c.ads)[number]; date: string; impressions: number; clicks: number; visits: number; cost: number; conversions: number; purchases: number; purchaseValue: number }>();
+  const daily = new Map<string, { ad: (typeof c.ads)[number]; date: string; impressions: number; clicks: number; visits: number; cost: number; conversions: number; purchases: number; purchaseValue: number; addToCarts: number }>();
   for (const r of rows) {
     const ad = byMetaId.get(r.adId);
     if (!ad) continue;
     const key = `${ad.id}|${r.date}`;
-    const acc = daily.get(key) || { ad, date: r.date, impressions: 0, clicks: 0, visits: 0, cost: 0, conversions: 0, purchases: 0, purchaseValue: 0 };
-    acc.impressions += r.impressions; acc.clicks += r.clicks; acc.visits += r.visits; acc.cost += r.cost; acc.conversions += r.conversions; acc.purchases += r.purchases; acc.purchaseValue += r.purchaseValue;
+    const acc = daily.get(key) || { ad, date: r.date, impressions: 0, clicks: 0, visits: 0, cost: 0, conversions: 0, purchases: 0, purchaseValue: 0, addToCarts: 0 };
+    acc.impressions += r.impressions; acc.clicks += r.clicks; acc.visits += r.visits; acc.cost += r.cost; acc.conversions += r.conversions; acc.purchases += r.purchases; acc.purchaseValue += r.purchaseValue; acc.addToCarts += r.addToCarts;
     daily.set(key, acc);
   }
   for (const r of daily.values()) {
     const ad = r.ad;
-    const data = { impressions: r.impressions, clicks: r.clicks, visits: r.visits, cost: r.cost, conversions: r.conversions, purchases: r.purchases, purchaseValue: r.purchaseValue };
+    const data = { impressions: r.impressions, clicks: r.clicks, visits: r.visits, cost: r.cost, conversions: r.conversions, purchases: r.purchases, purchaseValue: r.purchaseValue, addToCarts: r.addToCarts };
     const existing = await db.dailyMetric.findFirst({ where: { campaignId: c.id, adId: ad.id, date: new Date(r.date) } });
     if (existing) await db.dailyMetric.update({ where: { id: existing.id }, data });
     else await db.dailyMetric.create({ data: { campaignId: c.id, adId: ad.id, date: new Date(r.date), ...data } });
@@ -738,9 +738,9 @@ export async function syncMetaCampaign(campaignId: string) {
     return;
   }
 
-  // Regla 2 · por anuncio: 1 CAC de validación gastado sin conversiones -> pausa automática.
-  const sums = await db.dailyMetric.groupBy({ by: ["adId"], where: { campaignId: c.id, adId: { not: null } }, _sum: { cost: true, conversions: true, purchases: true } });
-  const totals = new Map(sums.map((s) => [s.adId!, { cost: s._sum.cost || 0, conversions: s._sum.conversions || 0 }]));
+  // Regla 2 · por anuncio: 1 CAC de validación gastado sin conversiones (o sin carritos si nadie llega aún al pago) -> pausa automática.
+  const sums = await db.dailyMetric.groupBy({ by: ["adId"], where: { campaignId: c.id, adId: { not: null } }, _sum: { cost: true, conversions: true, purchases: true, addToCarts: true } });
+  const totals = new Map(sums.map((s) => [s.adId!, { cost: s._sum.cost || 0, conversions: s._sum.conversions || 0, addToCarts: s._sum.addToCarts || 0 }]));
   for (const ad of metaAdsToPause(c.ads, totals, cacTestOf(b))) {
     await meta.setAdStatus(ad.metaAdId!, "PAUSED");
     if (ad.metaRtAdId) await meta.setAdStatus(ad.metaRtAdId, "PAUSED");

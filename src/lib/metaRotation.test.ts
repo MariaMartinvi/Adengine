@@ -42,6 +42,18 @@ test("pausa automática: 1 CAC de validación gastado sin clics a compra", () =>
   assert.deepEqual(metaAdsToPause(ads, totals, 20), []);
 });
 
+test("pausa automática sin ningún pago iniciado en la campaña: manda el carrito (caso image 2 de Caricaturea)", () => {
+  const ads = [{ id: "img2", status: "ENABLED" }, { id: "mudo", status: "ENABLED" }];
+  const totals = new Map([["img2", { cost: 8.03, conversions: 0, addToCarts: 10 }], ["mudo", { cost: 8.5, conversions: 0, addToCarts: 0 }]]);
+  assert.deepEqual(metaAdsToPause(ads, totals, 8).map((x) => x.id), ["mudo"]);
+});
+
+test("pausa automática: en cuanto la campaña tiene pagos iniciados, vuelve a mandar el pago iniciado", () => {
+  const ads = [{ id: "a", status: "ENABLED" }, { id: "b", status: "ENABLED" }];
+  const totals = new Map([["a", { cost: 9, conversions: 0, addToCarts: 10 }], ["b", { cost: 3, conversions: 1, addToCarts: 2 }]]);
+  assert.deepEqual(metaAdsToPause(ads, totals, 8).map((x) => x.id), ["a"]);
+});
+
 test("variante de anuncio: hereda del original lo que no se indica", async () => {
   const { variantTexts } = await import("./engine");
   const base = { headlines: ["Titular"], descriptions: ["Mensaje", "Desde 49 €"], finalUrl: "https://x.es/p" };

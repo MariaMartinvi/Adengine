@@ -743,3 +743,22 @@ Propuesta para Bebés:
 - EE. UU. + Puerto Rico: «Lámina de nacimiento a tamaño real · Desde $22.90 USD · Envío gratis a EE. UU.». ~15 %.
 - México + Chile: sin precio en el texto (México va en pesos mexicanos y Chile en chilenos):
   «Tu lámina de nacimiento para imprimir · Te llega al momento por email · Pagas en tu moneda». ~35 %.
+
+## Regla de pausa automática: no pausar los mejores anuncios cuando aún no hay pagos (20-nov-2026, propuesta)
+
+Por qué: la regla 2 de `syncMetaCampaign` (src/lib/engine.ts) pausa un anuncio cuando gasta 1 CAC de validación sin
+«conversiones», y en Meta «conversión» = pago iniciado (`CONV` en src/lib/meta/ads.ts). En Caricaturea nadie llega al pago,
+así que el 20-nov pausó la image 2, la que más carritos daba (10 carritos con 20 clics). Al final pausaría todos.
+
+Propuesta: si la campaña entera aún no tiene pagos iniciados, la regla compara por carritos (AddToCart, el evento por el
+que ya optimizan los conjuntos) en vez de pausar a ciegas: solo pausa el anuncio que gasta 1 CAC de validación sin carritos.
+
+TODOs:
+- [x] 1. `lib/meta/ads.ts`: leer también los carritos por anuncio y día (`addToCarts`), sin migración si cabe en el JSON de
+      métricas; si no, un campo nuevo en `DailyMetric` → verificar: test de `metaRow` con carritos.
+- [x] 2. `metaAdsToPause`: con 0 pagos iniciados en toda la campaña, usar carritos como señal → verificar: test (image 2 de
+      Caricaturea no se pausa; un anuncio con 8 € y 0 carritos sí).
+- [ ] 3. Desplegar y comprobar en el siguiente sync que no pausa nada indebido.
+
+Hecho (20-nov, OK de María): campo nuevo `DailyMetric.addToCarts` (lo añade `prisma db push` al desplegar), carritos leídos
+de Meta y regla con carritos mientras la campaña no tenga ningún pago iniciado. Tests 67/67.
