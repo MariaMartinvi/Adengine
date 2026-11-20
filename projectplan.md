@@ -762,3 +762,16 @@ TODOs:
 
 Hecho (20-nov, OK de María): campo nuevo `DailyMetric.addToCarts` (lo añade `prisma db push` al desplegar), carritos leídos
 de Meta y regla con carritos mientras la campaña no tenga ningún pago iniciado. Tests 67/67.
+
+## Presupuesto con grupos de países: descontar lo gastado por conjuntos antiguos (20-nov-2026, propuesta)
+
+Por qué: `setBudget` reparte el tope entre los conjuntos activos (principal, remarketing y países) con `splitBudget`, que solo
+resta lo gastado por esos conjuntos. En Bebés, el «conjunto 1» (en pausa) gastó 38,19 € que no se descuentan: Meta cree que
+quedan 83 € cuando bajo el tope de 150 € quedan ~45 €. Resultado: Meta gasta ~13,8 €/día en vez de 5 y AdEngine corta antes.
+
+TODOs:
+- [x] 1. `setBudget`: repartir `totalCap − gasto de la campaña fuera de esos conjuntos` (gasto total de AdEngine menos lo
+      gastado por los conjuntos que se reparten) → verificar: test puro con el caso de Bebés (150 de tope, 105 gastados, 38 en
+      un conjunto antiguo → lo que queda entre los activos suma ~45 €).
+- [ ] 2. Desplegar y aplicar en Bebés 5 €/día con tope 150 desde AdEngine → verificar en Meta que lo que queda suma ~45 € y
+      acaba en ~9 días.

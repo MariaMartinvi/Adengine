@@ -27,9 +27,10 @@ export function checkMarket(all: string, markets: { countries: string; key: stri
 
 // Presupuesto total (lifetime) de cada conjunto al cambiar el tope: cada uno conserva lo ya gastado y se lleva su parte de lo
 // que queda. Así ninguno queda por debajo de su gasto (Meta lo rechazaría) y la suma es exactamente el tope. Pura.
-export function splitBudget(totalCap: number, sets: { id: string; spent: number; share: number }[]) {
+// spentElsewhere: lo gastado por conjuntos de la campaña que ya no se reparten (p. ej. uno antiguo en pausa); cuenta para el tope.
+export function splitBudget(totalCap: number, sets: { id: string; spent: number; share: number }[], spentElsewhere = 0) {
   const spent = sets.reduce((s, x) => s + x.spent, 0);
-  const left = Math.max(0, totalCap - spent);
+  const left = Math.max(0, totalCap - spentElsewhere - spent);
   const shares = sets.reduce((s, x) => s + x.share, 0) || 1;
   return Object.fromEntries(sets.map((x) => [x.id, Math.round((x.spent + (left * x.share) / shares) * 100) / 100]));
 }

@@ -23,6 +23,13 @@ test("el tope se reparte sin dejar a nadie por debajo de su gasto", () => {
   assert.deepEqual(splitBudget(50, [{ id: "a", spent: 60, share: 1 }]), { a: 60 });   // tope ya superado: no baja del gasto
 });
 
+test("reparto: descuenta lo gastado por conjuntos que ya no se reparten (caso Bebés, conjunto 1 en pausa con 38,19 €)", () => {
+  const sets = [{ id: "es", spent: 47.47, share: 0.5 }, { id: "rt", spent: 12.98, share: 0.2 }, { id: "mx", spent: 4.63, share: 0.21 }, { id: "us", spent: 1.88, share: 0.09 }];
+  const r = splitBudget(150, sets, 38.19);
+  const left = sets.reduce((s, x) => s + r[x.id] - x.spent, 0);
+  assert.ok(Math.abs(left - 44.85) < 0.05, `quedan ${left}`);
+});
+
 import { lastActiveInSet, marketKey } from "./metaMarkets";
 
 test("no se puede dejar un conjunto sin anuncios aunque otros conjuntos tengan", () => {

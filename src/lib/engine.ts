@@ -616,7 +616,8 @@ export async function setBudget(campaignId: string, dailyBudget: number, totalCa
       const sets = [{ id: c.metaAdSetId, share: 1 - share - markets.reduce((s, m) => s + m.share, 0) },
         ...(c.metaRtAdSetId ? [{ id: c.metaRtAdSetId, share }] : []), ...markets.map((m) => ({ id: m.adSetId, share: m.share }))];
       const spentBy = await Promise.all(sets.map(async (x) => ({ ...x, spent: (await meta.adSetSpent(x.id)).spent })));
-      const totals = splitBudget(totalCap, spentBy);
+      const elsewhere = Math.max(0, spent - spentBy.reduce((s, x) => s + x.spent, 0));   // conjuntos antiguos en pausa
+      const totals = splitBudget(totalCap, spentBy, elsewhere);
       for (const x of sets) await meta.setAdSetBudget(x.id, totals[x.id], end);
     } else {
     await meta.setAdSetBudget(c.metaAdSetId, c.metaRtAdSetId ? totalCap * (1 - share) : totalCap, end);
