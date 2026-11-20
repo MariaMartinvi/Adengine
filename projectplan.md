@@ -784,4 +784,4 @@ AdEngine solo cambia el presupuesto de la campaña entera; hace falta poder fija
 TODOs:
 - [x] 1. `setSetBudget(campaignId, conjunto, queda, fin)` en el motor (+ función pura que calcula el total = gastado + queda y
       valida fin futuro y queda > 0) y ruta `POST /api/campanas/[id]/conjunto` → verificar: test de la función pura.
-- [ ] 2. Desplegar y subir España a 26,80 € hasta el 26-nov 10:59 (como estaba) → verificar en Meta.
+- [x] 2. Desplegar y subir España a 26,80 € hasta el 26-nov 10:59 (como estaba) → verificar en Meta.
