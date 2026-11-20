@@ -58,3 +58,12 @@ test("al grupo solo se copian los activos del principal que le faltan", () => {
   ];
   assert.deepEqual(missingInMarket(ads, "mx").map((a) => a.id), ["es3"]);
 });
+
+import { setTotal } from "./metaMarkets";
+
+test("presupuesto de un conjunto: total = lo gastado + lo que queda, con fin en el futuro", () => {
+  const now = new Date("2026-11-20T12:00:00+01:00");
+  assert.equal(setTotal(47.51, 26.8, new Date("2026-11-26T10:59:55+01:00"), now), 74.31);
+  assert.throws(() => setTotal(47.51, 0, new Date("2026-11-26T10:59:55+01:00"), now));
+  assert.throws(() => setTotal(47.51, 10, new Date("2026-11-19T10:00:00+01:00"), now));
+});

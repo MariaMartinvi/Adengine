@@ -775,3 +775,13 @@ TODOs:
       un conjunto antiguo → lo que queda entre los activos suma ~45 €).
 - [ ] 2. Desplegar y aplicar en Bebés 5 €/día con tope 150 desde AdEngine → verificar en Meta que lo que queda suma ~45 € y
       acaba en ~9 días.
+
+## Presupuesto de un solo conjunto de Meta (20-nov-2026, María: «sube España»)
+
+Por qué: al pedir 5 €/día, Meta rechazó el mínimo por conjunto a mitad y España quedó con 13,75 € hasta el 30-nov (~1,4 €/día).
+AdEngine solo cambia el presupuesto de la campaña entera; hace falta poder fijar «lo que le queda» a un conjunto y su fecha de fin.
+
+TODOs:
+- [x] 1. `setSetBudget(campaignId, conjunto, queda, fin)` en el motor (+ función pura que calcula el total = gastado + queda y
+      valida fin futuro y queda > 0) y ruta `POST /api/campanas/[id]/conjunto` → verificar: test de la función pura.
+- [ ] 2. Desplegar y subir España a 26,80 € hasta el 26-nov 10:59 (como estaba) → verificar en Meta.

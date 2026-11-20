@@ -49,3 +49,10 @@ export const missingInMarket = <T extends { status: string; metaAdId: string | n
   const have = new Set(ads.filter((a) => a.market === key).map((a) => a.mediaRef));
   return ads.filter((a) => !a.market && a.status === "ENABLED" && a.metaAdId && a.mediaRef && !have.has(a.mediaRef));
 };
+
+// Presupuesto total (lifetime) de un solo conjunto para que le quede «remaining» hasta «end». Pura.
+export function setTotal(spent: number, remaining: number, end: Date, now = new Date()) {
+  if (!(remaining > 0)) throw new Error("Lo que queda tiene que ser más de 0.");
+  if (!(end.getTime() > now.getTime())) throw new Error("La fecha de fin tiene que ser futura.");
+  return Math.round((spent + remaining) * 100) / 100;
+}

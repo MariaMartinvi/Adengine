@@ -16,7 +16,7 @@ import { budgetMoves } from "./budgetMoves";
 import { portfolio } from "./portfolio";
 import { groupsWithoutAd } from "./googleGroups";
 import { winnersToSave } from "./winners";
-import { checkMarket, lastActiveInSet, mainCountries, marketsOf, missingInMarket, splitBudget, type MetaMarket } from "./metaMarkets";
+import { checkMarket, lastActiveInSet, mainCountries, marketsOf, missingInMarket, setTotal, splitBudget, type MetaMarket } from "./metaMarkets";
 import { countriesOf } from "./markets";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
@@ -567,6 +567,18 @@ export async function approveMetaCampaign(campaignId: string, edits: { dailyBudg
   await log(b.id, "CAMPAÑA_CREADA", `Creada en Meta en pausa (id ${res.campaignId}): ${c.ads.length} anuncios, ${edits.totalCap} ${b.currency} en total hasta agotar (~${edits.dailyBudget}/día).`);
   const rtWhy = audError || res.rtError;
   if (rtShare(b) > 0) await log(b.id, "REMARKETING", rtWhy ? `Sin remarketing: ${rtWhy}` : `Remarketing: ${b.metaRtShare} % del tope para visitantes de la web de los últimos 30 días que no han comprado.`);
+}
+
+// Presupuesto de un solo conjunto de Meta («main», «rt» o la clave de un grupo de países): lo que le queda y hasta cuándo.
+export async function setSetBudget(campaignId: string, set: string, remaining: number, end: Date) {
+  const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId } });
+  const mk = marketsOf(c.extras).find((m) => m.key === set);
+  const adSetId = set === "main" ? c.metaAdSetId : set === "rt" ? c.metaRtAdSetId : mk?.adSetId;
+  if (c.channel !== "meta" || !adSetId) throw new Error("No encuentro ese conjunto en la campaña.");
+  const total = setTotal((await meta.adSetSpent(adSetId)).spent, remaining, end);
+  await meta.setAdSetBudget(adSetId, total, end);
+  const name = set === "main" ? "principal" : set === "rt" ? "remarketing" : mk!.label;
+  await log(c.businessId, "PRESUPUESTO", `Campaña ${c.name}: conjunto «${name}» con ${remaining.toFixed(2)} por gastar hasta el ${end.toLocaleDateString("es-ES", { timeZone: "Europe/Madrid" })}.`);
 }
 
 export async function setStatus(campaignId: string, status: "ENABLED" | "PAUSED" | "STOPPED") {
