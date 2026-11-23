@@ -794,6 +794,6 @@ no tiene forma de cambiar textos de un anuncio de Google ya creado (en Google, a
 TODOs:
 - [x] 1. `checkRsaTexts` (función pura): 3-15 titulares de ≤30, 2-4 descripciones de ≤90, sin repetidos → verificar: test.
 - [x] 2. `ads.updateResponsiveSearchAd` + `updateGoogleAdTexts` en el motor + ruta `POST /api/anuncios/[id]/textos` → verificar: tests y build.
-- [ ] 3. Desplegar y cambiar en Cuadros «Arte mariano moderno» → «Cuadros modernos de la Virgen», «Cuadros marianos con alma» →
+- [x] 3. Desplegar y cambiar en Cuadros «Arte mariano moderno» → «Cuadros modernos de la Virgen», «Cuadros marianos con alma» →
       «Cuadros de la Virgen con alma» y la 1.ª descripción → «Cuadros de la Virgen María hechos con devoción. Un recordatorio
       diario en tu pared.» → verificar: AdEngine y Google con los textos nuevos.
