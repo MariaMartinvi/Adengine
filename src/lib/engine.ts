@@ -18,6 +18,7 @@ import { groupsWithoutAd } from "./googleGroups";
 import { winnersToSave } from "./winners";
 import { checkMarket, lastActiveInSet, mainCountries, marketsOf, missingInMarket, setTotal, splitBudget, type MetaMarket } from "./metaMarkets";
 import { countriesOf } from "./markets";
+import { checkRsaTexts } from "./rsaTexts";
 
 export async function log(businessId: string, kind: string, detail: string, auto = false) {
   await db.actionLog.create({ data: { businessId, kind, detail, auto } });
@@ -880,6 +881,17 @@ export async function updateLiveKeyword(keywordId: string, patch: { maxCpc?: num
   await ads.updateKeyword(b.googleCustomerId!, k.googleAdGroupId || c.googleAdGroupId!, k.googleCriterionId, patch);
   await db.keyword.update({ where: { id: k.id }, data: patch });
   await log(b.id, "PALABRA", `«${k.text}»: ${patch.maxCpc != null ? `puja máxima ${patch.maxCpc} €` : patch.status === "PAUSED" ? "en pausa" : "reactivada"} (por ti).`);
+}
+
+// Textos de un anuncio de Google ya publicado (p. ej. quitar una palabra que no gusta). Se cambian en Google y en AdEngine.
+export async function updateGoogleAdTexts(adId: string, headlines: string[], descriptions: string[]) {
+  const a = await db.ad.findUniqueOrThrow({ where: { id: adId }, include: { campaign: { include: { business: true } } } });
+  const c = a.campaign, b = c.business;
+  if (c.channel !== "google" || !a.googleAdId || !b.googleCustomerId) throw new Error("Este anuncio no está publicado en Google Ads.");
+  const t = checkRsaTexts(headlines, descriptions);
+  await ads.updateResponsiveSearchAd(b.googleCustomerId, a.googleAdId, t.headlines, t.descriptions);
+  await db.ad.update({ where: { id: a.id }, data: { headlines: t.headlines, descriptions: t.descriptions } });
+  await log(b.id, "ANUNCIO_EDITADO", `Campaña ${c.name}: textos del anuncio de Google cambiados (por ti).`);
 }
 
 export async function addLiveKeyword(campaignId: string, k: { text: string; matchType: "EXACT" | "PHRASE"; maxCpc: number; adGroup?: string | null; finalUrl?: string | null }) {

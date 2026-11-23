@@ -785,3 +785,15 @@ TODOs:
 - [x] 1. `setSetBudget(campaignId, conjunto, queda, fin)` en el motor (+ función pura que calcula el total = gastado + queda y
       valida fin futuro y queda > 0) y ruta `POST /api/campanas/[id]/conjunto` → verificar: test de la función pura.
 - [x] 2. Desplegar y subir España a 26,80 € hasta el 26-nov 10:59 (como estaba) → verificar en Meta.
+
+## Google: cambiar los textos de un anuncio publicado (23-nov-2026, María: «no me gusta mariano… cámbialo»)
+
+Por qué: el anuncio del grupo «Virgen María» de Cuadros dice «Arte mariano moderno» / «Cuadros marianos con alma» y AdEngine
+no tiene forma de cambiar textos de un anuncio de Google ya creado (en Google, a diferencia de Meta, se pueden editar).
+
+TODOs:
+- [x] 1. `checkRsaTexts` (función pura): 3-15 titulares de ≤30, 2-4 descripciones de ≤90, sin repetidos → verificar: test.
+- [x] 2. `ads.updateResponsiveSearchAd` + `updateGoogleAdTexts` en el motor + ruta `POST /api/anuncios/[id]/textos` → verificar: tests y build.
+- [ ] 3. Desplegar y cambiar en Cuadros «Arte mariano moderno» → «Cuadros modernos de la Virgen», «Cuadros marianos con alma» →
+      «Cuadros de la Virgen con alma» y la 1.ª descripción → «Cuadros de la Virgen María hechos con devoción. Un recordatorio
+      diario en tu pared.» → verificar: AdEngine y Google con los textos nuevos.

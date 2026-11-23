@@ -180,6 +180,12 @@ export async function addCampaignExtras(cid: string, campaignId: string, x: { si
   return { added, failed };
 }
 
+// Cambiar los textos de un anuncio adaptable de búsqueda ya publicado (Google sí deja editarlo; vuelve a revisión).
+export async function updateResponsiveSearchAd(cid: string, adId: string, headlines: string[], descriptions: string[]) {
+  await call(`/customers/${cid}/ads:mutate`, { operations: [{ updateMask: "responsive_search_ad.headlines,responsive_search_ad.descriptions",
+    update: { resourceName: `customers/${cid}/ads/${adId}`, responsiveSearchAd: { headlines: headlines.map((text) => ({ text })), descriptions: descriptions.map((text) => ({ text })) } } }] });
+}
+
 export async function setCampaignName(cid: string, campaignId: string, name: string) {
   await call(`/customers/${cid}/campaigns:mutate`, { operations: [{ updateMask: "name", update: { resourceName: `customers/${cid}/campaigns/${campaignId}`, name } }] });
 }
